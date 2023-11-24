@@ -1,0 +1,12 @@
+[package]
+name = "rust_tgfp"
+version = "0.1.0"
+edition = "2021"
+
+[profile.dev.package."*"]
+opt-level = 2
+
+[dependencies]
+bevy = { version = "0.12", features = ["multi-threaded"]}
+bevy_ggrs = { version = "0.14", features = ["wasm-bindgen"] }
+bevy_matchbox = { version = "0.8", features = ["ggrs"] }
