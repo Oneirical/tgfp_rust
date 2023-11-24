@@ -1,11 +1,12 @@
-use std::f32::consts::PI;
+use std::{f32::consts::PI, time::Duration};
 
 use bevy::{prelude::*, render::camera::ScalingMode};
 use bevy_ggrs::*;
 use bevy_matchbox::matchbox_socket::PeerId;
+use bevy_tweening::{*, lens::TransformPositionLens};
 use components::*;
 use input::*;
-use map::{WorldMap, MapPlugin};
+use map::{WorldMap, MapPlugin, WORLD_WIDTH, WORLD_HEIGHT, xy_idx};
 use network::NetworkPlugin;
 
 mod components;
@@ -31,10 +32,11 @@ fn main() {
         ))
         .add_plugins(NetworkPlugin)
         .add_plugins(MapPlugin)
+        .add_plugins(TweeningPlugin)
         .rollback_component_with_clone::<Transform>()
-        .rollback_component_with_clone::<RealityAnchor>()
-        .rollback_component_with_clone::<TextureAtlasSprite>()
-        .rollback_component_with_clone::<CreatureID>()
+        //.rollback_component_with_clone::<RealityAnchor>()
+        //.rollback_component_with_clone::<TextureAtlasSprite>()
+        //.rollback_component_with_clone::<CreatureID>()
         .rollback_component_with_clone::<Position>()
         .insert_resource(ClearColor(Color::rgb(0., 0., 0.)))
         .add_systems(PreStartup, load_spritesheet)
@@ -45,15 +47,26 @@ fn main() {
         .run();
 }
 type Config = bevy_ggrs::GgrsConfig<u8, PeerId>;
-const MAP_SIZE: i32 = 41;
 
 fn setup(mut commands: Commands) {
     let mut camera_bundle = Camera2dBundle::default();
     camera_bundle.projection.scaling_mode = ScalingMode::FixedVertical(10.);
     commands.spawn(camera_bundle);
+    commands.insert_resource(InputDelay{time: Timer::new(Duration::from_millis(200), TimerMode::Repeating)});
 }
 
-fn load_spritesheet( // I am so glad this works. Just looking at this code is going to make me fail NNN. - 8th November 2023
+#[derive(Resource)]
+pub struct SpriteSheetHandle {
+    handle: Handle<TextureAtlas>
+}
+
+#[derive(Resource, Clone)]
+pub struct InputDelay {
+    pub time: Timer
+}
+
+
+fn load_spritesheet(
     asset_server: Res<AssetServer>,
     mut texture_atlases: ResMut<Assets<TextureAtlas>>,
     mut commands: Commands,
@@ -69,11 +82,6 @@ fn load_spritesheet( // I am so glad this works. Just looking at this code is go
     commands.insert_resource(SpriteSheetHandle{handle});
 }
 
-#[derive(Resource)]
-pub struct SpriteSheetHandle {
-    handle: Handle<TextureAtlas>
-}
-
 fn spawn_players(
     mut commands: Commands, 
     texture_atlas_handle: Res<SpriteSheetHandle>,
@@ -81,6 +89,14 @@ fn spawn_players(
 ) {
     // Player 1
     let position = (0,0);
+    let tween = Tween::new(
+        EaseFunction::QuadraticInOut,
+        Duration::from_millis(1000),
+        TransformPositionLens {
+            start: Vec3::ZERO,
+            end: Vec3::ZERO,
+        },
+    );
     commands
         .spawn((
             RealityAnchor { player_id: 0 },
@@ -100,12 +116,21 @@ fn spawn_players(
                 },
                 ..default()
             },
+            Animator::new(tween),
         ))
         .add_rollback();
-    world_map.entities[position.0][position.1] = world_map.creature_count;
+    world_map.entities[xy_idx(position.0, position.1)] = world_map.creature_count;
     world_map.creature_count += 1;
 
     // Player 2
+    let tween = Tween::new(
+        EaseFunction::QuadraticInOut,
+        Duration::from_millis(1000),
+        TransformPositionLens {
+            start: Vec3::ZERO,
+            end: Vec3{ x: 2., y: 2., z: 0.0},
+        },
+    );
     let position = (2,2);
     commands
         .spawn((
@@ -128,36 +153,58 @@ fn spawn_players(
                 },
                 ..default()
             },
+            Animator::new(tween),
         ))
         .add_rollback();
 
-    world_map.entities[position.0][position.1] = world_map.creature_count;
+    world_map.entities[xy_idx(position.0, position.1)] = world_map.creature_count;
     world_map.creature_count += 1;
 }
 
 fn move_players(
-    mut players: Query<(&mut Transform, &RealityAnchor)>,
+    mut players: Query<(&Transform, &mut Animator<Transform>, &mut Position, &RealityAnchor)>,
     inputs: Res<PlayerInputs<Config>>,
-    time: Res<Time>,
+    mut world_map: ResMut<WorldMap>,
 ) {
-    for (mut transform, anchor) in &mut players {
+    for (transform, mut anim, mut pos, anchor) in &mut players {
         let (input, _) = inputs[anchor.player_id];
 
-        let direction = direction(input);
+        let mut direction = direction(input);
 
         if direction == Vec2::ZERO {
             continue;
         }
+        if direction.x < 0. && pos.x == 0 || direction.x > 0. && pos.x == WORLD_WIDTH{
+            direction.x = 0.;
+        }
+        if direction.y < 0. && pos.y == 0 || direction.y > 0. && pos.y == WORLD_HEIGHT{
+            direction.y = 0.;
+        }
+        assert!(world_map.entities[xy_idx(pos.x, pos.y)] != 0);
+        let (old_x, old_y) = (pos.x, pos.y);
+        let old_idx = xy_idx(pos.x, pos.y);
+        pos.x = (pos.x as f32 + direction.x) as usize;
+        pos.y = (pos.y as f32 + direction.y) as usize;
+        if world_map.entities[xy_idx(pos.x, pos.y)] != 0 {
+            (pos.x, pos.y) = (old_x, old_y);
+            continue;
+        }
+        let idx = xy_idx(pos.x, pos.y);
+        world_map.entities.swap(old_idx, idx);
+        
+        //let move_delta = direction;
 
-        let move_speed = 7.;
-        let move_delta = direction * move_speed * time.delta_seconds();
-
-        let old_pos = transform.translation.xy();
-        let limit = Vec2::splat(MAP_SIZE as f32 / 2. - 0.5);
-        let new_pos = (old_pos + move_delta).clamp(-limit, limit);
-
-        transform.translation.x = new_pos.x;
-        transform.translation.y = new_pos.y;
+        //let old_pos = transform.translation.xy();
+        let start = transform.translation;
+        let tween = Tween::new(
+            EaseFunction::QuadraticInOut,
+            Duration::from_millis(150),
+            TransformPositionLens {
+                start,
+                end: Vec3::new(pos.x as f32, pos.y as f32, 0.),
+            },
+        );
+        anim.set_tweenable(tween);
     }
 }
 
