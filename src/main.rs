@@ -8,11 +8,13 @@ use components::*;
 use input::*;
 use map::{WorldMap, MapPlugin, WORLD_WIDTH, WORLD_HEIGHT, xy_idx};
 use network::NetworkPlugin;
+use species::{CreatureBundle, Species};
 
 mod components;
 mod input;
 mod network;
 mod map;
+mod species;
 
 fn main() {
     App::new()
@@ -88,75 +90,32 @@ fn spawn_players(
     mut world_map: ResMut<WorldMap>,
 ) {
     // Player 1
-    let position = (1,1);
-    let tween = Tween::new(
-        EaseFunction::QuadraticInOut,
-        Duration::from_millis(1000),
-        TransformPositionLens {
-            start: Vec3::ZERO,
-            end: Vec3{ x: position.0 as f32, y: position.1 as f32, z: 0.0},
-        },
-    );
-    commands
-        .spawn((
-            RealityAnchor { player_id: 0 },
-            CreatureID { creature_id: world_map.creature_count },
-            Position { x:position.0 , y:position.1  },
-            SpriteSheetBundle {
-                texture_atlas: texture_atlas_handle.handle.clone(),
-                sprite: TextureAtlasSprite{
-                    index : 0_usize,
-                    custom_size: Some(Vec2::new(1.0, 1.0)),
-                    ..default()
-                },
-                transform: Transform {
-                    translation: Vec3{ x: position.0 as f32, y: position.1 as f32, z: 0.0},
-                    
-                    ..default()
-                },
-                ..default()
-            },
-            Animator::new(tween),
-        ))
-        .add_rollback();
+    let position = (3,3);
+    let player_1 = CreatureBundle::new(&texture_atlas_handle)
+        .with_position(position.0, position.1)
+        .with_id(world_map.creature_count)
+        .with_species(Species::Terminal);
+    commands.spawn((
+        player_1, 
+        RealityAnchor { player_id: 0}
+    ))
+    .add_rollback();
     world_map.entities[xy_idx(position.0, position.1)] = world_map.creature_count;
     world_map.creature_count += 1;
 
     // Player 2
     let position = (2,2);
-    let tween = Tween::new(
-        EaseFunction::QuadraticInOut,
-        Duration::from_millis(1000),
-        TransformPositionLens {
-            start: Vec3::ZERO,
-            end: Vec3{ x: position.0 as f32, y: position.1 as f32, z: 0.0},
-        },
-    );
-    commands
-        .spawn((
-            RealityAnchor { player_id: 1 },
-            CreatureID { creature_id: world_map.creature_count },
-            Position { x:position.0 , y:position.1  },
-            SpriteSheetBundle {
-                texture_atlas: texture_atlas_handle.handle.clone(),
-                sprite: TextureAtlasSprite{
-                    index : 0_usize,
-                    color: Color::Rgba { red: 0., green: 200., blue: 0., alpha: 1. },
-                    custom_size: Some(Vec2::new(1.0, 1.0)),
-                    ..default()
-                },
-                transform: Transform {
-                    translation: Vec3{ x: position.0 as f32, y: position.1 as f32, z: 0.0},
-                    rotation: Quat::from_rotation_z(PI),
-                    
-                    ..default()
-                },
-                ..default()
-            },
-            Animator::new(tween),
-        ))
-        .add_rollback();
-
+    let player_2 = CreatureBundle::new(&texture_atlas_handle)
+        .with_position(position.0, position.1)
+        .with_id(world_map.creature_count)
+        .with_species(Species::Terminal)
+        .with_rotation(PI)
+        .with_tint(Color::Rgba { red: 0., green: 200., blue: 0., alpha: 1. });
+    commands.spawn((
+        player_2, 
+        RealityAnchor { player_id: 1}
+    ))
+    .add_rollback();
     world_map.entities[xy_idx(position.0, position.1)] = world_map.creature_count;
     world_map.creature_count += 1;
 }
@@ -169,36 +128,12 @@ fn summon_walls(
     for x in 0..9{
         for y in 0..9{
             if !(x == 0 || x==8 || y == 0 || y == 8) {continue;}
-            let tween = Tween::new(
-                EaseFunction::QuadraticInOut,
-                Duration::from_millis(1000),
-                TransformPositionLens {
-                    start: Vec3::ZERO,
-                    end: Vec3{ x: x as f32, y: y as f32, z: 0.0},
-                },
-            );
             let position = (x,y);
-            commands
-                .spawn((
-                    CreatureID { creature_id: world_map.creature_count },
-                    Position { x:position.0 , y:position.1  },
-                    SpriteSheetBundle {
-                        texture_atlas: texture_atlas_handle.handle.clone(),
-                        sprite: TextureAtlasSprite{
-                            index : 3_usize,
-                            custom_size: Some(Vec2::new(1.0, 1.0)),
-                            ..default()
-                        },
-                        transform: Transform {
-                            translation: Vec3{ x: x as f32, y: y as f32, z: 0.0},                            
-                            ..default()
-                        },
-                        ..default()
-                    },
-                    Animator::new(tween),
-                ))
-                .add_rollback();
-        
+            let wall = CreatureBundle::new(&texture_atlas_handle)
+                .with_position(position.0, position.1)
+                .with_id(world_map.creature_count)
+                .with_species(Species::Wall);
+            commands.spawn(wall);
             world_map.entities[xy_idx(position.0, position.1)] = world_map.creature_count;
             world_map.creature_count += 1;
         }

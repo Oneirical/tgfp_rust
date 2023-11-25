@@ -1,5 +1,3 @@
-use std::time::Duration;
-
 use crate::{Config, InputDelay};
 use bevy::{prelude::*, utils::HashMap};
 use bevy_ggrs::{LocalInputs, LocalPlayers};
