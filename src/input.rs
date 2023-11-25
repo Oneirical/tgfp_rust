@@ -1,3 +1,5 @@
+use std::time::Duration;
+
 use crate::{Config, InputDelay};
 use bevy::{prelude::*, utils::HashMap};
 use bevy_ggrs::{LocalInputs, LocalPlayers};
@@ -22,23 +24,25 @@ pub fn read_local_inputs(
     if timer.time.finished() {
         for handle in &local_players.0 {
             let mut input = 0u8;
-    
+            let mut reset_queued = true;
             if keys.any_pressed([KeyCode::Up, KeyCode::W]) {
                 input |= INPUT_UP;
             }
-            if keys.any_pressed([KeyCode::Down, KeyCode::S]) {
+            else if keys.any_pressed([KeyCode::Down, KeyCode::S]) {
                 input |= INPUT_DOWN;
             }
-            if keys.any_pressed([KeyCode::Left, KeyCode::A]) {
+            else if keys.any_pressed([KeyCode::Left, KeyCode::A]) {
                 input |= INPUT_LEFT
             }
-            if keys.any_pressed([KeyCode::Right, KeyCode::D]) {
+            else if keys.any_pressed([KeyCode::Right, KeyCode::D]) {
                 input |= INPUT_RIGHT;
             }
-    
+            else {
+                reset_queued = false;
+            }
+            if reset_queued { timer.time.reset();}
             local_inputs.insert(*handle, input);
         }
-        timer.time.tick(time.delta());
     }
     else {
         for handle in &local_players.0 {

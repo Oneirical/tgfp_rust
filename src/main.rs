@@ -40,7 +40,7 @@ fn main() {
         .rollback_component_with_clone::<Position>()
         .insert_resource(ClearColor(Color::rgb(0., 0., 0.)))
         .add_systems(PreStartup, load_spritesheet)
-        .add_systems(Startup, (setup, spawn_players))
+        .add_systems(Startup, (setup, spawn_players, summon_walls))
         .add_systems(Update, camera_follow)
         .add_systems(ReadInputs, read_local_inputs)
         .add_systems(GgrsSchedule, move_players)
@@ -52,7 +52,7 @@ fn setup(mut commands: Commands) {
     let mut camera_bundle = Camera2dBundle::default();
     camera_bundle.projection.scaling_mode = ScalingMode::FixedVertical(10.);
     commands.spawn(camera_bundle);
-    commands.insert_resource(InputDelay{time: Timer::new(Duration::from_millis(200), TimerMode::Repeating)});
+    commands.insert_resource(InputDelay{time: Timer::new(Duration::from_millis(200), TimerMode::Once)});
 }
 
 #[derive(Resource)]
@@ -88,13 +88,13 @@ fn spawn_players(
     mut world_map: ResMut<WorldMap>,
 ) {
     // Player 1
-    let position = (0,0);
+    let position = (1,1);
     let tween = Tween::new(
         EaseFunction::QuadraticInOut,
         Duration::from_millis(1000),
         TransformPositionLens {
             start: Vec3::ZERO,
-            end: Vec3::ZERO,
+            end: Vec3{ x: position.0 as f32, y: position.1 as f32, z: 0.0},
         },
     );
     commands
@@ -110,7 +110,7 @@ fn spawn_players(
                     ..default()
                 },
                 transform: Transform {
-                    translation: Vec3{ x: 0., y: 0., z: 0.0},
+                    translation: Vec3{ x: position.0 as f32, y: position.1 as f32, z: 0.0},
                     
                     ..default()
                 },
@@ -123,15 +123,15 @@ fn spawn_players(
     world_map.creature_count += 1;
 
     // Player 2
+    let position = (2,2);
     let tween = Tween::new(
         EaseFunction::QuadraticInOut,
         Duration::from_millis(1000),
         TransformPositionLens {
             start: Vec3::ZERO,
-            end: Vec3{ x: 2., y: 2., z: 0.0},
+            end: Vec3{ x: position.0 as f32, y: position.1 as f32, z: 0.0},
         },
     );
-    let position = (2,2);
     commands
         .spawn((
             RealityAnchor { player_id: 1 },
@@ -146,7 +146,7 @@ fn spawn_players(
                     ..default()
                 },
                 transform: Transform {
-                    translation: Vec3{ x: 2., y: 2., z: 0.0},
+                    translation: Vec3{ x: position.0 as f32, y: position.1 as f32, z: 0.0},
                     rotation: Quat::from_rotation_z(PI),
                     
                     ..default()
@@ -159,6 +159,50 @@ fn spawn_players(
 
     world_map.entities[xy_idx(position.0, position.1)] = world_map.creature_count;
     world_map.creature_count += 1;
+}
+
+fn summon_walls(
+    mut commands: Commands, 
+    texture_atlas_handle: Res<SpriteSheetHandle>,
+    mut world_map: ResMut<WorldMap>,
+){
+    for x in 0..9{
+        for y in 0..9{
+            if !(x == 0 || x==8 || y == 0 || y == 8) {continue;}
+            let tween = Tween::new(
+                EaseFunction::QuadraticInOut,
+                Duration::from_millis(1000),
+                TransformPositionLens {
+                    start: Vec3::ZERO,
+                    end: Vec3{ x: x as f32, y: y as f32, z: 0.0},
+                },
+            );
+            let position = (x,y);
+            commands
+                .spawn((
+                    CreatureID { creature_id: world_map.creature_count },
+                    Position { x:position.0 , y:position.1  },
+                    SpriteSheetBundle {
+                        texture_atlas: texture_atlas_handle.handle.clone(),
+                        sprite: TextureAtlasSprite{
+                            index : 3_usize,
+                            custom_size: Some(Vec2::new(1.0, 1.0)),
+                            ..default()
+                        },
+                        transform: Transform {
+                            translation: Vec3{ x: x as f32, y: y as f32, z: 0.0},                            
+                            ..default()
+                        },
+                        ..default()
+                    },
+                    Animator::new(tween),
+                ))
+                .add_rollback();
+        
+            world_map.entities[xy_idx(position.0, position.1)] = world_map.creature_count;
+            world_map.creature_count += 1;
+        }
+    }
 }
 
 fn move_players(
@@ -198,7 +242,7 @@ fn move_players(
         let start = transform.translation;
         let tween = Tween::new(
             EaseFunction::QuadraticInOut,
-            Duration::from_millis(150),
+            Duration::from_millis(200),
             TransformPositionLens {
                 start,
                 end: Vec3::new(pos.x as f32, pos.y as f32, 0.),
