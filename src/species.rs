@@ -90,6 +90,19 @@ impl CreatureBundle { // Creatures displayed on screen.
         self.sprite_bundle.transform.rotation = Quat::from_rotation_z(angle);
         self
     }
+    pub fn with_anim_source(mut self, x: usize, y: usize) -> Self{ // Should always be called after with_position.
+        let end = Vec3::new(self.position.x as f32, self.position.y as f32, 0.);
+        let tween = Tween::new(
+            EaseFunction::QuadraticInOut,
+            Duration::from_millis(1000),
+            TransformPositionLens {
+                start: Vec3::new(x as f32, y as f32, 0.),
+                end
+            },
+        );
+        self.animation = Animator::new(tween);
+        self
+    }
 }
 
 fn match_species_with_sprite(

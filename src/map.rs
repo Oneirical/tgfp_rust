@@ -55,6 +55,7 @@ pub fn unpack_build_queue(
             let new_creature = CreatureBundle::new(&texture_atlas_handle)
                 .with_position(position.0, position.1)
                 .with_id(world_map.creature_count)
+                .with_anim_source(40, 40)
                 .with_species(task.0);
             world_map.entities[xy_idx(position.0, position.1)] = world_map.creature_count;
             world_map.creature_count += 1;

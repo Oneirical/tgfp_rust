@@ -28,14 +28,14 @@ const VAULTS: &[&str] = &[
 #.F...F.#
 #.......#
 #.......#
-#.....#.#
+#.......#
 #.F...F.#
 #.......#
 ####.####
 ",
 ];
 
-pub fn get_build_sequence(
+pub fn get_build_sequence( // I am so surprised this worked on the first try. Rust magic! 25th of November 2023
     vault: Vault,
     corner: (usize, usize)
 ) -> Vec<(Species, (usize, usize))>{
@@ -46,7 +46,7 @@ pub fn get_build_sequence(
     let mut output = Vec::new();
     for x in 0..9{
         for y in 0..9{
-            let chara = str_seq.as_bytes()[vault_xy_idx(x, 8-y)] as char;
+            let chara = str_seq.as_bytes()[vault_xy_idx(x, 8-y)] as char; // "8-y" because this unfortunately needs to be flipped to match the vault strings.
             let species = get_species_from_char(chara);
             if species == Species::Void{ // Don't place down "floor" creatures.
                 continue;

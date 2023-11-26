@@ -46,6 +46,7 @@ fn main() {
         .rollback_component_with_clone::<Position>()
         .rollback_resource_with_clone::<BuildDelay>()
         .insert_resource(ClearColor(Color::rgb(0., 0., 0.)))
+        .insert_resource(Msaa::Off) // This fixes weird black lines on the tiles.
         .add_systems(PreStartup, load_spritesheet)
         .add_systems(Startup, (setup, spawn_players, summon_walls))
         .add_systems(Update, camera_follow)
