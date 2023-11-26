@@ -23,3 +23,8 @@ pub struct BuildQueue {
     pub build_queue: Vec<(Species, (usize, usize))>
 }
 
+#[derive(Component, Clone)]
+pub struct UIElement {
+    pub x: f32,
+    pub y: f32,
+}

@@ -1,6 +1,6 @@
-use std::{f32::consts::PI, time::Duration};
+use std::time::Duration;
 
-use bevy::{prelude::*, render::camera::ScalingMode};
+use bevy::{prelude::*, render::camera::ScalingMode, window::WindowMode};
 use bevy_ggrs::*;
 use bevy_matchbox::matchbox_socket::PeerId;
 use bevy_tweening::{*, lens::TransformPositionLens};
@@ -9,6 +9,7 @@ use input::*;
 use map::{WorldMap, MapPlugin, WORLD_WIDTH, WORLD_HEIGHT, xy_idx};
 use network::NetworkPlugin;
 use species::{CreatureBundle, Species};
+use ui::UIPlugin;
 
 use crate::vaults::{get_build_sequence, Vault};
 
@@ -18,6 +19,7 @@ mod network;
 mod map;
 mod species;
 mod vaults;
+mod ui;
 
 fn main() {
     App::new()
@@ -29,7 +31,11 @@ fn main() {
                     // fill the entire browser window
                     fit_canvas_to_parent: true,
                     focused: true,
+                    resizable: false,
+                    resolution: (1024.0, 576.0).into(),
                     title: "The Games Foxes Play".into(),
+                    mode: WindowMode::Fullscreen,
+                    position: WindowPosition::Centered(MonitorSelection::Current),
                     ..default()
                 }),
                 ..default()
@@ -39,6 +45,7 @@ fn main() {
         .add_plugins(NetworkPlugin)
         .add_plugins(MapPlugin)
         .add_plugins(TweeningPlugin)
+        .add_plugins(UIPlugin)
         .rollback_component_with_clone::<Transform>()
         //.rollback_component_with_clone::<RealityAnchor>()
         //.rollback_component_with_clone::<TextureAtlasSprite>()
@@ -49,16 +56,23 @@ fn main() {
         .insert_resource(Msaa::Off) // This fixes weird black lines on the tiles.
         .add_systems(PreStartup, load_spritesheet)
         .add_systems(Startup, (setup, spawn_players, summon_walls))
-        .add_systems(Update, camera_follow)
+        .add_systems(Update, (camera_follow, zoom_2d, toggle_resolution, hide_and_show_creatures))
         .add_systems(ReadInputs, read_local_inputs)
         .add_systems(GgrsSchedule, move_players)
+        .insert_resource(ResolutionSettings {
+            giga: Vec2::new(1920.0, 1080.0),
+            large: Vec2::new(1664.0, 936.0),
+            medium: Vec2::new(1408.0, 792.0),
+            small: Vec2::new(1280.0, 720.0),
+            tiny: Vec2::new(1024.0, 576.0),
+        })
         .run();
 }
 type Config = bevy_ggrs::GgrsConfig<u8, PeerId>;
 
 fn setup(mut commands: Commands) {
     let mut camera_bundle = Camera2dBundle::default();
-    camera_bundle.projection.scaling_mode = ScalingMode::FixedVertical(10.);
+    camera_bundle.projection.scaling_mode = ScalingMode::FixedVertical(16.);
     commands.spawn(camera_bundle);
     commands.insert_resource(InputDelay{time: Timer::new(Duration::from_millis(200), TimerMode::Once)});
     commands.insert_resource(BuildDelay{time: Timer::new(Duration::from_millis(200), TimerMode::Repeating)});
@@ -69,6 +83,15 @@ pub struct SpriteSheetHandle {
     handle: Handle<TextureAtlas>
 }
 
+#[derive(Resource)]
+struct ResolutionSettings {
+    giga: Vec2,
+    large: Vec2,
+    medium: Vec2,
+    small: Vec2,
+    tiny: Vec2,
+}
+
 #[derive(Resource, Clone)]
 pub struct InputDelay {
     pub time: Timer
@@ -77,6 +100,40 @@ pub struct InputDelay {
 #[derive(Resource, Clone)]
 pub struct BuildDelay {
     pub time: Timer
+}
+
+fn toggle_resolution(
+    keys: Res<Input<KeyCode>>,
+    mut windows: Query<&mut Window>,
+    resolution: Res<ResolutionSettings>,
+) {
+    let mut window = windows.single_mut();
+
+    if keys.just_pressed(KeyCode::Key1) {
+        let res = resolution.tiny;
+        window.resolution.set(res.x, res.y);
+        window.position.center(MonitorSelection::Current);
+    }
+    if keys.just_pressed(KeyCode::Key2) {
+        let res = resolution.small;
+        window.resolution.set(res.x, res.y);
+        window.position.center(MonitorSelection::Current);
+    }
+    if keys.just_pressed(KeyCode::Key3) {
+        let res = resolution.medium;
+        window.resolution.set(res.x, res.y);
+        window.position.center(MonitorSelection::Current);
+    }
+    if keys.just_pressed(KeyCode::Key4) {
+        let res = resolution.large;
+        window.resolution.set(res.x, res.y);
+        window.position.center(MonitorSelection::Current);
+    }
+    if keys.just_pressed(KeyCode::Key5) {
+        let res = resolution.giga;
+        window.resolution.set(res.x, res.y);
+        window.position.center(MonitorSelection::Current);
+    }
 }
 
 
@@ -90,7 +147,7 @@ fn load_spritesheet(
     let texture_atlas = TextureAtlas::from_grid(
         texture_handle,
         Vec2::new(16.0, 16.0),
-        80, 2, None, None
+        160, 2, None, None
     );
     let handle = texture_atlases.add(texture_atlas);
     commands.insert_resource(SpriteSheetHandle{handle});
@@ -102,7 +159,7 @@ fn spawn_players(
     mut world_map: ResMut<WorldMap>,
 ) {
     // Player 1
-    let position = (3,3);
+    let position = (21,7);
     let player_1 = CreatureBundle::new(&texture_atlas_handle)
         .with_position(position.0, position.1)
         .with_id(world_map.creature_count)
@@ -117,6 +174,7 @@ fn spawn_players(
     world_map.creature_count += 1;
 
     // Player 2
+    /*
     let position = (2,2);
     let player_2 = CreatureBundle::new(&texture_atlas_handle)
         .with_position(position.0, position.1)
@@ -132,6 +190,7 @@ fn spawn_players(
     .add_rollback();
     world_map.entities[xy_idx(position.0, position.1)] = world_map.creature_count;
     world_map.creature_count += 1;
+    */
 }
 
 fn summon_walls(
@@ -188,13 +247,13 @@ fn move_players(
 
         // THIS IS A TEST
         if build_queue.build_queue.is_empty(){
-            build_queue.build_queue.append(&mut get_build_sequence(Vault::FelidolGenerator, (0,9)));
+            build_queue.build_queue.append(&mut get_build_sequence(Vault::EpicWow, (0,0)));
         }
         
 
         let start = transform.translation;
         let tween = Tween::new(
-            EaseFunction::QuadraticInOut,
+            EaseFunction::QuadraticOut,
             Duration::from_millis(200),
             TransformPositionLens {
                 start,
@@ -209,6 +268,7 @@ fn camera_follow(
     local_players: Res<LocalPlayers>,
     players: Query<(&RealityAnchor, &Transform)>,
     mut cameras: Query<&mut Transform, (With<Camera>, Without<RealityAnchor>)>,
+    mut ui: Query<(&mut Transform, &UIElement), (Without<Camera>, Without<RealityAnchor>)>,
 ) {
     for (anchor, player_transform) in &players {
         // only follow the local player
@@ -222,5 +282,54 @@ fn camera_follow(
             transform.translation.x = pos.x;
             transform.translation.y = pos.y;
         }
+        for (mut transform, ui) in &mut ui {
+            transform.translation.x = ui.x + pos.x;
+            transform.translation.y = ui.y + pos.y;
+        }
+    }
+}
+
+fn hide_and_show_creatures(
+    mut creatures: Query<(&mut Visibility, &Position), With<CreatureID>>,
+    players: Query<(&RealityAnchor, &Position)>,
+    local_players: Res<LocalPlayers>,
+){
+    for (anchor, player_pos) in &players {
+        // only follow the local player
+        if !local_players.0.contains(&anchor.player_id) {
+            continue;
+        }
+        let view_range = 6;
+        for (mut vis, crea_pos) in &mut creatures {
+            if (crea_pos.x as i32-player_pos.x as i32).abs() > view_range || (crea_pos.y as i32-player_pos.y as i32).abs() > view_range {
+                *vis = Visibility::Hidden;
+            } else { *vis = Visibility::Visible};
+        }
+    }
+}
+
+fn zoom_2d(
+    mut q: Query<&mut OrthographicProjection, With<Camera2d>>,
+    input: Res<Input<KeyCode>>,
+    time: Res<Time>,
+) {
+    if input.pressed(KeyCode::O) {
+        let mut projection = q.single_mut();
+
+        // example: zoom in
+        projection.scale += 0.8 * time.delta_seconds();
+        // example: zoom out
+        //projection.scale *= 0.75;
+    
+        // always ensure you end up with sane values
+        // (pick an upper and lower bound for your application)
+        projection.scale = projection.scale.clamp(0.5, 5.0);
+    }
+    else if input.pressed(KeyCode::P) {
+        let mut projection = q.single_mut();
+
+        // example: zoom in
+        projection.scale -= 0.8 * time.delta_seconds();
+        projection.scale = projection.scale.clamp(0.5, 5.0);
     }
 }

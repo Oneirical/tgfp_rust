@@ -13,8 +13,8 @@ impl Plugin for MapPlugin {
     }
 }
 
-pub const WORLD_WIDTH: usize = 81;
-pub const WORLD_HEIGHT: usize = 81;
+pub const WORLD_WIDTH: usize = 45;
+pub const WORLD_HEIGHT: usize = 45;
 
 #[derive(Resource, Reflect, Default)]
 pub struct WorldMap {
@@ -45,7 +45,7 @@ pub fn unpack_build_queue(
     mut commands: Commands, 
 ){
     timer.time.tick(time.delta());
-    if timer.time.finished() {
+    if true { //timer.time.finished()
         for mut build_list in builds.iter_mut(){
             let task = match build_list.build_queue.pop(){
                 Some(result) => result,
@@ -55,7 +55,7 @@ pub fn unpack_build_queue(
             let new_creature = CreatureBundle::new(&texture_atlas_handle)
                 .with_position(position.0, position.1)
                 .with_id(world_map.creature_count)
-                .with_anim_source(40, 40)
+                //.with_anim_source(22, 22)
                 .with_species(task.0);
             world_map.entities[xy_idx(position.0, position.1)] = world_map.creature_count;
             world_map.creature_count += 1;

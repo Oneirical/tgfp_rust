@@ -4,6 +4,8 @@ use bevy_matchbox::prelude::*;
 
 type Config = bevy_ggrs::GgrsConfig<u8, PeerId>;
 
+const NUM_OF_PLAYERS: usize = 1;
+
 pub struct NetworkPlugin;
 
 impl Plugin for NetworkPlugin {
@@ -28,7 +30,7 @@ fn wait_for_players(mut commands: Commands, mut socket: ResMut<MatchboxSocket<Si
     socket.update_peers();
     let players = socket.players();
 
-    let num_players = 2;
+    let num_players = NUM_OF_PLAYERS;
     if players.len() < num_players {
         return; // wait for more players
     }

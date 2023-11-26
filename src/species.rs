@@ -11,6 +11,7 @@ pub enum Species {
     BuggedSpecies,
     Void,
     Felidol,
+    TermiWall,
 }
 
 #[derive(Bundle)]
@@ -41,7 +42,7 @@ impl CreatureBundle { // Creatures displayed on screen.
                 texture_atlas: texture_atlas_handle.clone(),
                 sprite: TextureAtlasSprite{
                     index : 0_usize,
-                    custom_size: Some(Vec2::new(1.0, 1.0)),
+                    custom_size: Some(Vec2::new(1., 1.)),
                     ..default()
                 },
                 transform: Transform {
@@ -114,6 +115,7 @@ fn match_species_with_sprite(
         Species::Terminal => 0,
         Species::Void => 2,
         Species::Felidol => 49,
+        Species::TermiWall => 37,
     }
 }
 
@@ -126,5 +128,6 @@ fn match_species_with_name(
         Species::Terminal => "Terminal",
         Species::Felidol => "Greedswept Felidol",
         Species::Void => "A Bugged Void",
+        Species::TermiWall => "Tangled Circuits"
     }
 }
