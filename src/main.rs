@@ -10,11 +10,14 @@ use map::{WorldMap, MapPlugin, WORLD_WIDTH, WORLD_HEIGHT, xy_idx};
 use network::NetworkPlugin;
 use species::{CreatureBundle, Species};
 
+use crate::vaults::{get_build_sequence, Vault};
+
 mod components;
 mod input;
 mod network;
 mod map;
 mod species;
+mod vaults;
 
 fn main() {
     App::new()
@@ -25,6 +28,7 @@ fn main() {
                 primary_window: Some(Window {
                     // fill the entire browser window
                     fit_canvas_to_parent: true,
+                    focused: true,
                     title: "The Games Foxes Play".into(),
                     ..default()
                 }),
@@ -40,6 +44,7 @@ fn main() {
         //.rollback_component_with_clone::<TextureAtlasSprite>()
         //.rollback_component_with_clone::<CreatureID>()
         .rollback_component_with_clone::<Position>()
+        .rollback_resource_with_clone::<BuildDelay>()
         .insert_resource(ClearColor(Color::rgb(0., 0., 0.)))
         .add_systems(PreStartup, load_spritesheet)
         .add_systems(Startup, (setup, spawn_players, summon_walls))
@@ -55,6 +60,7 @@ fn setup(mut commands: Commands) {
     camera_bundle.projection.scaling_mode = ScalingMode::FixedVertical(10.);
     commands.spawn(camera_bundle);
     commands.insert_resource(InputDelay{time: Timer::new(Duration::from_millis(200), TimerMode::Once)});
+    commands.insert_resource(BuildDelay{time: Timer::new(Duration::from_millis(200), TimerMode::Repeating)});
 }
 
 #[derive(Resource)]
@@ -64,6 +70,11 @@ pub struct SpriteSheetHandle {
 
 #[derive(Resource, Clone)]
 pub struct InputDelay {
+    pub time: Timer
+}
+
+#[derive(Resource, Clone)]
+pub struct BuildDelay {
     pub time: Timer
 }
 
@@ -97,7 +108,8 @@ fn spawn_players(
         .with_species(Species::Terminal);
     commands.spawn((
         player_1, 
-        RealityAnchor { player_id: 0}
+        RealityAnchor { player_id: 0},
+        BuildQueue { build_queue : Vec::new()}
     ))
     .add_rollback();
     world_map.entities[xy_idx(position.0, position.1)] = world_map.creature_count;
@@ -113,7 +125,8 @@ fn spawn_players(
         .with_tint(Color::Rgba { red: 0., green: 200., blue: 0., alpha: 1. });
     commands.spawn((
         player_2, 
-        RealityAnchor { player_id: 1}
+        RealityAnchor { player_id: 1},
+        BuildQueue { build_queue : Vec::new()}
     ))
     .add_rollback();
     world_map.entities[xy_idx(position.0, position.1)] = world_map.creature_count;
@@ -128,6 +141,7 @@ fn summon_walls(
     for x in 0..9{
         for y in 0..9{
             if !(x == 0 || x==8 || y == 0 || y == 8) {continue;}
+            if x == 4 && y == 8 { continue;}
             let position = (x,y);
             let wall = CreatureBundle::new(&texture_atlas_handle)
                 .with_position(position.0, position.1)
@@ -141,11 +155,11 @@ fn summon_walls(
 }
 
 fn move_players(
-    mut players: Query<(&Transform, &mut Animator<Transform>, &mut Position, &RealityAnchor)>,
+    mut players: Query<(&Transform, &mut Animator<Transform>, &mut Position, &RealityAnchor, &mut BuildQueue)>,
     inputs: Res<PlayerInputs<Config>>,
     mut world_map: ResMut<WorldMap>,
 ) {
-    for (transform, mut anim, mut pos, anchor) in &mut players {
+    for (transform, mut anim, mut pos, anchor, mut build_queue) in &mut players {
         let (input, _) = inputs[anchor.player_id];
 
         let mut direction = direction(input);
@@ -170,10 +184,13 @@ fn move_players(
         }
         let idx = xy_idx(pos.x, pos.y);
         world_map.entities.swap(old_idx, idx);
-        
-        //let move_delta = direction;
 
-        //let old_pos = transform.translation.xy();
+        // THIS IS A TEST
+        if build_queue.build_queue.is_empty(){
+            build_queue.build_queue.append(&mut get_build_sequence(Vault::FelidolGenerator, (0,9)));
+        }
+        
+
         let start = transform.translation;
         let tween = Tween::new(
             EaseFunction::QuadraticInOut,

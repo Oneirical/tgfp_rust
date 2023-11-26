@@ -20,5 +20,6 @@ pub struct Position {
 
 #[derive(Component, Clone)]
 pub struct BuildQueue {
-    pub queue: Vec<(Species, (usize, usize))>
+    pub build_queue: Vec<(Species, (usize, usize))>
 }
+

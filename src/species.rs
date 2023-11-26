@@ -4,11 +4,13 @@ use crate::{components::{CreatureID, Position}, SpriteSheetHandle};
 use bevy::prelude::*;
 use bevy_tweening::{*, lens::TransformPositionLens};
 
-#[derive(Component, Clone)]
+#[derive(Component, PartialEq, Clone)]
 pub enum Species {
     Wall,
     Terminal,
     BuggedSpecies,
+    Void,
+    Felidol,
 }
 
 #[derive(Bundle)]
@@ -97,6 +99,8 @@ fn match_species_with_sprite(
         Species::Wall => 3,
         Species::BuggedSpecies => 1,
         Species::Terminal => 0,
+        Species::Void => 2,
+        Species::Felidol => 49,
     }
 }
 
@@ -107,5 +111,7 @@ fn match_species_with_name(
         Species::Wall => "Rampart of Nacre",
         Species::BuggedSpecies => "Bugged, Please Report",
         Species::Terminal => "Terminal",
+        Species::Felidol => "Greedswept Felidol",
+        Species::Void => "A Bugged Void",
     }
 }

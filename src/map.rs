@@ -1,12 +1,15 @@
 use bevy::prelude::*;
 use bevy_ggrs::*;
 
+use crate::{components::BuildQueue, BuildDelay, species::CreatureBundle, SpriteSheetHandle};
+
 pub struct MapPlugin;
 
 impl Plugin for MapPlugin {
     fn build(&self, app: &mut App) {
         app.rollback_resource_with_reflect::<WorldMap>();
         app.insert_resource(WorldMap{ entities: generate_world_vector(), creature_count: 1 });
+        app.add_systems(Update, unpack_build_queue);
     }
 }
 
@@ -31,6 +34,33 @@ fn generate_world_vector() -> Vec<usize>{
 
 pub fn xy_idx (x: usize, y: usize) -> usize{
     (y as usize * WORLD_WIDTH) + x as usize
+}
+
+pub fn unpack_build_queue(
+    mut builds: Query<&mut BuildQueue>,
+    mut timer: ResMut<BuildDelay>,
+    time: Res<Time>,
+    texture_atlas_handle: Res<SpriteSheetHandle>,
+    mut world_map: ResMut<WorldMap>,
+    mut commands: Commands, 
+){
+    timer.time.tick(time.delta());
+    if timer.time.finished() {
+        for mut build_list in builds.iter_mut(){
+            let task = match build_list.build_queue.pop(){
+                Some(result) => result,
+                None => continue
+            };
+            let position = task.1;
+            let new_creature = CreatureBundle::new(&texture_atlas_handle)
+                .with_position(position.0, position.1)
+                .with_id(world_map.creature_count)
+                .with_species(task.0);
+            world_map.entities[xy_idx(position.0, position.1)] = world_map.creature_count;
+            world_map.creature_count += 1;
+            commands.spawn(new_creature);
+        }
+    }
 }
 /*
 pub fn coords_at_edge (
