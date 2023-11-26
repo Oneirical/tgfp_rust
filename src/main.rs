@@ -253,7 +253,7 @@ fn move_players(
 
         let start = transform.translation;
         let tween = Tween::new(
-            EaseFunction::QuadraticOut,
+            EaseFunction::QuadraticInOut,
             Duration::from_millis(200),
             TransformPositionLens {
                 start,
@@ -299,7 +299,7 @@ fn hide_and_show_creatures(
         if !local_players.0.contains(&anchor.player_id) {
             continue;
         }
-        let view_range = 6;
+        let view_range = 7;
         for (mut vis, crea_pos) in &mut creatures {
             if (crea_pos.x as i32-player_pos.x as i32).abs() > view_range || (crea_pos.y as i32-player_pos.y as i32).abs() > view_range {
                 *vis = Visibility::Hidden;
