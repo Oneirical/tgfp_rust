@@ -88,7 +88,7 @@ pub fn get_build_sequence( // I am so surprised this worked on the first try. Ru
 ) -> Vec<(Species, (usize, usize))>{
     let vault_idx = grab_vault(vault);
     let mut str_seq = VAULTS[vault_idx];
-    let binding = str_seq.replace("\n", "");
+    let binding = str_seq.replace('\n', "");
     str_seq = &binding;
     let length = (str_seq.len() as f32).sqrt() as usize;
     let mut output = Vec::with_capacity(str_seq.len());

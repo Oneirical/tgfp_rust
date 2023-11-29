@@ -21,7 +21,7 @@ fn draw_chain_borders(
             texture_atlas: texture_atlas_handle.handle.clone(),
             sprite: TextureAtlasSprite{
                 index : 2_usize,
-                custom_size: Some(Vec2::new(21.2, 21.2)),
+                custom_size: Some(Vec2::new(25.1, 25.1)),
                 ..default()
             },
             transform: Transform {
@@ -31,8 +31,8 @@ fn draw_chain_borders(
             ..default()
         },
         UIElement{
-            x: 0 as f32,
-            y: 0 as f32
+            x: 0.5,
+            y: -1.
         }
     ));
     commands.spawn((
@@ -44,15 +44,15 @@ fn draw_chain_borders(
                 ..default()
             },
             transform: Transform {
-                translation: Vec3{ x: 14., y: 0., z: 0.},
+                translation: Vec3{ x: 14., y: 0., z: 0.2},
                 rotation: Quat::from_rotation_z(PI/2.),
                 ..default()
             },
             ..default()
         },
         UIElement{
-            x: 14 as f32,
-            y: 0 as f32
+            x: 14.,
+            y: 0.
         }
     ));
     let mut main_square = get_chain_border(31, 31, (1.5, -1.5));
@@ -73,15 +73,15 @@ fn draw_chain_borders(
                     ..default()
                 },
                 transform: Transform {
-                    translation: Vec3{ x: chain.position.0 as f32, y: chain.position.1 as f32, z: 1.0},
+                    translation: Vec3{ x: chain.position.0, y: chain.position.1, z: 1.0},
                     rotation: Quat::from_rotation_z(chain.rotation),
                     ..default()
                 },
                 ..default()
             },
             UIElement{
-                x: chain.position.0 as f32,
-                y: chain.position.1 as f32
+                x: chain.position.0,
+                y: chain.position.1
             }
         ));
     }

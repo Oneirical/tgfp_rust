@@ -30,7 +30,7 @@ fn generate_world_vector() -> Vec<Option<Entity>>{
 }
 
 pub fn xy_idx (x: usize, y: usize) -> usize{
-    (y as usize * WORLD_WIDTH) + x as usize
+    (y * WORLD_WIDTH) + x
 }
 
 pub fn unpack_build_queue(

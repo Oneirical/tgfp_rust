@@ -193,12 +193,12 @@ fn move_player(
         if direction.y < 0. && pos.y == 0 || direction.y > 0. && pos.y == WORLD_HEIGHT{
             direction.y = 0.;
         }
-        assert!(world_map.entities[xy_idx(pos.x, pos.y)] != None);
+        assert!(world_map.entities[xy_idx(pos.x, pos.y)].is_some());
         let (old_x, old_y) = (pos.x, pos.y);
         let old_idx = xy_idx(pos.x, pos.y);
         pos.x = (pos.x as f32 + direction.x) as usize;
         pos.y = (pos.y as f32 + direction.y) as usize;
-        if world_map.entities[xy_idx(pos.x, pos.y)] != None {
+        if world_map.entities[xy_idx(pos.x, pos.y)].is_some() {
             (pos.x, pos.y) = (old_x, old_y);
             continue;
         }
@@ -229,12 +229,12 @@ fn camera_follow(
         let pos = player_transform.translation;
 
         for mut transform in &mut cameras {
-            transform.translation.x = pos.x+7.; // To offset it to the left
-            transform.translation.y = pos.y-1.;
+            transform.translation.x = pos.x+6.; // To offset it to the left
+            transform.translation.y = pos.y;
         }
         for (mut transform, ui) in &mut ui {
-            transform.translation.x = ui.x + pos.x;
-            transform.translation.y = ui.y + pos.y;
+            transform.translation.x = ui.x + pos.x-1.;
+            transform.translation.y = ui.y + pos.y+1.;
         }
     }
 }
@@ -244,7 +244,7 @@ fn hide_and_show_creatures(
     players: Query<&Position, With<RealityAnchor>>,
 ){
     for player_pos in &players {
-        let view_range = 8;
+        let view_range = 10;
         for (mut vis, crea_pos) in &mut creatures {
             if (crea_pos.x as i32-player_pos.x as i32).abs() > view_range || (crea_pos.y as i32-player_pos.y as i32).abs() > view_range {
                 *vis = Visibility::Hidden;
