@@ -1,20 +1,16 @@
 use std::time::Duration;
 
 use bevy::{prelude::*, render::camera::ScalingMode, window::WindowMode};
-use bevy_ggrs::*;
-use bevy_matchbox::matchbox_socket::PeerId;
 use bevy_tweening::{*, lens::TransformPositionLens};
 use components::*;
 use input::*;
 use map::{WorldMap, MapPlugin, WORLD_WIDTH, WORLD_HEIGHT, xy_idx};
-use network::NetworkPlugin;
 use species::{CreatureBundle, Species};
 use ui::UIPlugin;
 use vaults::{get_build_sequence, Vault};
 
 mod components;
 mod input;
-mod network;
 mod map;
 mod species;
 mod vaults;
@@ -22,8 +18,7 @@ mod ui;
 
 fn main() {
     App::new()
-        .add_plugins((
-            DefaultPlugins
+        .add_plugins(DefaultPlugins
             .set(ImagePlugin::default_nearest())
             .set(WindowPlugin {
                 primary_window: Some(Window {
@@ -38,27 +33,17 @@ fn main() {
                     ..default()
                 }),
                 ..default()
-            }),
-            GgrsPlugin::<Config>::default(),
-        ))
-        .add_plugins(NetworkPlugin)
+            }))
         .add_plugins(MapPlugin)
+        .add_plugins(InputPlugin)
         .add_plugins(TweeningPlugin)
         .add_plugins(UIPlugin)
-        .rollback_component_with_clone::<Transform>()
-        //.rollback_component_with_clone::<RealityAnchor>()
-        //.rollback_component_with_clone::<TextureAtlasSprite>()
-        //.rollback_component_with_clone::<CreatureID>()
-        .rollback_component_with_clone::<Position>()
-        .rollback_resource_with_clone::<BuildDelay>()
         .insert_resource(ClearColor(Color::rgb(0., 0., 0.)))
         .insert_resource(Msaa::Off) // This fixes weird black lines on the tiles.
         .add_systems(PreStartup, load_spritesheet)
         .add_systems(Startup, (setup, spawn_players))
         .add_systems(PostStartup, summon_walls)
-        .add_systems(Update, (camera_follow, zoom_2d, toggle_resolution, hide_and_show_creatures))
-        .add_systems(ReadInputs, read_local_inputs)
-        .add_systems(GgrsSchedule, move_players)
+        .add_systems(Update, (camera_follow, zoom_2d, toggle_resolution, hide_and_show_creatures, move_player))
         .insert_resource(ResolutionSettings {
             giga: 80.,
             large: 64.,
@@ -68,7 +53,6 @@ fn main() {
         })
         .run();
 }
-type Config = bevy_ggrs::GgrsConfig<u8, PeerId>;
 
 fn setup(mut commands: Commands) {
     let mut camera_bundle = Camera2dBundle::default();
@@ -157,8 +141,7 @@ fn spawn_players(
         player_1, 
         RealityAnchor { player_id: 0},
         BuildQueue { build_queue : Vec::new()}
-    ))
-    .add_rollback();
+    ));
 
     // Player 2
     /*
@@ -191,15 +174,15 @@ fn summon_walls(
     }
 }
 
-fn move_players(
-    mut players: Query<(&Transform, &mut Animator<Transform>, &mut Position, &RealityAnchor)>,
-    inputs: Res<PlayerInputs<Config>>,
+fn move_player(
+    mut players: Query<(&Transform, &mut Animator<Transform>, &mut Position), With<RealityAnchor>>,
     mut world_map: ResMut<WorldMap>,
+    mut action: ResMut<LastAction>,
 ) {
-    for (transform, mut anim, mut pos, anchor) in &mut players {
-        let (input, _) = inputs[anchor.player_id];
+    for (transform, mut anim, mut pos) in &mut players {
 
-        let mut direction = direction(input);
+        let mut direction = direction(action.last.clone());
+        action.last = ActionType::Nothing;
 
         if direction == Vec2::ZERO {
             continue;
@@ -237,16 +220,11 @@ fn move_players(
 }
 
 fn camera_follow(
-    local_players: Res<LocalPlayers>,
-    players: Query<(&RealityAnchor, &Transform)>,
+    players: Query<&Transform, With<RealityAnchor>>,
     mut cameras: Query<&mut Transform, (With<Camera>, Without<RealityAnchor>)>,
     mut ui: Query<(&mut Transform, &UIElement), (Without<Camera>, Without<RealityAnchor>)>,
 ) {
-    for (anchor, player_transform) in &players {
-        // only follow the local player
-        if !local_players.0.contains(&anchor.player_id) {
-            continue;
-        }
+    for player_transform in &players {
 
         let pos = player_transform.translation;
 
@@ -263,14 +241,9 @@ fn camera_follow(
 
 fn hide_and_show_creatures(
     mut creatures: Query<(&mut Visibility, &Position)>,
-    players: Query<(&RealityAnchor, &Position)>,
-    local_players: Res<LocalPlayers>,
+    players: Query<&Position, With<RealityAnchor>>,
 ){
-    for (anchor, player_pos) in &players {
-        // only follow the local player
-        if !local_players.0.contains(&anchor.player_id) {
-            continue;
-        }
+    for player_pos in &players {
         let view_range = 8;
         for (mut vis, crea_pos) in &mut creatures {
             if (crea_pos.x as i32-player_pos.x as i32).abs() > view_range || (crea_pos.y as i32-player_pos.y as i32).abs() > view_range {

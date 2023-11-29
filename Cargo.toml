@@ -12,7 +12,5 @@ opt-level = 1
 
 [dependencies]
 bevy = { version = "0.12", features = ["multi-threaded", "webgl2", "dynamic_linking"]}
-bevy_ggrs = { version = "0.14" }
-bevy_matchbox = { version = "0.8", features = ["ggrs"] }
 bevy_tweening = "0.9.0"
 grid_pathfinding = "0.1.1"

@@ -1,5 +1,4 @@
 use bevy::prelude::*;
-use bevy_ggrs::*;
 
 use crate::{components::{BuildQueue, Position}, BuildDelay, species::CreatureBundle, SpriteSheetHandle};
 
@@ -7,7 +6,6 @@ pub struct MapPlugin;
 
 impl Plugin for MapPlugin {
     fn build(&self, app: &mut App) {
-        app.rollback_resource_with_reflect::<WorldMap>();
         app.insert_resource(WorldMap{ entities: generate_world_vector()});
         app.add_systems(Update, (unpack_build_queue, place_down_new_entities));
     }
@@ -16,7 +14,7 @@ impl Plugin for MapPlugin {
 pub const WORLD_WIDTH: usize = 45;
 pub const WORLD_HEIGHT: usize = 45;
 
-#[derive(Resource, Reflect, Default)]
+#[derive(Resource)]
 pub struct WorldMap {
     pub entities: Vec<Option<Entity>>,
 }
