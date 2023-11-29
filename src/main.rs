@@ -10,8 +10,7 @@ use map::{WorldMap, MapPlugin, WORLD_WIDTH, WORLD_HEIGHT, xy_idx};
 use network::NetworkPlugin;
 use species::{CreatureBundle, Species};
 use ui::UIPlugin;
-
-use crate::vaults::{get_build_sequence, Vault};
+use vaults::{get_build_sequence, Vault};
 
 mod components;
 mod input;
@@ -55,7 +54,8 @@ fn main() {
         .insert_resource(ClearColor(Color::rgb(0., 0., 0.)))
         .insert_resource(Msaa::Off) // This fixes weird black lines on the tiles.
         .add_systems(PreStartup, load_spritesheet)
-        .add_systems(Startup, (setup, spawn_players, summon_walls))
+        .add_systems(Startup, (setup, spawn_players))
+        .add_systems(PostStartup, summon_walls)
         .add_systems(Update, (camera_follow, zoom_2d, toggle_resolution, hide_and_show_creatures))
         .add_systems(ReadInputs, read_local_inputs)
         .add_systems(GgrsSchedule, move_players)
@@ -156,13 +156,11 @@ fn load_spritesheet(
 fn spawn_players(
     mut commands: Commands, 
     texture_atlas_handle: Res<SpriteSheetHandle>,
-    mut world_map: ResMut<WorldMap>,
 ) {
     // Player 1
     let position = (21,7);
     let player_1 = CreatureBundle::new(&texture_atlas_handle)
         .with_position(position.0, position.1)
-        .with_id(world_map.creature_count)
         .with_species(Species::Terminal);
     commands.spawn((
         player_1, 
@@ -170,8 +168,6 @@ fn spawn_players(
         BuildQueue { build_queue : Vec::new()}
     ))
     .add_rollback();
-    world_map.entities[xy_idx(position.0, position.1)] = world_map.creature_count;
-    world_map.creature_count += 1;
 
     // Player 2
     /*
@@ -194,32 +190,22 @@ fn spawn_players(
 }
 
 fn summon_walls(
-    mut commands: Commands, 
-    texture_atlas_handle: Res<SpriteSheetHandle>,
-    mut world_map: ResMut<WorldMap>,
+    mut build: Query<&mut BuildQueue>
 ){
-    for x in 0..9{
-        for y in 0..9{
-            if !(x == 0 || x==8 || y == 0 || y == 8) {continue;}
-            if x == 4 && y == 8 { continue;}
-            let position = (x,y);
-            let wall = CreatureBundle::new(&texture_atlas_handle)
-                .with_position(position.0, position.1)
-                .with_id(world_map.creature_count)
-                .with_species(Species::Wall);
-            commands.spawn(wall);
-            world_map.entities[xy_idx(position.0, position.1)] = world_map.creature_count;
-            world_map.creature_count += 1;
+    for mut build_queue in build.iter_mut(){
+        // THIS IS A TEST
+        if build_queue.build_queue.is_empty(){
+            build_queue.build_queue.append(&mut get_build_sequence(Vault::EpicWow, (0,0)));
         }
     }
 }
 
 fn move_players(
-    mut players: Query<(&Transform, &mut Animator<Transform>, &mut Position, &RealityAnchor, &mut BuildQueue)>,
+    mut players: Query<(&Transform, &mut Animator<Transform>, &mut Position, &RealityAnchor)>,
     inputs: Res<PlayerInputs<Config>>,
     mut world_map: ResMut<WorldMap>,
 ) {
-    for (transform, mut anim, mut pos, anchor, mut build_queue) in &mut players {
+    for (transform, mut anim, mut pos, anchor) in &mut players {
         let (input, _) = inputs[anchor.player_id];
 
         let mut direction = direction(input);
@@ -233,22 +219,17 @@ fn move_players(
         if direction.y < 0. && pos.y == 0 || direction.y > 0. && pos.y == WORLD_HEIGHT{
             direction.y = 0.;
         }
-        assert!(world_map.entities[xy_idx(pos.x, pos.y)] != 0);
+        assert!(world_map.entities[xy_idx(pos.x, pos.y)] != None);
         let (old_x, old_y) = (pos.x, pos.y);
         let old_idx = xy_idx(pos.x, pos.y);
         pos.x = (pos.x as f32 + direction.x) as usize;
         pos.y = (pos.y as f32 + direction.y) as usize;
-        if world_map.entities[xy_idx(pos.x, pos.y)] != 0 {
+        if world_map.entities[xy_idx(pos.x, pos.y)] != None {
             (pos.x, pos.y) = (old_x, old_y);
             continue;
         }
         let idx = xy_idx(pos.x, pos.y);
         world_map.entities.swap(old_idx, idx);
-
-        // THIS IS A TEST
-        if build_queue.build_queue.is_empty(){
-            build_queue.build_queue.append(&mut get_build_sequence(Vault::EpicWow, (0,0)));
-        }
         
 
         let start = transform.translation;
@@ -290,7 +271,7 @@ fn camera_follow(
 }
 
 fn hide_and_show_creatures(
-    mut creatures: Query<(&mut Visibility, &Position), With<CreatureID>>,
+    mut creatures: Query<(&mut Visibility, &Position)>,
     players: Query<(&RealityAnchor, &Position)>,
     local_players: Res<LocalPlayers>,
 ){
@@ -299,7 +280,7 @@ fn hide_and_show_creatures(
         if !local_players.0.contains(&anchor.player_id) {
             continue;
         }
-        let view_range = 7;
+        let view_range = 8;
         for (mut vis, crea_pos) in &mut creatures {
             if (crea_pos.x as i32-player_pos.x as i32).abs() > view_range || (crea_pos.y as i32-player_pos.y as i32).abs() > view_range {
                 *vis = Visibility::Hidden;

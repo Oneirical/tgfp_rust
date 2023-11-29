@@ -8,11 +8,6 @@ pub struct RealityAnchor {
 }
 
 #[derive(Component, Clone)]
-pub struct CreatureID {
-    pub creature_id: usize,
-}
-
-#[derive(Component, Clone)]
 pub struct Position {
     pub x: usize,
     pub y: usize,

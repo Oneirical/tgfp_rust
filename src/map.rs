@@ -1,15 +1,15 @@
 use bevy::prelude::*;
 use bevy_ggrs::*;
 
-use crate::{components::BuildQueue, BuildDelay, species::CreatureBundle, SpriteSheetHandle};
+use crate::{components::{BuildQueue, Position}, BuildDelay, species::CreatureBundle, SpriteSheetHandle};
 
 pub struct MapPlugin;
 
 impl Plugin for MapPlugin {
     fn build(&self, app: &mut App) {
         app.rollback_resource_with_reflect::<WorldMap>();
-        app.insert_resource(WorldMap{ entities: generate_world_vector(), creature_count: 1 });
-        app.add_systems(Update, unpack_build_queue);
+        app.insert_resource(WorldMap{ entities: generate_world_vector()});
+        app.add_systems(Update, (unpack_build_queue, place_down_new_entities));
     }
 }
 
@@ -18,15 +18,14 @@ pub const WORLD_HEIGHT: usize = 45;
 
 #[derive(Resource, Reflect, Default)]
 pub struct WorldMap {
-    pub entities: Vec<usize>,
-    pub creature_count: usize,
+    pub entities: Vec<Option<Entity>>,
 }
 
-fn generate_world_vector() -> Vec<usize>{
+fn generate_world_vector() -> Vec<Option<Entity>>{
     let mut output = Vec::with_capacity(WORLD_WIDTH);
     for _x in 0..WORLD_WIDTH{
         for _y in 0..WORLD_HEIGHT{
-            output.push(0);
+            output.push(None);
         }
     }
     output
@@ -41,7 +40,6 @@ pub fn unpack_build_queue(
     mut timer: ResMut<BuildDelay>,
     time: Res<Time>,
     texture_atlas_handle: Res<SpriteSheetHandle>,
-    mut world_map: ResMut<WorldMap>,
     mut commands: Commands, 
 ){
     timer.time.tick(time.delta());
@@ -54,15 +52,24 @@ pub fn unpack_build_queue(
             let position = task.1;
             let new_creature = CreatureBundle::new(&texture_atlas_handle)
                 .with_position(position.0, position.1)
-                .with_id(world_map.creature_count)
                 //.with_anim_source(22, 22)
                 .with_species(task.0);
-            world_map.entities[xy_idx(position.0, position.1)] = world_map.creature_count;
-            world_map.creature_count += 1;
             commands.spawn(new_creature);
         }
     }
 }
+
+pub fn place_down_new_entities(
+    query: Query<(Entity, &Position), Added<Position>>,
+    mut world_map: ResMut<WorldMap>
+) {
+    for (entity_id, position) in query.iter(){
+        assert_eq!(world_map.entities[xy_idx(position.x, position.y)], None);
+        world_map.entities[xy_idx(position.x, position.y)] = Some(entity_id);
+    }
+}
+
+
 /*
 pub fn coords_at_edge (
     coords: (usize, usize)

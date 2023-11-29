@@ -1,6 +1,6 @@
 use std::time::Duration;
 
-use crate::{components::{CreatureID, Position}, SpriteSheetHandle};
+use crate::{components::Position, SpriteSheetHandle};
 use bevy::prelude::*;
 use bevy_tweening::{*, lens::TransformPositionLens};
 
@@ -20,7 +20,6 @@ pub struct CreatureBundle {
     animation: Animator<Transform>,
     name: Name,
     species: Species,
-    creature_id: CreatureID,
     position: Position,
 }
 
@@ -55,7 +54,6 @@ impl CreatureBundle { // Creatures displayed on screen.
             animation: Animator::new(tween),
             name: Name::new("Bugged Creature"),
             species: Species::BuggedSpecies,
-            creature_id: CreatureID { creature_id: 0 },
             position: Position { x: 0, y: 0 }
         }
     }
@@ -77,10 +75,6 @@ impl CreatureBundle { // Creatures displayed on screen.
         self.sprite_bundle.sprite.index = match_species_with_sprite(&species);
         self.name = Name::new(match_species_with_name(species.clone()));
         self.species = species;
-        self
-    }
-    pub fn with_id(mut self, id: usize)-> Self {
-        self.creature_id.creature_id = id;
         self
     }
     pub fn with_tint(mut self, color: Color) -> Self {
