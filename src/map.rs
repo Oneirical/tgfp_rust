@@ -22,7 +22,7 @@ pub struct WorldMap {
 }
 
 fn generate_world_vector() -> Vec<Option<Entity>>{
-    let mut output = Vec::with_capacity(WORLD_WIDTH);
+    let mut output = Vec::with_capacity(WORLD_WIDTH*WORLD_HEIGHT);
     for _x in 0..WORLD_WIDTH{
         for _y in 0..WORLD_HEIGHT{
             output.push(None);

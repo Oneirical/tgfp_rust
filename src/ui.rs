@@ -35,12 +35,32 @@ fn draw_chain_borders(
             y: 0 as f32
         }
     ));
-    let mut main_square = get_chain_border(26, 26, (0.5, 0.5));
-    let mut side_left = get_chain_border(8, 26, (-19., 0.5));
-    let mut side_right = get_chain_border(8, 26, (19., 0.5));
+    commands.spawn((
+        SpriteSheetBundle {
+            texture_atlas: texture_atlas_handle.handle.clone(),
+            sprite: TextureAtlasSprite{
+                index : 166_usize,
+                custom_size: Some(Vec2::new(9., 9.)),
+                ..default()
+            },
+            transform: Transform {
+                translation: Vec3{ x: 14., y: 0., z: 0.},
+                rotation: Quat::from_rotation_z(PI/2.),
+                ..default()
+            },
+            ..default()
+        },
+        UIElement{
+            x: 14 as f32,
+            y: 0 as f32
+        }
+    ));
+    let mut main_square = get_chain_border(31, 31, (1.5, -1.5));
+    //let mut side_left = get_chain_border(26, 4, (0.5, -15.5));
+    let mut side_right = get_chain_border(24, 31, (30., -1.5));
     let mut all = Vec::new();
     all.append(&mut main_square);
-    all.append(&mut side_left);
+    //all.append(&mut side_left);
     all.append(&mut side_right);
     
     for chain in all{

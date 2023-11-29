@@ -60,11 +60,11 @@ fn main() {
         .add_systems(ReadInputs, read_local_inputs)
         .add_systems(GgrsSchedule, move_players)
         .insert_resource(ResolutionSettings {
-            giga: Vec2::new(1920.0, 1080.0),
-            large: Vec2::new(1664.0, 936.0),
-            medium: Vec2::new(1408.0, 792.0),
-            small: Vec2::new(1280.0, 720.0),
-            tiny: Vec2::new(1024.0, 576.0),
+            giga: 80.,
+            large: 64.,
+            medium: 48.,
+            small: 32.,
+            tiny: 16.,
         })
         .run();
 }
@@ -72,7 +72,8 @@ type Config = bevy_ggrs::GgrsConfig<u8, PeerId>;
 
 fn setup(mut commands: Commands) {
     let mut camera_bundle = Camera2dBundle::default();
-    camera_bundle.projection.scaling_mode = ScalingMode::FixedVertical(16.);
+    camera_bundle.projection.scaling_mode = ScalingMode::WindowSize(64.);
+    //camera_bundle.projection.scale = 0.99;
     commands.spawn(camera_bundle);
     commands.insert_resource(InputDelay{time: Timer::new(Duration::from_millis(200), TimerMode::Once)});
     commands.insert_resource(BuildDelay{time: Timer::new(Duration::from_millis(200), TimerMode::Repeating)});
@@ -85,11 +86,11 @@ pub struct SpriteSheetHandle {
 
 #[derive(Resource)]
 struct ResolutionSettings {
-    giga: Vec2,
-    large: Vec2,
-    medium: Vec2,
-    small: Vec2,
-    tiny: Vec2,
+    giga: f32,
+    large: f32,
+    medium: f32,
+    small: f32,
+    tiny: f32,
 }
 
 #[derive(Resource, Clone)]
@@ -104,35 +105,25 @@ pub struct BuildDelay {
 
 fn toggle_resolution(
     keys: Res<Input<KeyCode>>,
-    mut windows: Query<&mut Window>,
+    mut query_camera: Query<&mut OrthographicProjection, With<Camera2d>>,
     resolution: Res<ResolutionSettings>,
 ) {
-    let mut window = windows.single_mut();
+    let mut projection = query_camera.single_mut();
 
     if keys.just_pressed(KeyCode::Key1) {
-        let res = resolution.tiny;
-        window.resolution.set(res.x, res.y);
-        window.position.center(MonitorSelection::Current);
+        projection.scaling_mode = ScalingMode::WindowSize(resolution.tiny);
     }
     if keys.just_pressed(KeyCode::Key2) {
-        let res = resolution.small;
-        window.resolution.set(res.x, res.y);
-        window.position.center(MonitorSelection::Current);
+        projection.scaling_mode = ScalingMode::WindowSize(resolution.small);
     }
     if keys.just_pressed(KeyCode::Key3) {
-        let res = resolution.medium;
-        window.resolution.set(res.x, res.y);
-        window.position.center(MonitorSelection::Current);
+        projection.scaling_mode = ScalingMode::WindowSize(resolution.medium);
     }
     if keys.just_pressed(KeyCode::Key4) {
-        let res = resolution.large;
-        window.resolution.set(res.x, res.y);
-        window.position.center(MonitorSelection::Current);
+        projection.scaling_mode = ScalingMode::WindowSize(resolution.large);
     }
     if keys.just_pressed(KeyCode::Key5) {
-        let res = resolution.giga;
-        window.resolution.set(res.x, res.y);
-        window.position.center(MonitorSelection::Current);
+        projection.scaling_mode = ScalingMode::WindowSize(resolution.giga);
     }
 }
 
@@ -260,8 +251,8 @@ fn camera_follow(
         let pos = player_transform.translation;
 
         for mut transform in &mut cameras {
-            transform.translation.x = pos.x;
-            transform.translation.y = pos.y;
+            transform.translation.x = pos.x+7.; // To offset it to the left
+            transform.translation.y = pos.y-1.;
         }
         for (mut transform, ui) in &mut ui {
             transform.translation.x = ui.x + pos.x;
@@ -313,4 +304,5 @@ fn zoom_2d(
         projection.scale -= 0.8 * time.delta_seconds();
         projection.scale = projection.scale.clamp(0.5, 5.0);
     }
+    
 }
