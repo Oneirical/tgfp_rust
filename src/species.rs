@@ -1,8 +1,7 @@
-use std::time::Duration;
+
 
 use crate::{components::Position, SpriteSheetHandle};
 use bevy::prelude::*;
-use bevy_tweening::{*, lens::TransformPositionLens};
 use std::f32::consts::PI;
 
 #[derive(Component, PartialEq, Clone)]
@@ -19,7 +18,6 @@ pub enum Species {
 #[derive(Bundle)]
 pub struct CreatureBundle {
     sprite_bundle: SpriteSheetBundle,
-    animation: Animator<Transform>,
     name: Name,
     species: Species,
     position: Position,
@@ -30,14 +28,6 @@ impl CreatureBundle { // Creatures displayed on screen.
         tex_handle: &SpriteSheetHandle
     ) -> Self {
         let texture_atlas_handle = &tex_handle.handle;
-        let tween = Tween::new(
-            EaseFunction::QuadraticInOut,
-            Duration::from_millis(1000),
-            TransformPositionLens {
-                start: Vec3::ZERO,
-                end: Vec3::ZERO,
-            },
-        );
         Self{
             sprite_bundle : SpriteSheetBundle {
                 texture_atlas: texture_atlas_handle.clone(),
@@ -53,52 +43,26 @@ impl CreatureBundle { // Creatures displayed on screen.
                 },
                 ..default()
             },
-            animation: Animator::new(tween),
             name: Name::new("Bugged Creature"),
             species: Species::BuggedSpecies,
             position: Position { x: 0, y: 0 }
         }
     }
     pub fn with_position(mut self, x: usize, y: usize) -> Self {
-        let tween = Tween::new(
-            EaseFunction::QuadraticInOut,
-            Duration::from_millis(1000),
-            TransformPositionLens {
-                start: Vec3::new(x as f32, y as f32, 0.),
-                end: Vec3::new(x as f32, y as f32, 0.)
-            },
-        );
-        self.animation = Animator::new(tween);
         self.position.x = x;
         self.position.y = y;
+        self.sprite_bundle.transform.translation.x = x as f32;
+        self.sprite_bundle.transform.translation.y = y as f32;
         self
     }
     pub fn with_species(mut self, species: Species) -> Self {
         self.sprite_bundle.sprite.index = match_species_with_sprite(&species);
         self.name = Name::new(match_species_with_name(species.clone()));
         self.sprite_bundle.transform.rotation = match_species_with_rotation(&species);
+        if is_intangible(species.clone()){
+            self.sprite_bundle.transform.translation.z = -0.1;
+        }
         self.species = species;
-        self
-    }
-    pub fn with_tint(mut self, color: Color) -> Self {
-        self.sprite_bundle.sprite.color = color;
-        self
-    }
-    pub fn with_rotation(mut self, angle: f32) -> Self {
-        self.sprite_bundle.transform.rotation = Quat::from_rotation_z(angle);
-        self
-    }
-    pub fn with_anim_source(mut self, x: usize, y: usize) -> Self{ // Should always be called after with_position.
-        let end = Vec3::new(self.position.x as f32, self.position.y as f32, 0.);
-        let tween = Tween::new(
-            EaseFunction::QuadraticInOut,
-            Duration::from_millis(1000),
-            TransformPositionLens {
-                start: Vec3::new(x as f32, y as f32, 0.),
-                end
-            },
-        );
-        self.animation = Animator::new(tween);
         self
     }
 }
@@ -137,5 +101,14 @@ fn match_species_with_rotation(
     match species{
         Species::HypnoWell { dir } => Quat::from_rotation_z((PI/2.)*(*dir as f32)),
         _ => Quat::from_rotation_z(0.)
+    }
+}
+
+pub fn is_intangible(
+    species: Species
+) -> bool{
+    match species{
+        Species::HypnoWell { dir: _ } => true,
+        _ => false
     }
 }

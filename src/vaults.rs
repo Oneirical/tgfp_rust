@@ -4,7 +4,6 @@ use crate::species::Species;
 
 #[derive(Component, Clone)]
 pub enum Vault {
-    FelidolGenerator,
     EpicWow,
 }
 
@@ -22,19 +21,7 @@ const VAULTS: &[&str] = &[
 #.......#
 #########
 ",
-// 1. Felidol Generator
-"
-#########
-#.......#
-#.F...F.#
-#.......#
-#.......#
-#.......#
-#.F...F.#
-#.......#
-####.####
-",
-// 2. DCSS Plagiarized Vault
+// 1. DCSS Plagiarized Vault
 "
 TTTT.....TTT......TTTTTTT......TTT.....TTTT
 TTTTTTTTTT......TTT.....TTT......TTTTTTTTTT
@@ -62,7 +49,7 @@ T.....T$TT.........w...e.........TT$T.....T
 T.....TT....TTT...T.sss.T...TTT....TT.....T
 T......TTTTTT.....TT...TT.....TTTTTT......T
 T.........................................T
-T.........................................T
+T....................F....................T
 T.........................................T
 T..................T...T..................T
 T..........TT......T...T......TT..........T
@@ -113,8 +100,7 @@ fn grab_vault(
     vault: Vault
 )-> usize{
     match vault{
-        Vault::FelidolGenerator => 1,
-        Vault::EpicWow => 2,
+        Vault::EpicWow => 1,
     }
 }
 

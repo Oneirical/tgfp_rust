@@ -6,7 +6,7 @@ use bevy_tweening::{*, lens::TransformPositionLens};
 use components::*;
 use input::*;
 use map::{WorldMap, MapPlugin, WORLD_WIDTH, WORLD_HEIGHT, xy_idx};
-use species::{CreatureBundle, Species};
+use species::{CreatureBundle, Species, is_intangible};
 use ui::UIPlugin;
 use vaults::{get_build_sequence, Vault};
 
@@ -142,10 +142,18 @@ fn spawn_players(
     let player_1 = CreatureBundle::new(&texture_atlas_handle)
         .with_position(position.0, position.1)
         .with_species(Species::Terminal);
+    let tween = Tween::new(
+        EaseFunction::QuadraticInOut,
+        Duration::from_millis(200),
+        TransformPositionLens {
+            start: Vec3::new(position.0 as f32, position.1 as f32, 0.),
+            end: Vec3::new(position.0 as f32, position.1 as f32, 0.),
+        },
+    ); 
     commands.spawn((
         player_1, 
         RealityAnchor { player_id: 0},
-        BuildQueue { build_queue : Vec::new()}
+        Animator::new(tween)
     ));
 
     // Player 2
@@ -169,12 +177,22 @@ fn spawn_players(
 }
 
 fn summon_walls(
-    mut build: Query<&mut BuildQueue>
+    texture_atlas_handle: Res<SpriteSheetHandle>,
+    mut commands: Commands, 
 ){
-    for mut build_queue in build.iter_mut(){
-        // THIS IS A TEST
-        if build_queue.build_queue.is_empty(){
-            build_queue.build_queue.append(&mut get_build_sequence(Vault::EpicWow, (0,0)));
+    let queue = get_build_sequence(Vault::EpicWow, (0,0));
+    for task in &queue{
+        /*let task = match build_list.build_queue.pop(){
+            Some(result) => result,
+            None => continue
+        }; */
+        let position = task.1;
+        let new_creature = CreatureBundle::new(&texture_atlas_handle)
+            .with_position(position.0, position.1)
+            .with_species(task.0.clone());
+        let entity_id = commands.spawn(new_creature).id();
+        if is_intangible(task.0.clone()){
+            commands.entity(entity_id).insert(Intangible);
         }
     }
 }

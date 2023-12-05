@@ -32,6 +32,10 @@ pub struct Faith {
 #[derive(Component)]
 pub struct RightFaith;
 
+// Add this component to a creature to have it not interact with the world and be pass-through.
+#[derive(Component)]
+pub struct Intangible;
+
 #[derive(Component)]
 pub struct FaithPoint{
     pub num: usize,

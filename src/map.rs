@@ -1,13 +1,13 @@
 use bevy::prelude::*;
 
-use crate::{components::{BuildQueue, Position}, BuildDelay, species::CreatureBundle, SpriteSheetHandle};
+use crate::components::{Position, Intangible};
 
 pub struct MapPlugin;
 
 impl Plugin for MapPlugin {
     fn build(&self, app: &mut App) {
         app.insert_resource(WorldMap{ entities: generate_world_vector()});
-        app.add_systems(Update, (unpack_build_queue, place_down_new_entities));
+        app.add_systems(Update, place_down_new_entities);
     }
 }
 
@@ -33,40 +33,18 @@ pub fn xy_idx (x: usize, y: usize) -> usize{
     (y * WORLD_WIDTH) + x
 }
 
-pub fn unpack_build_queue(
-    mut builds: Query<&mut BuildQueue>,
-    mut timer: ResMut<BuildDelay>,
-    time: Res<Time>,
-    texture_atlas_handle: Res<SpriteSheetHandle>,
-    mut commands: Commands, 
-){
-    timer.time.tick(time.delta());
-    if true { //timer.time.finished()
-        for mut build_list in builds.iter_mut(){
-            let task = match build_list.build_queue.pop(){
-                Some(result) => result,
-                None => continue
-            };
-            let position = task.1;
-            let new_creature = CreatureBundle::new(&texture_atlas_handle)
-                .with_position(position.0, position.1)
-                //.with_anim_source(22, 22)
-                .with_species(task.0);
-            commands.spawn(new_creature);
-        }
-    }
-}
-
 pub fn place_down_new_entities(
-    query: Query<(Entity, &Position), Added<Position>>,
+    query: Query<(Entity, &Position, Has<Intangible>), Added<Position>>,
     mut world_map: ResMut<WorldMap>
 ) {
-    for (entity_id, position) in query.iter(){
+    for (entity_id, position, is_intangible) in query.iter(){
+        if is_intangible {
+            continue;
+        }
         assert_eq!(world_map.entities[xy_idx(position.x, position.y)], None);
         world_map.entities[xy_idx(position.x, position.y)] = Some(entity_id);
     }
 }
-
 
 /*
 pub fn coords_at_edge (
