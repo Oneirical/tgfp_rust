@@ -3,6 +3,7 @@ use std::time::Duration;
 use crate::{components::Position, SpriteSheetHandle};
 use bevy::prelude::*;
 use bevy_tweening::{*, lens::TransformPositionLens};
+use std::f32::consts::PI;
 
 #[derive(Component, PartialEq, Clone)]
 pub enum Species {
@@ -12,6 +13,7 @@ pub enum Species {
     Void,
     Felidol,
     TermiWall,
+    HypnoWell{dir: usize},
 }
 
 #[derive(Bundle)]
@@ -74,6 +76,7 @@ impl CreatureBundle { // Creatures displayed on screen.
     pub fn with_species(mut self, species: Species) -> Self {
         self.sprite_bundle.sprite.index = match_species_with_sprite(&species);
         self.name = Name::new(match_species_with_name(species.clone()));
+        self.sprite_bundle.transform.rotation = match_species_with_rotation(&species);
         self.species = species;
         self
     }
@@ -110,6 +113,7 @@ fn match_species_with_sprite(
         Species::Void => 2,
         Species::Felidol => 49,
         Species::TermiWall => 37,
+        Species::HypnoWell { dir: _ } => 108
     }
 }
 
@@ -122,6 +126,16 @@ fn match_species_with_name(
         Species::Terminal => "Terminal",
         Species::Felidol => "Greedswept Felidol",
         Species::Void => "A Bugged Void",
-        Species::TermiWall => "Tangled Circuits"
+        Species::TermiWall => "Tangled Circuits",
+        Species::HypnoWell { dir: _ } => "Thought-Matter Rift",
+    }
+}
+
+fn match_species_with_rotation(
+    species: &Species
+) -> Quat{
+    match species{
+        Species::HypnoWell { dir } => Quat::from_rotation_z((PI/2.)*(*dir as f32)),
+        _ => Quat::from_rotation_z(0.)
     }
 }

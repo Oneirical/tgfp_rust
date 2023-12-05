@@ -55,11 +55,11 @@ T.........................................T
 T.........................................T
 T.........................................T
 T......TTTTTT.....TT...TT.....TTTTTT......T
-T.....TT....TTT...T.....T...TTT....TT.....T
-T.....T$TT.......................TT$T.....T
-T.....TPTT...........1...........TTPT.....T
-T.....T$TT.......................TT$T.....T
-T.....TT....TTT...T.....T...TTT....TT.....T
+T.....TT....TTT...T.nnn.T...TTT....TT.....T
+T.....T$TT.........w...e.........TT$T.....T
+T.....TPTT.........w...e.........TTPT.....T
+T.....T$TT.........w...e.........TT$T.....T
+T.....TT....TTT...T.sss.T...TTT....TT.....T
 T......TTTTTT.....TT...TT.....TTTTTT......T
 T.........................................T
 T.........................................T
@@ -126,6 +126,10 @@ fn get_species_from_char(
         'F' => Species::Felidol,
         '#' => Species::Wall,
         'T' => Species::TermiWall,
+        'n' => Species::HypnoWell { dir: 0 },
+        'e' => Species::HypnoWell { dir: 3 },
+        's' => Species::HypnoWell { dir: 2 },
+        'w' => Species::HypnoWell { dir: 1 },
         _ => Species::BuggedSpecies
     }
 }

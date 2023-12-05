@@ -1,6 +1,7 @@
 use std::time::Duration;
 
-use bevy::{prelude::*, render::camera::ScalingMode, window::WindowMode};
+use bevy::{prelude::*, render::camera::ScalingMode, window::WindowMode, input::common_conditions::input_toggle_active};
+use bevy_inspector_egui::quick::WorldInspectorPlugin;
 use bevy_tweening::{*, lens::TransformPositionLens};
 use components::*;
 use input::*;
@@ -38,6 +39,10 @@ fn main() {
         .add_plugins(InputPlugin)
         .add_plugins(TweeningPlugin)
         .add_plugins(UIPlugin)
+        .add_plugins(
+            WorldInspectorPlugin::default().run_if(input_toggle_active(true, KeyCode::Escape)),
+        )
+        .register_type::<UIElement>()
         .insert_resource(ClearColor(Color::rgb(0., 0., 0.)))
         .insert_resource(Msaa::Off) // This fixes weird black lines on the tiles.
         .add_systems(PreStartup, load_spritesheet)

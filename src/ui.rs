@@ -1,23 +1,105 @@
-use std::f32::consts::PI;
+use std::{f32::consts::PI, time::Duration};
 
 use bevy::prelude::*;
+use bevy_tweening::{Tween, EaseFunction, lens::TransformPositionLens, Animator};
 
-use crate::{SpriteSheetHandle, components::UIElement};
+use crate::{SpriteSheetHandle, components::{UIElement, RightFaith, RealityAnchor, Faith, FaithPoint}};
 
 pub struct UIPlugin;
 
 impl Plugin for UIPlugin {
     fn build(&self, app: &mut App) {
-        app.add_systems(Startup, draw_chain_borders);
+        app.add_systems(Startup, (draw_chain_borders, draw_resource_bars));
     }
+}
+
+#[derive(Bundle)]
+pub struct UIBundle {
+    sprite_bundle: SpriteSheetBundle,
+    ui: UIElement,
+    name: Name
+}
+
+fn update_player_faith(
+    player: Query<&Faith, &RealityAnchor>,
+    right_border: Query<&RightFaith>,
+){
+
+}
+
+fn draw_resource_bars(
+    mut commands: Commands, 
+    texture_atlas_handle: Res<SpriteSheetHandle>,
+){
+    let names = ["Left Faith","Right Faith"];
+    let rot = [Quat::from_rotation_z(0.),Quat::from_rotation_z(PI)];
+    let pos = [(11.3,5.7),(16.46,5.7)];
+    for i in 0..2{
+        let entity_id = commands.spawn(UIBundle{
+            sprite_bundle: SpriteSheetBundle {
+                texture_atlas: texture_atlas_handle.handle.clone(),
+                sprite: TextureAtlasSprite{
+                    index : 30_usize,
+                    custom_size: Some(Vec2::new(1.3, 1.3)),
+                    ..default()
+                },
+                transform: Transform {
+                    translation: Vec3{ x: 0., y: 0., z: 0.2},
+                    rotation: rot[i % 2],
+                    ..default()
+                },
+                ..default()
+            },
+            ui: UIElement{
+                x: pos[i].0,
+                y: pos[i].1,
+            },
+            name: Name::new(names[i]),
+        }).id();
+        if i % 2 != 0{
+            let tween = Tween::new(
+                EaseFunction::BackInOut,
+                Duration::from_millis(500),
+                TransformPositionLens {
+                    start: Vec3{ x: 0., y: 0., z: 0.2},
+                    end: Vec3{ x: 0., y: 0., z: 0.2}
+                },
+            );
+            commands.entity(entity_id).insert((RightFaith, Animator::new(tween)));
+        }
+    }
+    for i in 0..20{
+        commands.spawn((UIBundle{
+            sprite_bundle: SpriteSheetBundle {
+                texture_atlas: texture_atlas_handle.handle.clone(),
+                sprite: TextureAtlasSprite{
+                    index : 9_usize,
+                    custom_size: Some(Vec2::new(0.8, 0.8)),
+                    ..default()
+                },
+                transform: Transform {
+                    translation: Vec3{ x: 0., y: 0., z: 0.2},
+                    ..default()
+                },
+                ..default()
+            },
+            ui: UIElement{
+                x: 11.8 + i as f32/4.,
+                y: 5.7,
+            },
+            name: Name::new("Faith Point"),
+        }, 
+        FaithPoint{num: i}));
+    }
+
 }
 
 fn draw_chain_borders(
     mut commands: Commands, 
     texture_atlas_handle: Res<SpriteSheetHandle>,
 ){
-    commands.spawn((
-        SpriteSheetBundle {
+    commands.spawn(UIBundle{
+        sprite_bundle: SpriteSheetBundle {
             texture_atlas: texture_atlas_handle.handle.clone(),
             sprite: TextureAtlasSprite{
                 index : 2_usize,
@@ -30,13 +112,14 @@ fn draw_chain_borders(
             },
             ..default()
         },
-        UIElement{
+        ui: UIElement{
             x: 0.5,
             y: -1.
-        }
-    ));
-    commands.spawn((
-        SpriteSheetBundle {
+        },
+        name: Name::new("Grid Border Mask"),
+    });
+    commands.spawn(UIBundle{
+        sprite_bundle: SpriteSheetBundle {
             texture_atlas: texture_atlas_handle.handle.clone(),
             sprite: TextureAtlasSprite{
                 index : 166_usize,
@@ -50,11 +133,12 @@ fn draw_chain_borders(
             },
             ..default()
         },
-        UIElement{
+        ui: UIElement{
             x: 14.,
             y: 0.
-        }
-    ));
+        },
+        name: Name::new("Inventory Tree"),
+    });
     let mut main_square = get_chain_border(31, 31, (1.5, -1.5));
     //let mut side_left = get_chain_border(26, 4, (0.5, -15.5));
     let mut side_right = get_chain_border(24, 31, (30., -1.5));
@@ -64,8 +148,8 @@ fn draw_chain_borders(
     all.append(&mut side_right);
     
     for chain in all{
-        commands.spawn((
-            SpriteSheetBundle {
+        commands.spawn(UIBundle{
+            sprite_bundle: SpriteSheetBundle {
                 texture_atlas: texture_atlas_handle.handle.clone(),
                 sprite: TextureAtlasSprite{
                     index : chain.sprite,
@@ -79,11 +163,12 @@ fn draw_chain_borders(
                 },
                 ..default()
             },
-            UIElement{
+            ui: UIElement{
                 x: chain.position.0,
                 y: chain.position.1
-            }
-        ));
+            },
+            name: Name::new("Small Chain Border")
+        });
     }
 }
 
