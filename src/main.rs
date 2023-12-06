@@ -140,20 +140,10 @@ fn spawn_players(
     // Player 1
     let position = (21,7);
     let player_1 = CreatureBundle::new(&texture_atlas_handle)
-        .with_position(position.0, position.1)
-        .with_species(Species::Terminal);
-    let tween = Tween::new(
-        EaseFunction::QuadraticInOut,
-        Duration::from_millis(200),
-        TransformPositionLens {
-            start: Vec3::new(position.0 as f32, position.1 as f32, 0.),
-            end: Vec3::new(position.0 as f32, position.1 as f32, 0.),
-        },
-    ); 
+        .with_data(position.0, position.1, Species::Terminal);
     commands.spawn((
         player_1, 
         RealityAnchor { player_id: 0},
-        Animator::new(tween)
     ));
 
     // Player 2
@@ -188,8 +178,7 @@ fn summon_walls(
         }; */
         let position = task.1;
         let new_creature = CreatureBundle::new(&texture_atlas_handle)
-            .with_position(position.0, position.1)
-            .with_species(task.0.clone());
+            .with_data(position.0, position.1, task.0.clone());
         let entity_id = commands.spawn(new_creature).id();
         if is_intangible(task.0.clone()){
             commands.entity(entity_id).insert(Intangible);
