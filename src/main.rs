@@ -1,7 +1,7 @@
 use std::time::Duration;
 
 use bevy::{prelude::*, render::camera::ScalingMode, window::WindowMode, input::common_conditions::input_toggle_active};
-use bevy_inspector_egui::quick::WorldInspectorPlugin;
+use bevy_inspector_egui::quick::{WorldInspectorPlugin, ResourceInspectorPlugin};
 use bevy_tweening::{*, lens::TransformPositionLens};
 use components::*;
 use input::*;
@@ -45,6 +45,7 @@ fn main() {
         .register_type::<UIElement>()
         .insert_resource(ClearColor(Color::rgb(0., 0., 0.)))
         .insert_resource(Msaa::Off) // This fixes weird black lines on the tiles.
+        .insert_resource(CameraOffset{uix: 3., uiy: 1., playx: -3.75, playy: 2.})
         .add_systems(PreStartup, load_spritesheet)
         .add_systems(Startup, (setup, spawn_players, summon_walls))
         .add_systems(Update, (camera_follow, zoom_2d, toggle_resolution, hide_and_show_creatures, move_player))
@@ -230,22 +231,31 @@ fn move_player(
     }
 }
 
+#[derive(Resource, Reflect)]
+struct CameraOffset{
+    uix: f32,
+    uiy: f32,
+    playx: f32,
+    playy: f32,
+}
+
 fn camera_follow(
     players: Query<&Transform, With<RealityAnchor>>,
     mut cameras: Query<&mut Transform, (With<Camera>, Without<RealityAnchor>)>,
     mut ui: Query<(&mut Transform, &UIElement), (Without<Camera>, Without<RealityAnchor>)>,
+    offset: Res<CameraOffset>,
 ) {
     for player_transform in &players {
 
         let pos = player_transform.translation;
 
         for mut transform in &mut cameras {
-            transform.translation.x = pos.x+6.; // To offset it to the left
-            transform.translation.y = pos.y;
+            transform.translation.x = pos.x+offset.uix; // To offset it to the left
+            transform.translation.y = pos.y+offset.uiy;
         }
         for (mut transform, ui) in &mut ui {
-            transform.translation.x = ui.x + pos.x-0.8;
-            transform.translation.y = ui.y + pos.y+1.;
+            transform.translation.x = ui.x + pos.x+offset.playx;
+            transform.translation.y = ui.y + pos.y+offset.playy;
         }
     }
 }

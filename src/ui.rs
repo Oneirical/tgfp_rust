@@ -161,7 +161,7 @@ fn draw_chain_borders(
             ..default()
         },
         ui: UIElement{
-            x: 0.5,
+            x: 3.75,
             y: -1.
         },
         name: Name::new("Grid Border Mask"),
