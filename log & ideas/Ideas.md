@@ -37,3 +37,6 @@ The otter's tongue slides off its body, its tip now tasting the ridges of your c
 "Make your choice. The Hypnotic Well awaits."
 
 
+A challenge that is always oneshot or be oneshotted, each attempt = 1 damage to actual hp.
+Senet, like MI minigame.
+"gunslinger" - pick a target, then every turn a status effect has slow moving creatures getting summoned towards it in a straight line.

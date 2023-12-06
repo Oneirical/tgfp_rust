@@ -1,15 +1,17 @@
 use std::{f32::consts::PI, time::Duration};
 
-use bevy::prelude::*;
+use bevy::{prelude::*, sprite::MaterialMesh2dBundle};
 use bevy_tweening::{Tween, EaseFunction, lens::TransformPositionLens, Animator};
 
-use crate::{SpriteSheetHandle, components::{UIElement, RightFaith, RealityAnchor, Faith, FaithPoint}};
+use crate::{SpriteSheetHandle, components::{UIElement, RightFaith, RealityAnchor, Faith, FaithPoint, MinimapTile}, map::{WORLD_HEIGHT, WORLD_WIDTH, WorldMap, xy_idx}, species::{Species, match_species_with_sprite, match_species_with_pixel}};
 
 pub struct UIPlugin;
 
 impl Plugin for UIPlugin {
     fn build(&self, app: &mut App) {
         app.add_systems(Startup, (draw_chain_borders, draw_resource_bars));
+        app.add_systems(PostStartup, draw_minimap);
+        app.add_systems(Update, update_minimap);
     }
 }
 
@@ -25,6 +27,52 @@ fn update_player_faith(
     right_border: Query<&RightFaith>,
 ){
 
+}
+
+fn update_minimap(
+    mut minimap: Query<(&mut TextureAtlasSprite, &MinimapTile)>,
+    query: Query<&Species>,
+    map: Res<WorldMap>,
+){
+    for (mut sprite, tile) in minimap.iter_mut(){
+        let tex = match map.entities[xy_idx(tile.x, tile.y)]{
+            Some(entity) => if let Ok(species) = query.get(entity) { match_species_with_pixel(species.clone()) } else{ panic!("There is an entity in the map that doesn't have a species!")},
+            None => 107,
+        };
+        if sprite.index != tex{
+            sprite.index = tex;
+        }
+    }
+}
+
+fn draw_minimap(
+    mut commands: Commands, 
+    texture_atlas_handle: Res<SpriteSheetHandle>,
+){
+    for x in 0..WORLD_WIDTH{
+        for y in 0..WORLD_HEIGHT{
+            let size_factor = 16.;
+            commands.spawn((UIBundle{
+                sprite_bundle:SpriteSheetBundle {
+                    texture_atlas: texture_atlas_handle.handle.clone(),
+                    sprite: TextureAtlasSprite{
+                        index : 107_usize,
+                        custom_size: Some(Vec2::new(1., 1.)),
+                        ..default()
+                    },
+                    transform: Transform {
+                        translation: Vec3{ x: 0., y: 0., z: 0.2},
+                        ..default()
+                    },
+                    ..default()
+                },
+                ui: UIElement { x: -6.9+x as f32/size_factor, y: 3.4+y as f32/size_factor },
+                name: Name::new("Minimap Tile")
+            },
+            MinimapTile{x, y}
+            ));
+        }
+    }
 }
 
 fn draw_resource_bars(
@@ -139,12 +187,14 @@ fn draw_chain_borders(
         },
         name: Name::new("Inventory Tree"),
     });
-    let mut main_square = get_chain_border(31, 31, (1.5, -1.5));
-    //let mut side_left = get_chain_border(26, 4, (0.5, -15.5));
-    let mut side_right = get_chain_border(24, 31, (30., -1.5));
+    let mut main_square = get_chain_border(31, 31, (8., -1.5));
+    let mut side_left = get_chain_border(6, 6, (-11.5, 11.));
+    let mut side_left_bottom = get_chain_border(6, 24, (-11.5, -5.));
+    let mut side_right = get_chain_border(18, 31, (33.5, -1.5));
     let mut all = Vec::new();
     all.append(&mut main_square);
-    //all.append(&mut side_left);
+    all.append(&mut side_left);
+    all.append(&mut side_left_bottom);
     all.append(&mut side_right);
     
     for chain in all{

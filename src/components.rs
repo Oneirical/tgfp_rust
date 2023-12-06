@@ -40,3 +40,9 @@ pub struct Intangible;
 pub struct FaithPoint{
     pub num: usize,
 }
+
+#[derive(Component)]
+pub struct MinimapTile{
+    pub x: usize,
+    pub y: usize,
+}

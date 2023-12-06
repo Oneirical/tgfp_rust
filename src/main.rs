@@ -46,8 +46,7 @@ fn main() {
         .insert_resource(ClearColor(Color::rgb(0., 0., 0.)))
         .insert_resource(Msaa::Off) // This fixes weird black lines on the tiles.
         .add_systems(PreStartup, load_spritesheet)
-        .add_systems(Startup, (setup, spawn_players))
-        .add_systems(PostStartup, summon_walls)
+        .add_systems(Startup, (setup, spawn_players, summon_walls))
         .add_systems(Update, (camera_follow, zoom_2d, toggle_resolution, hide_and_show_creatures, move_player))
         .insert_resource(ResolutionSettings {
             giga: 80.,
@@ -138,7 +137,7 @@ fn spawn_players(
     texture_atlas_handle: Res<SpriteSheetHandle>,
 ) {
     // Player 1
-    let position = (21,7);
+    let position = (22,8);
     let player_1 = CreatureBundle::new(&texture_atlas_handle)
         .with_data(position.0, position.1, Species::Terminal);
     commands.spawn((
@@ -170,7 +169,7 @@ fn summon_walls(
     texture_atlas_handle: Res<SpriteSheetHandle>,
     mut commands: Commands, 
 ){
-    let queue = get_build_sequence(Vault::EpicWow, (0,0));
+    let queue = get_build_sequence(Vault::EpicWow, (1,1));
     for task in &queue{
         /*let task = match build_list.build_queue.pop(){
             Some(result) => result,
@@ -224,7 +223,7 @@ fn move_player(
             Duration::from_millis(200),
             TransformPositionLens {
                 start,
-                end: Vec3::new(pos.x as f32, pos.y as f32, 0.),
+                end: Vec3::new(pos.x as f32/2., pos.y as f32/2., 0.),
             },
         );
         anim.set_tweenable(tween);
@@ -245,7 +244,7 @@ fn camera_follow(
             transform.translation.y = pos.y;
         }
         for (mut transform, ui) in &mut ui {
-            transform.translation.x = ui.x + pos.x-1.;
+            transform.translation.x = ui.x + pos.x-0.8;
             transform.translation.y = ui.y + pos.y+1.;
         }
     }
@@ -256,7 +255,7 @@ fn hide_and_show_creatures(
     players: Query<&Position, With<RealityAnchor>>,
 ){
     for player_pos in &players {
-        let view_range = 10;
+        let view_range = 20;
         for (mut vis, crea_pos) in &mut creatures {
             if (crea_pos.x as i32-player_pos.x as i32).abs() > view_range || (crea_pos.y as i32-player_pos.y as i32).abs() > view_range {
                 *vis = Visibility::Hidden;

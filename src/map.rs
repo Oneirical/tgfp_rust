@@ -41,7 +41,7 @@ pub fn place_down_new_entities(
         if is_intangible {
             continue;
         }
-        assert_eq!(world_map.entities[xy_idx(position.x, position.y)], None);
+        assert_eq!(world_map.entities[xy_idx(position.x, position.y)], None, "THERE IS A CREATURE SPAWNING ON TOP OF ANOTHER AT POSITION ({0}, {1})!", position.x, position.y);
         world_map.entities[xy_idx(position.x, position.y)] = Some(entity_id);
     }
 }

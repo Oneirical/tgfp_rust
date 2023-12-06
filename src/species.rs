@@ -16,6 +16,12 @@ pub enum Species {
     HypnoWell{dir: usize},
 }
 
+pub enum MapColour {
+    White,
+    Black,
+    Plum,
+}
+
 #[derive(Bundle)]
 pub struct CreatureBundle {
     sprite_bundle: SpriteSheetBundle,
@@ -43,7 +49,7 @@ impl CreatureBundle { // Creatures displayed on screen.
                 texture_atlas: texture_atlas_handle.clone(),
                 sprite: TextureAtlasSprite{
                     index : 0_usize,
-                    custom_size: Some(Vec2::new(1., 1.)),
+                    custom_size: Some(Vec2::new(0.5, 0.5)),
                     ..default()
                 },
                 transform: Transform {
@@ -72,7 +78,7 @@ impl CreatureBundle { // Creatures displayed on screen.
     pub fn with_position(mut self, x: usize, y: usize) -> Self {
         self.position.x = x;
         self.position.y = y;
-        let end = Vec3::new(self.position.x as f32, self.position.y as f32, self.sprite_bundle.transform.translation.z);
+        let end = Vec3::new(self.position.x as f32/2., self.position.y as f32/2., self.sprite_bundle.transform.translation.z);
         let tween = Tween::new(
             EaseFunction::QuadraticInOut,
             Duration::from_millis(1000),
@@ -109,7 +115,7 @@ impl CreatureBundle { // Creatures displayed on screen.
     }
 }
 
-fn match_species_with_sprite(
+pub fn match_species_with_sprite(
     species: &Species
 )-> usize{
     match species{
@@ -123,7 +129,7 @@ fn match_species_with_sprite(
     }
 }
 
-fn match_species_with_name(
+pub fn match_species_with_name(
     species: Species
 )-> &'static str {
     match species{
@@ -137,7 +143,32 @@ fn match_species_with_name(
     }
 }
 
-fn match_species_with_rotation(
+pub fn match_species_with_pixel(
+    species: Species
+) -> usize {
+    match_color_with_pixel(match_species_with_color(species))
+}
+
+fn match_species_with_color(
+    species: Species
+) -> MapColour {
+    match species{
+        Species::Terminal => MapColour::Plum,
+        _ => MapColour::White
+    }
+}
+
+fn match_color_with_pixel(
+    color: MapColour
+) -> usize{
+    match color{
+        MapColour::Black => 107,
+        MapColour::Plum => 109,
+        MapColour::White => 106,
+    }
+}
+
+pub fn match_species_with_rotation(
     species: &Species
 ) -> Quat{
     match species{
