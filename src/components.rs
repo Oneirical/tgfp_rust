@@ -1,6 +1,6 @@
 use bevy::prelude::*;
 
-use crate::species::Species;
+use crate::{species::Species, input::ActionType};
 
 #[derive(Component)]
 pub struct RealityAnchor {
@@ -45,4 +45,9 @@ pub struct FaithPoint{
 pub struct MinimapTile{
     pub x: usize,
     pub y: usize,
+}
+
+#[derive(Component)]
+pub struct QueuedAction{
+    pub action: ActionType,
 }

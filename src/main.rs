@@ -1,12 +1,13 @@
 use std::time::Duration;
 
 use bevy::{prelude::*, render::camera::ScalingMode, window::WindowMode, input::common_conditions::input_toggle_active};
-use bevy_inspector_egui::quick::{WorldInspectorPlugin, ResourceInspectorPlugin};
-use bevy_tweening::{*, lens::TransformPositionLens};
+use bevy_inspector_egui::quick::WorldInspectorPlugin;
+use bevy_tweening::TweeningPlugin;
 use components::*;
 use input::*;
-use map::{WorldMap, MapPlugin, WORLD_WIDTH, WORLD_HEIGHT, xy_idx};
+use map::MapPlugin;
 use species::{CreatureBundle, Species, is_intangible};
+use turn::TurnPlugin;
 use ui::UIPlugin;
 use vaults::{get_build_sequence, Vault};
 
@@ -16,6 +17,7 @@ mod map;
 mod species;
 mod vaults;
 mod ui;
+mod turn;
 
 fn main() {
     App::new()
@@ -39,16 +41,18 @@ fn main() {
         .add_plugins(InputPlugin)
         .add_plugins(TweeningPlugin)
         .add_plugins(UIPlugin)
+        .add_plugins(TurnPlugin)
         .add_plugins(
             WorldInspectorPlugin::default().run_if(input_toggle_active(true, KeyCode::Escape)),
         )
+        .add_state::<TurnState>()
         .register_type::<UIElement>()
         .insert_resource(ClearColor(Color::rgb(0., 0., 0.)))
         .insert_resource(Msaa::Off) // This fixes weird black lines on the tiles.
-        .insert_resource(CameraOffset{uix: 3., uiy: 1., playx: -3.75, playy: 2.})
+        .insert_resource(CameraOffset{uix: 3., uiy: 0., playx: -3.75, playy: 1.})
         .add_systems(PreStartup, load_spritesheet)
         .add_systems(Startup, (setup, spawn_players, summon_walls))
-        .add_systems(Update, (camera_follow, zoom_2d, toggle_resolution, hide_and_show_creatures, move_player))
+        .add_systems(Update, (camera_follow, zoom_2d, toggle_resolution, hide_and_show_creatures))
         .insert_resource(ResolutionSettings {
             giga: 80.,
             large: 64.,
@@ -64,13 +68,21 @@ fn setup(mut commands: Commands) {
     camera_bundle.projection.scaling_mode = ScalingMode::WindowSize(64.);
     //camera_bundle.projection.scale = 0.99;
     commands.spawn(camera_bundle);
-    commands.insert_resource(InputDelay{time: Timer::new(Duration::from_millis(200), TimerMode::Once)});
+    commands.insert_resource(InputDelay{time: Timer::new(Duration::from_millis(100), TimerMode::Once)});
     commands.insert_resource(BuildDelay{time: Timer::new(Duration::from_millis(200), TimerMode::Repeating)});
 }
 
 #[derive(Resource)]
 pub struct SpriteSheetHandle {
     handle: Handle<TextureAtlas>
+}
+
+#[derive(Debug, Clone, Eq, PartialEq, Hash, Default, States)]
+enum TurnState {
+    #[default]
+    AwaitingInput,
+    CalculatingResponse,
+    ExecutingTurn,
 }
 
 #[derive(Resource)]
@@ -145,25 +157,6 @@ fn spawn_players(
         player_1, 
         RealityAnchor { player_id: 0},
     ));
-
-    // Player 2
-    /*
-    let position = (2,2);
-    let player_2 = CreatureBundle::new(&texture_atlas_handle)
-        .with_position(position.0, position.1)
-        .with_id(world_map.creature_count)
-        .with_species(Species::Terminal)
-        .with_rotation(PI)
-        .with_tint(Color::Rgba { red: 0., green: 200., blue: 0., alpha: 1. });
-    commands.spawn((
-        player_2, 
-        RealityAnchor { player_id: 1},
-        BuildQueue { build_queue : Vec::new()}
-    ))
-    .add_rollback();
-    world_map.entities[xy_idx(position.0, position.1)] = world_map.creature_count;
-    world_map.creature_count += 1;
-    */
 }
 
 fn summon_walls(
@@ -183,51 +176,6 @@ fn summon_walls(
         if is_intangible(task.0.clone()){
             commands.entity(entity_id).insert(Intangible);
         }
-    }
-}
-
-fn move_player(
-    mut players: Query<(&Transform, &mut Animator<Transform>, &mut Position), With<RealityAnchor>>,
-    mut world_map: ResMut<WorldMap>,
-    mut action: ResMut<LastAction>,
-) {
-    for (transform, mut anim, mut pos) in &mut players {
-
-        let mut direction = direction(action.last.clone());
-        action.last = ActionType::Nothing;
-
-        if direction == Vec2::ZERO {
-            continue;
-        }
-        if direction.x < 0. && pos.x == 0 || direction.x > 0. && pos.x == WORLD_WIDTH{
-            direction.x = 0.;
-        }
-        if direction.y < 0. && pos.y == 0 || direction.y > 0. && pos.y == WORLD_HEIGHT{
-            direction.y = 0.;
-        }
-        assert!(world_map.entities[xy_idx(pos.x, pos.y)].is_some());
-        let (old_x, old_y) = (pos.x, pos.y);
-        let old_idx = xy_idx(pos.x, pos.y);
-        pos.x = (pos.x as f32 + direction.x) as usize;
-        pos.y = (pos.y as f32 + direction.y) as usize;
-        if world_map.entities[xy_idx(pos.x, pos.y)].is_some() {
-            (pos.x, pos.y) = (old_x, old_y);
-            continue;
-        }
-        let idx = xy_idx(pos.x, pos.y);
-        world_map.entities.swap(old_idx, idx);
-        
-
-        let start = transform.translation;
-        let tween = Tween::new(
-            EaseFunction::QuadraticInOut,
-            Duration::from_millis(200),
-            TransformPositionLens {
-                start,
-                end: Vec3::new(pos.x as f32/2., pos.y as f32/2., 0.),
-            },
-        );
-        anim.set_tweenable(tween);
     }
 }
 

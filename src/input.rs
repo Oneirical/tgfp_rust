@@ -1,74 +1,48 @@
 use bevy::prelude::*;
 
-use crate::InputDelay;
+use crate::{InputDelay, TurnState, components::{RealityAnchor, QueuedAction}};
 
 pub struct InputPlugin;
 
 impl Plugin for InputPlugin {
     fn build(&self, app: &mut App) {
         app.insert_resource(InputBindings{
-            up: KeyCode::Up,
-            down: KeyCode::Down,
-            right: KeyCode::Right,
-            left: KeyCode::Left,
-
-            q: KeyCode::Q,
-            w: KeyCode::W,
-            e: KeyCode::E,
-            r: KeyCode::R,
-
-            one: KeyCode::Key1,
-            two: KeyCode::Key2,
-            three: KeyCode::Key3,
-            four: KeyCode::Key4,
-            five: KeyCode::Key5,
-            six: KeyCode::Key6,
+            up: vec![KeyCode::W, KeyCode::Up],
+            down: vec![KeyCode::S, KeyCode::Down],
+            right: vec![KeyCode::D, KeyCode::Right],
+            left: vec![KeyCode::A, KeyCode::Left],
+            one: vec![KeyCode::Key1],
+            two: vec![KeyCode::Key2],
+            three: vec![KeyCode::Key3],
+            four: vec![KeyCode::Key4],
         });
-        app.insert_resource(LastAction{last: ActionType::Nothing});
-        app.add_systems(Update, await_input);
+        app.add_systems(Update, await_input.run_if(in_state(TurnState::AwaitingInput)));
     }
 }
 
-#[derive(PartialEq, Clone)]
+#[derive(PartialEq, Debug, Clone)]
 pub enum ActionType{
     WalkUp,
     WalkLeft,
     WalkRight,
     WalkDown,
-    QAbility,
-    WAbility,
-    EAbility,
-    RAbility,
-    OneItem,
-    TwoItem,
-    ThreeItem,
-    FourItem,
-    FiveItem,
-    SixItem,
+    Soul1,
+    Soul2,
+    Soul3,
+    Soul4,
     Nothing,
 }
 
-#[derive(Resource)]
-pub struct LastAction{
-    pub last: ActionType
-}
-
-#[derive(Resource)]
+#[derive(Resource, Clone)]
 struct InputBindings{
-    up: KeyCode,
-    down: KeyCode,
-    left: KeyCode,
-    right: KeyCode,
-    q: KeyCode,
-    w: KeyCode,
-    e: KeyCode,
-    r: KeyCode,
-    one: KeyCode,
-    two: KeyCode,
-    three: KeyCode,
-    four: KeyCode,
-    five: KeyCode,
-    six: KeyCode,
+    up: Vec<KeyCode>,
+    down: Vec<KeyCode>,
+    left: Vec<KeyCode>,
+    right: Vec<KeyCode>,
+    one: Vec<KeyCode>,
+    two: Vec<KeyCode>,
+    three: Vec<KeyCode>,
+    four: Vec<KeyCode>,
 }
 
 fn await_input(
@@ -76,57 +50,51 @@ fn await_input(
     time: Res<Time>,
     mut delay: ResMut<InputDelay>,
     bindings: Res<InputBindings>,
-    mut action: ResMut<LastAction>,
+    mut player: Query<&mut QueuedAction, With<RealityAnchor>>,
+    mut next_state: ResMut<NextState<TurnState>>,
 ) {
     if !delay.time.finished() {
         delay.time.tick(time.delta());
     }
     if delay.time.finished() {
         let mut reset_queued = true;
-        if input.pressed(bindings.up){
-            action.last = ActionType::WalkUp;
+        let action = if input.any_pressed(bindings.up.clone()){
+            ActionType::WalkUp
         }
-        else if input.pressed(bindings.down){
-            action.last = ActionType::WalkDown;
+        else if input.any_pressed(bindings.down.clone()){
+            ActionType::WalkDown
         }
-        else if input.pressed(bindings.left){
-            action.last = ActionType::WalkLeft;
+        else if input.any_pressed(bindings.left.clone()){
+            ActionType::WalkLeft
         }
-        else if input.pressed(bindings.right){
-            action.last = ActionType::WalkRight;
+        else if input.any_pressed(bindings.right.clone()){
+            ActionType::WalkRight
         }
-        else if input.pressed(bindings.q){
-            action.last = ActionType::QAbility;
+        else if input.any_pressed(bindings.one.clone()){
+            ActionType::Soul1
         }
-        else if input.pressed(bindings.w){
-            action.last = ActionType::WAbility;
+        else if input.any_pressed(bindings.two.clone()){
+            ActionType::Soul2
         }
-        else if input.pressed(bindings.e){
-            action.last = ActionType::EAbility;
+        else if input.any_pressed(bindings.three.clone()){
+            ActionType::Soul3
         }
-        else if input.pressed(bindings.r){
-            action.last = ActionType::RAbility;
+        else if input.any_pressed(bindings.four.clone()){
+            ActionType::Soul4
         }
-        else if input.pressed(bindings.one){
-            action.last = ActionType::OneItem;
-        }
-        else if input.pressed(bindings.two){
-            action.last = ActionType::TwoItem;
-        }
-        else if input.pressed(bindings.three){
-            action.last = ActionType::ThreeItem;
-        }
-        else if input.pressed(bindings.four){
-            action.last = ActionType::FourItem;
-        }
-        else if input.pressed(bindings.five){
-            action.last = ActionType::FiveItem;
-        }
-        else if input.pressed(bindings.six){
-            action.last = ActionType::SixItem;
-        }
-        else { reset_queued = false;}
-        if reset_queued {delay.time.reset();}
+        else { 
+            reset_queued = false;
+            ActionType::Nothing
+        };
+        if reset_queued {
+            if let Ok(mut queued) = player.get_single_mut() {
+                queued.action = action.clone();
+                next_state.set(TurnState::CalculatingResponse);
+                delay.time.reset();
+            } else {
+                panic!("There are zero or more than 1 players!")
+            }            
+        }        
     }
 
 }

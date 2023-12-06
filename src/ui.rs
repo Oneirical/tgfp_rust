@@ -1,17 +1,17 @@
 use std::{f32::consts::PI, time::Duration};
 
-use bevy::{prelude::*, sprite::MaterialMesh2dBundle};
+use bevy::prelude::*;
 use bevy_tweening::{Tween, EaseFunction, lens::TransformPositionLens, Animator};
 
-use crate::{SpriteSheetHandle, components::{UIElement, RightFaith, RealityAnchor, Faith, FaithPoint, MinimapTile}, map::{WORLD_HEIGHT, WORLD_WIDTH, WorldMap, xy_idx}, species::{Species, match_species_with_sprite, match_species_with_pixel}};
+use crate::{SpriteSheetHandle, components::{UIElement, RightFaith, RealityAnchor, Faith, FaithPoint, MinimapTile}, map::{WORLD_HEIGHT, WORLD_WIDTH, WorldMap, xy_idx}, species::{Species, match_species_with_pixel}, TurnState};
 
 pub struct UIPlugin;
 
 impl Plugin for UIPlugin {
     fn build(&self, app: &mut App) {
-        app.add_systems(Startup, (draw_chain_borders, draw_resource_bars));
+        app.add_systems(Startup, draw_chain_borders);
         app.add_systems(PostStartup, draw_minimap);
-        app.add_systems(Update, update_minimap);
+        app.add_systems(OnEnter(TurnState::AwaitingInput), update_minimap);
     }
 }
 
@@ -166,6 +166,7 @@ fn draw_chain_borders(
         },
         name: Name::new("Grid Border Mask"),
     });
+    /*
     commands.spawn(UIBundle{
         sprite_bundle: SpriteSheetBundle {
             texture_atlas: texture_atlas_handle.handle.clone(),
@@ -187,6 +188,7 @@ fn draw_chain_borders(
         },
         name: Name::new("Inventory Tree"),
     });
+    */
     let mut main_square = get_chain_border(31, 31, (8., -1.5));
     let mut side_left = get_chain_border(6, 6, (-11.5, 11.));
     let mut side_left_bottom = get_chain_border(6, 24, (-11.5, -5.));

@@ -1,6 +1,6 @@
 use std::time::Duration;
 
-use crate::{components::Position, SpriteSheetHandle};
+use crate::{components::{Position, QueuedAction}, SpriteSheetHandle, input::ActionType};
 use bevy::prelude::*;
 use bevy_tweening::{*, lens::TransformPositionLens};
 use std::f32::consts::PI;
@@ -18,7 +18,6 @@ pub enum Species {
 
 pub enum MapColour {
     White,
-    Black,
     Plum,
 }
 
@@ -29,6 +28,7 @@ pub struct CreatureBundle {
     name: Name,
     species: Species,
     position: Position,
+    action: QueuedAction
 }
 
 impl CreatureBundle { // Creatures displayed on screen.
@@ -62,7 +62,8 @@ impl CreatureBundle { // Creatures displayed on screen.
             animation: Animator::new(tween),
             name: Name::new("Bugged Creature"),
             species: Species::BuggedSpecies,
-            position: Position { x: 0, y: 0 }
+            position: Position { x: 0, y: 0 },
+            action: QueuedAction { action: ActionType::Nothing }
         }
     }
     pub fn with_data(
@@ -162,7 +163,6 @@ fn match_color_with_pixel(
     color: MapColour
 ) -> usize{
     match color{
-        MapColour::Black => 107,
         MapColour::Plum => 109,
         MapColour::White => 106,
     }
