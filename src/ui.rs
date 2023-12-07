@@ -9,7 +9,7 @@ pub struct UIPlugin;
 
 impl Plugin for UIPlugin {
     fn build(&self, app: &mut App) {
-        app.add_systems(Startup, draw_chain_borders);
+        app.add_systems(Startup, (draw_chain_borders, draw_soul_deck));
         app.add_systems(PostStartup, draw_minimap);
         app.add_systems(OnEnter(TurnState::AwaitingInput), update_minimap);
     }
@@ -27,6 +27,59 @@ fn update_player_faith(
     right_border: Query<&RightFaith>,
 ){
 
+}
+
+fn draw_soul_deck(
+    mut commands: Commands, 
+    texture_atlas_handle: Res<SpriteSheetHandle>,
+    asset_server: Res<AssetServer>,
+){
+    let sprites = [58, 167];
+    let rot = [PI/2., 0.];
+    for i in 0..8{
+        let spacing = 1.5;
+        commands.spawn((UIBundle{
+            sprite_bundle:SpriteSheetBundle {
+                texture_atlas: texture_atlas_handle.handle.clone(),
+                sprite: TextureAtlasSprite{
+                    index : sprites[i%2],
+                    custom_size: Some(Vec2::new(1., 1.)),
+                    ..default()
+                },
+                transform: Transform {
+                    translation: Vec3{ x: 0., y: 0., z: 0.2},
+                    rotation: Quat::from_rotation_z(rot[i%2]*(i as f32-2.) as f32/2.),
+                    ..default()
+                },
+                ..default()
+            },
+            ui: UIElement { x: (i as f32*PI/4.).cos() * spacing +16.5, y: (i as f32*PI/4.).sin() * spacing+3.},
+            name: Name::new("Wheel Element")
+        },
+        ));
+        let font = asset_server.load("Play-Regular.ttf");
+        let text_style = TextStyle {
+            font: font.clone(),
+            font_size: 20.,
+            color: Color::WHITE,
+        };
+        let spacing = 2.5;
+        let text = ["D","2","W","1","A","3","S","4"];
+        commands.spawn((
+            Text2dBundle {
+                text: Text::from_section(text[i], text_style.clone()),
+                transform: Transform {
+                    translation: Vec3{ x: 0., y: 0., z: 0.2},
+                    scale: Vec3{x: 1./64., y: 1./64., z: 0.},
+                    
+                    ..default()
+                },
+                ..default()
+            },
+            UIElement { x: (i as f32*PI/4.).cos() * spacing +16.5, y: (i as f32*PI/4.).sin() * spacing+3.},
+            Name::new("Wheel Label"),
+        ));
+    }
 }
 
 fn update_minimap(
