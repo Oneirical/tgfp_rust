@@ -1,6 +1,6 @@
 use std::time::Duration;
 
-use crate::{components::{Position, QueuedAction}, SpriteSheetHandle, input::ActionType};
+use crate::{components::{Position, QueuedAction, SoulBreath}, SpriteSheetHandle, input::ActionType};
 use bevy::prelude::*;
 use bevy_tweening::{*, lens::TransformPositionLens};
 use std::f32::consts::PI;
@@ -28,7 +28,8 @@ pub struct CreatureBundle {
     name: Name,
     species: Species,
     position: Position,
-    action: QueuedAction
+    action: QueuedAction,
+    breath: SoulBreath
 }
 
 impl CreatureBundle { // Creatures displayed on screen.
@@ -63,7 +64,8 @@ impl CreatureBundle { // Creatures displayed on screen.
             name: Name::new("Bugged Creature"),
             species: Species::BuggedSpecies,
             position: Position { x: 0, y: 0 },
-            action: QueuedAction { action: ActionType::Nothing }
+            action: QueuedAction { action: ActionType::Nothing },
+            breath: SoulBreath { pile: Vec::new(), held: Vec::new(), discard: Vec::new() }
         }
     }
     pub fn with_data(

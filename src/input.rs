@@ -22,14 +22,8 @@ impl Plugin for InputPlugin {
 
 #[derive(PartialEq, Debug, Clone)]
 pub enum ActionType{
-    WalkUp,
-    WalkLeft,
-    WalkRight,
-    WalkDown,
-    Soul1,
-    Soul2,
-    Soul3,
-    Soul4,
+    Walk { dir: (f32, f32)},
+    SoulCast {slot: usize},
     Nothing,
 }
 
@@ -59,28 +53,28 @@ fn await_input(
     if delay.time.finished() {
         let mut reset_queued = true;
         let action = if input.any_pressed(bindings.up.clone()){
-            ActionType::WalkUp
+            ActionType::Walk { dir: (0.,1.)}
         }
         else if input.any_pressed(bindings.down.clone()){
-            ActionType::WalkDown
+            ActionType::Walk { dir: (0.,-1.)}
         }
         else if input.any_pressed(bindings.left.clone()){
-            ActionType::WalkLeft
+            ActionType::Walk { dir: (-1., 0.)}
         }
         else if input.any_pressed(bindings.right.clone()){
-            ActionType::WalkRight
+            ActionType::Walk { dir: (1., 0.)}
         }
         else if input.any_pressed(bindings.one.clone()){
-            ActionType::Soul1
+            ActionType::SoulCast { slot: 0 }
         }
         else if input.any_pressed(bindings.two.clone()){
-            ActionType::Soul2
+            ActionType::SoulCast { slot: 1 }
         }
         else if input.any_pressed(bindings.three.clone()){
-            ActionType::Soul3
+            ActionType::SoulCast { slot: 2 }
         }
         else if input.any_pressed(bindings.four.clone()){
-            ActionType::Soul4
+            ActionType::SoulCast { slot: 3 }
         }
         else { 
             reset_queued = false;
@@ -97,21 +91,4 @@ fn await_input(
         }        
     }
 
-}
-
-pub fn direction(action: ActionType) -> Vec2 {
-    let mut direction = Vec2::ZERO;
-    if action == ActionType::WalkUp {
-        direction.y = 1.;
-    }
-    if action == ActionType::WalkDown {
-        direction.y = -1.;
-    }
-    if action == ActionType::WalkRight {
-        direction.x = 1.;
-    }
-    if action == ActionType::WalkLeft {
-        direction.x = -1.;
-    }
-    direction
 }

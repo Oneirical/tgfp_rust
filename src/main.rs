@@ -18,6 +18,7 @@ mod species;
 mod vaults;
 mod ui;
 mod turn;
+mod soul;
 
 fn main() {
     App::new()
@@ -52,7 +53,7 @@ fn main() {
         .insert_resource(CameraOffset{uix: 3., uiy: 0., playx: -3.75, playy: 1.})
         .add_systems(PreStartup, load_spritesheet)
         .add_systems(Startup, (setup, spawn_players, summon_walls))
-        .add_systems(Update, (camera_follow, zoom_2d, toggle_resolution, hide_and_show_creatures))
+        .add_systems(Update, (camera_follow, toggle_resolution, hide_and_show_creatures))
         .insert_resource(ResolutionSettings {
             giga: 80.,
             large: 64.,
@@ -111,19 +112,19 @@ fn toggle_resolution(
 ) {
     let mut projection = query_camera.single_mut();
 
-    if keys.just_pressed(KeyCode::Key1) {
+    if keys.just_pressed(KeyCode::Numpad1) {
         projection.scaling_mode = ScalingMode::WindowSize(resolution.tiny);
     }
-    if keys.just_pressed(KeyCode::Key2) {
+    if keys.just_pressed(KeyCode::Numpad2) {
         projection.scaling_mode = ScalingMode::WindowSize(resolution.small);
     }
-    if keys.just_pressed(KeyCode::Key3) {
+    if keys.just_pressed(KeyCode::Numpad3) {
         projection.scaling_mode = ScalingMode::WindowSize(resolution.medium);
     }
-    if keys.just_pressed(KeyCode::Key4) {
+    if keys.just_pressed(KeyCode::Numpad4) {
         projection.scaling_mode = ScalingMode::WindowSize(resolution.large);
     }
-    if keys.just_pressed(KeyCode::Key5) {
+    if keys.just_pressed(KeyCode::Numpad5) {
         projection.scaling_mode = ScalingMode::WindowSize(resolution.giga);
     }
 }
@@ -220,31 +221,4 @@ fn hide_and_show_creatures(
             } else { *vis = Visibility::Visible};
         }
     }
-}
-
-fn zoom_2d(
-    mut q: Query<&mut OrthographicProjection, With<Camera2d>>,
-    input: Res<Input<KeyCode>>,
-    time: Res<Time>,
-) {
-    if input.pressed(KeyCode::O) {
-        let mut projection = q.single_mut();
-
-        // example: zoom in
-        projection.scale += 0.8 * time.delta_seconds();
-        // example: zoom out
-        //projection.scale *= 0.75;
-    
-        // always ensure you end up with sane values
-        // (pick an upper and lower bound for your application)
-        projection.scale = projection.scale.clamp(0.5, 5.0);
-    }
-    else if input.pressed(KeyCode::P) {
-        let mut projection = q.single_mut();
-
-        // example: zoom in
-        projection.scale -= 0.8 * time.delta_seconds();
-        projection.scale = projection.scale.clamp(0.5, 5.0);
-    }
-    
 }

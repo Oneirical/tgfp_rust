@@ -1,6 +1,6 @@
 use bevy::prelude::*;
 
-use crate::{species::Species, input::ActionType};
+use crate::{species::Species, input::ActionType, soul::Soul};
 
 #[derive(Component)]
 pub struct RealityAnchor {
@@ -50,4 +50,11 @@ pub struct MinimapTile{
 #[derive(Component)]
 pub struct QueuedAction{
     pub action: ActionType,
+}
+
+#[derive(Component)]
+pub struct SoulBreath{
+    pub pile: Vec<Soul>,
+    pub held: Vec<Soul>,
+    pub discard: Vec<Soul>,
 }
