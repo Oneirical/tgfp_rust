@@ -11,9 +11,9 @@ Useful for my game? Very likely not. Interesting? Absolutely, I am glad that I u
 
 But the time for messing around has come to an end.
 
-[Behold.]()
+[Behold.](https://yewtu.be/embed/Pbc5QyDZJ7Y?)
 
-I have redone my entire basic game logic and UI in Rust and the Bevy engine (it used to be in pure JavaScript with the PIXI.js library). I'm a big fan of the minimap and the sidebars, but something seems off about the sliding animation when I move around. I will figure this out later.
+I have redone my entire basic game logic and UI in Rust and the Bevy engine (it used to be in pure JavaScript with the PIXI.js library). I'm a big fan of the minimap and the sidebars!
 
 Pros:
 
