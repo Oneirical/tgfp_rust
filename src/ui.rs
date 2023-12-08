@@ -12,6 +12,7 @@ impl Plugin for UIPlugin {
         app.add_systems(Startup, (draw_chain_borders, draw_soul_deck));
         app.add_systems(PostStartup, draw_minimap);
         app.add_systems(OnEnter(TurnState::AwaitingInput), update_minimap);
+        app.insert_resource(CenterOfWheel{x: 16.5, y: 3.});
     }
 }
 
@@ -20,6 +21,12 @@ pub struct UIBundle {
     sprite_bundle: SpriteSheetBundle,
     ui: UIElement,
     name: Name
+}
+
+#[derive(Resource)]
+pub struct CenterOfWheel{
+    pub x: f32,
+    pub y: f32,
 }
 
 fn update_player_faith(
@@ -33,6 +40,7 @@ fn draw_soul_deck(
     mut commands: Commands, 
     texture_atlas_handle: Res<SpriteSheetHandle>,
     asset_server: Res<AssetServer>,
+    ui_center: Res<CenterOfWheel>,
 ){
     let sprites = [58, 167];
     let rot = [PI/2., 0.];
@@ -53,7 +61,7 @@ fn draw_soul_deck(
                 },
                 ..default()
             },
-            ui: UIElement { x: (i as f32*PI/4.).cos() * spacing +16.5, y: (i as f32*PI/4.).sin() * spacing+3.},
+            ui: UIElement { x: (i as f32*PI/4.).cos() * (spacing + 0.2*(1.-(i as f32%2.))) +ui_center.x, y: (i as f32*PI/4.).sin() * (spacing + 0.2*(1.-(i as f32%2.)))+ui_center.y},
             name: Name::new("Wheel Element")
         },
         ));
@@ -70,13 +78,13 @@ fn draw_soul_deck(
                 text: Text::from_section(text[i], text_style.clone()),
                 transform: Transform {
                     translation: Vec3{ x: 0., y: 0., z: 0.2},
-                    scale: Vec3{x: 1./64., y: 1./64., z: 0.},
+                    scale: Vec3{x: 1./64., y: 1./64., z: 0.}, // Set to the camera scaling mode fixed size
                     
                     ..default()
                 },
                 ..default()
             },
-            UIElement { x: (i as f32*PI/4.).cos() * spacing +16.5, y: (i as f32*PI/4.).sin() * spacing+3.},
+            UIElement { x: (i as f32*PI/4.).cos() * spacing +ui_center.x, y: (i as f32*PI/4.).sin() * spacing+ui_center.y},
             Name::new("Wheel Label"),
         ));
     }
@@ -89,7 +97,7 @@ fn update_minimap(
 ){
     for (mut sprite, tile) in minimap.iter_mut(){
         let tex = match map.entities[xy_idx(tile.x, tile.y)]{
-            Some(entity) => if let Ok(species) = query.get(entity) { match_species_with_pixel(species.clone()) } else{ panic!("There is an entity in the map that doesn't have a species!")},
+            Some(entity) => if let Ok(species) = query.get(entity) { match_species_with_pixel(&species) } else{ panic!("There is an entity in the map that doesn't have a species!")},
             None => 107,
         };
         if sprite.index != tex{

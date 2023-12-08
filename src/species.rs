@@ -95,9 +95,9 @@ impl CreatureBundle { // Creatures displayed on screen.
     }
     pub fn with_species(mut self, species: Species) -> Self {
         self.sprite_bundle.sprite.index = match_species_with_sprite(&species);
-        self.name = Name::new(match_species_with_name(species.clone()));
+        self.name = Name::new(match_species_with_name(&species));
         self.sprite_bundle.transform.rotation = match_species_with_rotation(&species);
-        if is_intangible(species.clone()){
+        if is_intangible(&species){
             self.sprite_bundle.transform.translation.z = -0.1;
         }
         self.species = species;
@@ -133,7 +133,7 @@ pub fn match_species_with_sprite(
 }
 
 pub fn match_species_with_name(
-    species: Species
+    species: &Species
 )-> &'static str {
     match species{
         Species::Wall => "Rampart of Nacre",
@@ -147,13 +147,13 @@ pub fn match_species_with_name(
 }
 
 pub fn match_species_with_pixel(
-    species: Species
+    species: &Species
 ) -> usize {
-    match_color_with_pixel(match_species_with_color(species))
+    match_color_with_pixel(&match_species_with_color(species))
 }
 
 fn match_species_with_color(
-    species: Species
+    species: &Species
 ) -> MapColour {
     match species{
         Species::Terminal => MapColour::Plum,
@@ -162,7 +162,7 @@ fn match_species_with_color(
 }
 
 fn match_color_with_pixel(
-    color: MapColour
+    color: &MapColour
 ) -> usize{
     match color{
         MapColour::Plum => 109,
@@ -180,7 +180,7 @@ pub fn match_species_with_rotation(
 }
 
 pub fn is_intangible(
-    species: Species
+    species: &Species
 ) -> bool{
     match species{
         Species::HypnoWell { dir: _ } => true,

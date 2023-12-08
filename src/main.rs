@@ -6,6 +6,7 @@ use bevy_tweening::TweeningPlugin;
 use components::*;
 use input::*;
 use map::MapPlugin;
+use soul::{SoulPlugin, CurrentEntityInUI};
 use species::{CreatureBundle, Species, is_intangible};
 use turn::TurnPlugin;
 use ui::UIPlugin;
@@ -43,6 +44,7 @@ fn main() {
         .add_plugins(TweeningPlugin)
         .add_plugins(UIPlugin)
         .add_plugins(TurnPlugin)
+        .add_plugins(SoulPlugin)
         .add_plugins(
             WorldInspectorPlugin::default().run_if(input_toggle_active(true, KeyCode::Escape)),
         )
@@ -154,10 +156,11 @@ fn spawn_players(
     let position = (22,8);
     let player_1 = CreatureBundle::new(&texture_atlas_handle)
         .with_data(position.0, position.1, Species::Terminal);
-    commands.spawn((
+    let entity = commands.spawn((
         player_1, 
         RealityAnchor { player_id: 0},
-    ));
+    )).id();
+    commands.insert_resource(CurrentEntityInUI{entity});
 }
 
 fn summon_walls(
@@ -174,7 +177,7 @@ fn summon_walls(
         let new_creature = CreatureBundle::new(&texture_atlas_handle)
             .with_data(position.0, position.1, task.0.clone());
         let entity_id = commands.spawn(new_creature).id();
-        if is_intangible(task.0.clone()){
+        if is_intangible(&task.0){
             commands.entity(entity_id).insert(Intangible);
         }
     }
