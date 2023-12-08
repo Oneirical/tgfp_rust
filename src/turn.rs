@@ -1,10 +1,10 @@
-use std::time::Duration;
+use std::{time::Duration, f32::consts::PI};
 
 use bevy::prelude::*;
-use bevy_tweening::{*, lens::TransformPositionLens};
+use bevy_tweening::{*, lens::{TransformPositionLens, TransformScaleLens}};
 use rand::seq::SliceRandom;
 
-use crate::{components::{QueuedAction, RealityAnchor, Position, SoulBreath}, input::ActionType, TurnState, map::{xy_idx, WorldMap, WORLD_WIDTH, WORLD_HEIGHT}};
+use crate::{components::{QueuedAction, RealityAnchor, Position, SoulBreath, UIElement}, input::ActionType, TurnState, map::{xy_idx, WorldMap, WORLD_WIDTH, WORLD_HEIGHT}, soul::Soul, ui::CenterOfWheel};
 
 pub struct TurnPlugin;
 
@@ -29,7 +29,8 @@ fn execute_turn (
     mut creatures: Query<(&QueuedAction, &Transform, &mut SoulBreath, &mut Animator<Transform>, &mut Position)>,
     mut next_state: ResMut<NextState<TurnState>>,
     mut world_map: ResMut<WorldMap>,
-
+    mut souls: Query<(&mut Animator<Transform>, &mut UIElement, &Transform), (With<Soul>, Without<Position>)>,
+    ui_center: Res<CenterOfWheel>,
 ){
     for (queue, transform, mut breath, mut anim, mut pos) in creatures.iter_mut(){
         
@@ -50,6 +51,35 @@ fn execute_turn (
                 match replacement { // Replace the used soul.
                     Some(new_soul) => {
                         breath.held[slot] = new_soul;
+
+                        let slot_coords = [ // TODO: Adjust these to the centerofwheel.
+                            (22.689, 9.561),
+                            (24.811, 9.561),
+                            (22.689, 7.439),
+                            (24.811, 7.439),
+                        ];
+                        if let Ok((mut anim, mut ui, transform), ) = souls.get_mut(new_soul) { 
+
+                            let tween_tr = Tween::new(
+                                EaseFunction::QuadraticInOut,
+                                Duration::from_millis(500),
+                                TransformPositionLens {
+                                    start: transform.translation,
+                                    end: Vec3{ x: slot_coords[slot].0, y: slot_coords[slot].1, z: 0.5},
+                                },
+                            );
+                            let tween_sc = Tween::new(
+                                EaseFunction::QuadraticInOut,
+                                Duration::from_millis(500),
+                                TransformScaleLens {
+                                    start: transform.scale,
+                                    end: Vec3{ x: transform.scale.x*2.2, y: transform.scale.y*2.2, z: 0.},
+                                },
+                            );
+                            let track = Tracks::new([tween_tr, tween_sc]);
+                            anim.set_tweenable(track);
+                            (ui.x, ui.y) = slot_coords[slot];
+                        }
                     },
                     None => panic!("The Breath pile is still empty after reshuffling it!")
                 }

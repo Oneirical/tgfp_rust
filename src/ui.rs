@@ -3,7 +3,7 @@ use std::{f32::consts::PI, time::Duration};
 use bevy::prelude::*;
 use bevy_tweening::{Tween, EaseFunction, lens::TransformPositionLens, Animator};
 
-use crate::{SpriteSheetHandle, components::{UIElement, RightFaith, RealityAnchor, Faith, FaithPoint, MinimapTile}, map::{WORLD_HEIGHT, WORLD_WIDTH, WorldMap, xy_idx}, species::{Species, match_species_with_pixel}, TurnState};
+use crate::{SpriteSheetHandle, components::{UIElement, RightFaith, FaithPoint, MinimapTile}, map::{WORLD_HEIGHT, WORLD_WIDTH, WorldMap, xy_idx}, species::{Species, match_species_with_pixel}, TurnState};
 
 pub struct UIPlugin;
 
@@ -27,13 +27,6 @@ pub struct UIBundle {
 pub struct CenterOfWheel{
     pub x: f32,
     pub y: f32,
-}
-
-fn update_player_faith(
-    player: Query<&Faith, &RealityAnchor>,
-    right_border: Query<&RightFaith>,
-){
-
 }
 
 fn draw_soul_deck(

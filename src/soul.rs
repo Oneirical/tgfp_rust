@@ -73,8 +73,8 @@ fn distribute_some_souls(
     texture_atlas_handle: Res<SpriteSheetHandle>,
     mut player: Query<&mut SoulBreath, With<RealityAnchor>>,
 ){  
-    for _i in 0..30{
-        let soul = Soul::Serene;
+    for i in 0..30{
+        let soul = vec![Soul::Serene, Soul::Feral, Soul::Ordered, Soul::Saintly, Soul::Vile];
         let tween = Tween::new(
             EaseFunction::QuadraticInOut,
             Duration::from_millis(1000),
@@ -87,7 +87,7 @@ fn distribute_some_souls(
             sprite_bundle: SpriteSheetBundle {
                 texture_atlas: texture_atlas_handle.handle.clone(),
                 sprite: TextureAtlasSprite{
-                    index : match_soul_with_sprite(&soul),
+                    index : match_soul_with_sprite(&soul[i%4]),
                     custom_size: Some(Vec2::new(0.25, 0.25)),
                     ..default()
                 },
@@ -99,11 +99,13 @@ fn distribute_some_souls(
             },
             animation: Animator::new(tween),
             name: Name::new("Breathed Soul"),
-            soul,
+            soul: soul[i%4].clone(),
             ui: UIElement { x: 0., y: 0. }
         }).id();
         if let Ok(mut breath) = player.get_single_mut() {
-            breath.discard.push(entity);
+            if i < 4 {breath.held.push(entity)}
+            else if i < 18 {breath.pile.push(entity)}
+            else {breath.discard.push(entity)}
         } else {
             panic!("There are zero or more than 1 players!")
         }   
