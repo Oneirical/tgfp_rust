@@ -4,7 +4,7 @@ use bevy::prelude::*;
 use bevy_tweening::{*, lens::{TransformPositionLens, TransformScaleLens}};
 use rand::seq::SliceRandom;
 
-use crate::{components::{QueuedAction, RealityAnchor, Position, SoulBreath, UIElement}, input::ActionType, TurnState, map::{xy_idx, WorldMap, WORLD_WIDTH, WORLD_HEIGHT}, soul::Soul, ui::CenterOfWheel};
+use crate::{components::{QueuedAction, RealityAnchor, Position, SoulBreath, UIElement}, input::ActionType, TurnState, map::{xy_idx, WorldMap, WORLD_WIDTH, WORLD_HEIGHT}, soul::Soul, ui::CenterOfWheel, axiom::{grab_coords_from_form, CasterInfo, match_soul_with_axiom}, species::Species};
 
 pub struct TurnPlugin;
 
@@ -26,13 +26,13 @@ fn calculate_actions (
 }
 
 fn execute_turn (
-    mut creatures: Query<(&QueuedAction, &Transform, &mut SoulBreath, &mut Animator<Transform>, &mut Position)>,
+    mut creatures: Query<(&QueuedAction, &Transform, &Species, &mut SoulBreath, &mut Animator<Transform>, &mut Position)>,
     mut next_state: ResMut<NextState<TurnState>>,
     mut world_map: ResMut<WorldMap>,
-    mut souls: Query<(&mut Animator<Transform>, &mut UIElement, &Transform), (With<Soul>, Without<Position>)>,
+    mut souls: Query<(&mut Animator<Transform>, &mut UIElement, &Transform, &Soul), Without<Position>>,
     ui_center: Res<CenterOfWheel>,
 ){
-    for (queue, transform, mut breath, mut anim, mut pos) in creatures.iter_mut(){
+    for (queue, transform, species, mut breath, mut anim, mut pos) in creatures.iter_mut(){
         
         match queue.action{
             ActionType::SoulCast { slot } => {
@@ -40,6 +40,18 @@ fn execute_turn (
                     Some(soul) => soul,
                     None => continue
                 };
+
+                if let Ok((_anim, _ui, _transform, soul_id), ) = souls.get(soul) {
+                    let axioms = breath.axioms.clone();
+                    let (form, function) = axioms[match_soul_with_axiom(soul_id)].clone();
+                    let targets = grab_coords_from_form(&world_map.entities, form, CasterInfo{ pos: (pos.x,pos.y), species: species.clone()});
+                    for target in targets.entities {
+                        world_map.targeted_axioms.push((target, function.clone()));
+                    }
+                } else {
+                    panic!("The used Soul did not have a soul type!");
+                }
+
                 breath.discard.push(soul); // Move the soul to the discard.
                 if breath.pile.is_empty() { // If empty, reshuffle.
                     breath.discard.shuffle(&mut rand::thread_rng());
@@ -58,7 +70,7 @@ fn execute_turn (
                             (22.689, 7.439),
                             (24.811, 7.439),
                         ];
-                        if let Ok((mut anim, mut ui, transform), ) = souls.get_mut(new_soul) { 
+                        if let Ok((mut anim, mut ui, transform, soul_id), ) = souls.get_mut(new_soul) { 
 
                             let tween_tr = Tween::new(
                                 EaseFunction::QuadraticInOut,

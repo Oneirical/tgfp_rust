@@ -103,7 +103,7 @@ fn distribute_some_souls(
             ui: UIElement { x: 0., y: 0. }
         }).id();
         if let Ok(mut breath) = player.get_single_mut() {
-            if i < 4 {breath.pile.push(entity)}
+            if i < 4 {breath.held.push(entity)}
             else if i < 18 {breath.pile.push(entity)}
             else {breath.discard.push(entity)}
         } else {

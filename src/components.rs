@@ -1,6 +1,6 @@
 use bevy::prelude::*;
 
-use crate::{species::Species, input::ActionType};
+use crate::{species::Species, input::ActionType, axiom::{Form, Function}};
 
 #[derive(Component)]
 pub struct RealityAnchor {
@@ -50,6 +50,7 @@ pub struct MinimapTile{
 #[derive(Component)]
 pub struct QueuedAction{
     pub action: ActionType,
+    pub function: Vec<Function>,
 }
 
 #[derive(Component)]
@@ -57,4 +58,5 @@ pub struct SoulBreath{
     pub pile: Vec<Entity>,
     pub held: Vec<Entity>,
     pub discard: Vec<Entity>,
+    pub axioms: Vec<(Form, Function)>,
 }

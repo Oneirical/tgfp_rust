@@ -1,12 +1,12 @@
 use bevy::prelude::*;
 
-use crate::components::{Position, Intangible};
+use crate::{components::{Position, Intangible}, axiom::Function};
 
 pub struct MapPlugin;
 
 impl Plugin for MapPlugin {
     fn build(&self, app: &mut App) {
-        app.insert_resource(WorldMap{ entities: generate_world_vector()});
+        app.insert_resource(WorldMap{ entities: generate_world_vector(), targeted_axioms: Vec::new()});
         app.add_systems(Update, place_down_new_entities);
     }
 }
@@ -17,6 +17,7 @@ pub const WORLD_HEIGHT: usize = 45;
 #[derive(Resource)]
 pub struct WorldMap {
     pub entities: Vec<Option<Entity>>,
+    pub targeted_axioms: Vec<(Entity,Function)>,
 }
 
 fn generate_world_vector() -> Vec<Option<Entity>>{
@@ -31,6 +32,10 @@ fn generate_world_vector() -> Vec<Option<Entity>>{
 
 pub fn xy_idx (x: usize, y: usize) -> usize{
     (y * WORLD_WIDTH) + x
+}
+
+pub fn get_entity_at_coords (map: &Vec<Option<Entity>>, x: usize, y: usize) -> Option<Entity> {
+    map[xy_idx(x, y)]
 }
 
 pub fn place_down_new_entities(
