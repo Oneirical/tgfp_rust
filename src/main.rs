@@ -87,6 +87,7 @@ enum TurnState {
     AwaitingInput,
     CalculatingResponse,
     ExecutingTurn,
+    DispensingFunctions
 }
 
 #[derive(Resource)]

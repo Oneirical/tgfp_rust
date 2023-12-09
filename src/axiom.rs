@@ -16,7 +16,7 @@ pub enum Form {
 #[derive(Clone)]
 pub enum Function {
     Empty,
-    Dash { pow: usize },
+    Dash { dist: usize },
     DiscardSlot { slot: usize },
 }
 
@@ -37,9 +37,11 @@ pub struct ReturnedForm{
     pub coords: Vec<(usize,usize)>,
 }
 
+#[derive(Clone)]
 pub struct CasterInfo{
     pub pos: (usize,usize),
     pub species: Species,
+    pub momentum: (i32,i32),
 }
 
 pub fn grab_coords_from_form( // vec in vec for better, synchronized animations?

@@ -22,7 +22,7 @@ impl Plugin for InputPlugin {
 
 #[derive(PartialEq, Debug, Clone)]
 pub enum ActionType{
-    Walk { dir: (f32, f32)},
+    Walk { momentum: (i32, i32)},
     SoulCast {slot: usize},
     Nothing,
 }
@@ -53,16 +53,16 @@ fn await_input(
     if delay.time.finished() {
         let mut reset_queued = true;
         let action = if input.any_pressed(bindings.up.clone()){
-            ActionType::Walk { dir: (0.,1.)}
+            ActionType::Walk { momentum: (0,1)}
         }
         else if input.any_pressed(bindings.down.clone()){
-            ActionType::Walk { dir: (0.,-1.)}
+            ActionType::Walk { momentum: (0,-1)}
         }
         else if input.any_pressed(bindings.left.clone()){
-            ActionType::Walk { dir: (-1., 0.)}
+            ActionType::Walk { momentum: (-1, 0)}
         }
         else if input.any_pressed(bindings.right.clone()){
-            ActionType::Walk { dir: (1., 0.)}
+            ActionType::Walk { momentum: (1, 0)}
         }
         else if input.any_pressed(bindings.one.clone()){
             ActionType::SoulCast { slot: 0 }

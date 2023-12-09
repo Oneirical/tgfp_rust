@@ -11,6 +11,7 @@ pub struct RealityAnchor {
 pub struct Position {
     pub x: usize,
     pub y: usize,
+    pub momentum: (i32, i32),
 }
 
 #[derive(Component)]
