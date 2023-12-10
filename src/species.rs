@@ -66,7 +66,7 @@ impl CreatureBundle { // Creatures displayed on screen.
             position: Position { x: 0, y: 0, momentum: (-1, 0)},
             action: QueuedAction { action: ActionType::Nothing},
             breath: SoulBreath { pile: Vec::new(), held: Vec::new(), discard: Vec::new(), axioms: vec![
-                (Form::Ego, Function::LinearDash { dist: 3 }),
+                (Form::Ego, Function::LinearDash { dist: 0 }),
                 (Form::Empty, Function::Empty),
                 (Form::Empty, Function::Empty),
                 (Form::Empty, Function::Empty),

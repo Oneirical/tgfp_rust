@@ -4,7 +4,7 @@ use bevy::prelude::*;
 use bevy_tweening::{*, lens::{TransformPositionLens, TransformScaleLens}};
 use rand::seq::SliceRandom;
 
-use crate::{components::{QueuedAction, RealityAnchor, Position, SoulBreath, UIElement}, input::ActionType, TurnState, map::{xy_idx, WorldMap, is_in_bounds, bresenham_line}, soul::Soul, ui::CenterOfWheel, axiom::{grab_coords_from_form, CasterInfo, match_soul_with_axiom, Function}, species::Species, CameraOffset, ui_to_transform};
+use crate::{components::{QueuedAction, RealityAnchor, Position, SoulBreath, UIElement}, input::ActionType, TurnState, map::{xy_idx, WorldMap, is_in_bounds, bresenham_line}, soul::{Soul, get_soul_rot_position}, ui::CenterOfWheel, axiom::{grab_coords_from_form, CasterInfo, match_soul_with_axiom, Function}, species::Species, CameraOffset, ui_to_transform};
 
 pub struct TurnPlugin;
 
@@ -71,6 +71,7 @@ fn dispense_functions(
     mut souls: Query<(&mut Animator<Transform>, &mut UIElement, &Transform, &Soul), Without<Position>>,
     ui_center: Res<CenterOfWheel>,
     cam_offset: Res<CameraOffset>,
+    time: Res<Time>,
 ){
     let mut next_axioms = Vec::new();
     for (entity, function, info) in world_map.targeted_axioms.clone().iter(){
@@ -130,8 +131,60 @@ fn dispense_functions(
                 Function::DiscardSoul { soul, slot } => {
                     let player_trans = if let Ok(player_transform) = player.get_single() {player_transform.translation } else { panic!("0 or 2+ players found!")};
                     let (offx, offy) = (player_trans.x, player_trans.y);
+
+                    if let Ok((mut anim, mut ui, transform, soul_id), ) = souls.get_mut(soul) { 
+                        let final_pos = get_soul_rot_position(soul_id, (ui_center.x, ui_center.y), true, time.elapsed_seconds_wrapped()+0.5, breath.discard.len());
+                        let final_pos_trans = ui_to_transform(final_pos.0, final_pos.1, (offx, offy), (cam_offset.playx, cam_offset.playy));
+                        let tween_tr = Tween::new(
+                            EaseFunction::QuadraticInOut,
+                            Duration::from_millis(500),
+                            TransformPositionLens {
+                                start: transform.translation,
+                                end: Vec3{ x: final_pos_trans.0, y: final_pos_trans.1, z: 0.5},
+                            },
+                        );
+                        let tween_sc = Tween::new(
+                            EaseFunction::QuadraticInOut,
+                            Duration::from_millis(500),
+                            TransformScaleLens {
+                                start: transform.scale,
+                                end: Vec3{ x: transform.scale.x/3., y: transform.scale.y/3., z: 0.},
+                            },
+                        );
+                        let track = Tracks::new([tween_tr, tween_sc]);
+                        anim.set_tweenable(track);
+                        (ui.x, ui.y) = final_pos;
+                    }
+
                     breath.discard.push(soul); // Move the soul to the discard.
+
                     if breath.pile.is_empty() { // If empty, reshuffle.
+                        for i in breath.discard.iter().enumerate() {
+                            if let Ok((mut anim, mut ui, transform, soul_id), ) = souls.get_mut(*i.1) { 
+                                let final_pos = get_soul_rot_position(soul_id, (ui_center.x, ui_center.y), false, time.elapsed_seconds_wrapped()+0.5, i.0);
+                                let final_pos_trans = ui_to_transform(final_pos.0, final_pos.1, (offx, offy), (cam_offset.playx, cam_offset.playy));
+                                let tween_tr = Tween::new(
+                                    EaseFunction::QuadraticInOut,
+                                    Duration::from_millis(500),
+                                    TransformPositionLens {
+                                        start: transform.translation,
+                                        end: Vec3{ x: final_pos_trans.0, y: final_pos_trans.1, z: 0.5},
+                                    },
+                                );
+                                let tween_sc = Tween::new(
+                                    EaseFunction::QuadraticInOut,
+                                    Duration::from_millis(500),
+                                    TransformScaleLens {
+                                        start: transform.scale,
+                                        end: Vec3{ x: 1., y: 1., z: 0.},
+                                    },
+                                );
+                                let track = Tracks::new([tween_tr, tween_sc]);
+                                anim.set_tweenable(track);
+                                (ui.x, ui.y) = final_pos;
+                            }
+                            else{ panic!("A soul in the draw pile has no UIElement component!")};
+                        }
                         breath.discard.shuffle(&mut rand::thread_rng());
                         let mut new_content = breath.discard.clone();
                         breath.pile.append(&mut new_content);

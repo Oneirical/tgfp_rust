@@ -46,22 +46,9 @@ fn soul_rotation(
 ){
     let (draw, held, disc) = if let Ok(breath) = query.get(current.entity) { (&breath.pile, &breath.held, &breath.discard) } 
     else{ panic!("The entity meant to be represented in the UI doesn't have a SoulBreath component!")};
-    let spacing = 3.;
     for i in draw.iter().enumerate() {
         if let Ok((mut ui, soul_type)) = soul.get_mut(*i.1) {
-            let offset = 30.15;
-            let dist_between_souls = 412.;
-            let slide_factor = match soul_type {
-                Soul::Saintly => i.0 as f32*PI/dist_between_souls,
-                Soul::Ordered => (1.*offset)+i.0 as f32*PI/dist_between_souls,
-                Soul::Feral => (2.*offset)+i.0 as f32*PI/dist_between_souls,
-                Soul::Vile => (3.*offset)+i.0 as f32*PI/dist_between_souls,
-                Soul::Serene => (4.*offset)+i.0 as f32*PI/dist_between_souls,
-            };
-            (ui.x, ui.y) = (
-                (slide_factor + time.elapsed_seconds_wrapped()*PI/5.).cos() * spacing +ui_center.x,
-                (slide_factor + time.elapsed_seconds_wrapped()*PI/5.).sin() * spacing +ui_center.y,
-            );
+            (ui.x, ui.y) = get_soul_rot_position(soul_type, (ui_center.x, ui_center.y), false, time.elapsed_seconds_wrapped(), i.0);
         }
         else{ panic!("A soul in the draw pile has no UIElement component!")};
     }
@@ -77,16 +64,35 @@ fn soul_rotation(
         }
         else{ panic!("A soul in the draw pile has no UIElement component!")};
     }
-    let spacing = 0.6;
     for i in disc.iter().enumerate() {
-        if let Ok((mut ui, _soul_type)) = soul.get_mut(*i.1) { 
-            (ui.x, ui.y) = (
-                (i.0 as f32*PI/32. + time.elapsed_seconds_wrapped()*PI/5.).cos() * spacing +ui_center.x,
-                (i.0 as f32*PI/32. + time.elapsed_seconds_wrapped()*PI/5.).sin() * spacing +ui_center.y,
-            );
+        if let Ok((mut ui, soul_type)) = soul.get_mut(*i.1) { 
+            (ui.x, ui.y) = get_soul_rot_position(soul_type, (ui_center.x, ui_center.y), true, time.elapsed_seconds_wrapped(), i.0);
         }
         else{ panic!("A soul in the draw pile has no UIElement component!")};
     }
+}
+
+pub fn get_soul_rot_position(
+    soul_type: &Soul,
+    ui_center: (f32, f32),
+    is_discard: bool,
+    time: f32,
+    stack_pos: usize,
+) -> (f32, f32){
+    let spacing = if is_discard { 4. } else { 3. };
+    let offset = 30.15;
+    let dist_between_souls = 412.;
+    let slide_factor = match soul_type {
+        Soul::Saintly => stack_pos as f32*PI/dist_between_souls,
+        Soul::Ordered => (1.*offset)+stack_pos as f32*PI/dist_between_souls,
+        Soul::Feral => (2.*offset)+stack_pos as f32*PI/dist_between_souls,
+        Soul::Vile => (3.*offset)+stack_pos as f32*PI/dist_between_souls,
+        Soul::Serene => (4.*offset)+stack_pos as f32*PI/dist_between_souls,
+    };
+    (
+        (slide_factor + time*-PI/5.).cos() * spacing +ui_center.0,
+        (slide_factor + time*-PI/5.).sin() * spacing +ui_center.1,
+    )
 }
 
 fn distribute_some_souls(
@@ -94,7 +100,7 @@ fn distribute_some_souls(
     texture_atlas_handle: Res<SpriteSheetHandle>,
     mut player: Query<&mut SoulBreath, With<RealityAnchor>>,
 ){  
-    for i in 0..30{
+    for i in 0..100{
         let soul = vec![Soul::Serene, Soul::Feral, Soul::Ordered, Soul::Saintly, Soul::Vile];
         let tween = Tween::new(
             EaseFunction::QuadraticInOut,
@@ -130,7 +136,7 @@ fn distribute_some_souls(
         if let Ok(mut breath) = player.get_single_mut() {
             if i < 4 {breath.held.push(entity)}
             else if i < 18 {breath.pile.push(entity)}
-            else {breath.pile.push(entity)}
+            else {breath.discard.push(entity)}
         } else {
             panic!("There are zero or more than 1 players!")
         }   

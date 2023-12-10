@@ -12,7 +12,7 @@ impl Plugin for UIPlugin {
         app.add_systems(Startup, (draw_chain_borders, draw_soul_deck));
         app.add_systems(PostStartup, draw_minimap);
         app.add_systems(OnEnter(TurnState::AwaitingInput), update_minimap);
-        app.insert_resource(CenterOfWheel{x: 16.5, y: 3.});
+        app.insert_resource(CenterOfWheel{x: 16.5, y: 1.});
     }
 }
 
