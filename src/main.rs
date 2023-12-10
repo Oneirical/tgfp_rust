@@ -214,6 +214,14 @@ fn camera_follow(
     }
 }
 
+pub fn ui_to_transform (x: f32, y: f32, player_off: (f32, f32), cam_off: (f32, f32)) -> (f32, f32) {
+    (x + player_off.0 + cam_off.0, y + player_off.1 + cam_off.1)
+}
+
+pub fn transform_to_ui (x: f32, y: f32, player_off: (f32, f32), cam_off: (f32, f32)) -> (f32, f32) {
+    (x - player_off.0 - cam_off.0, y - player_off.1 - cam_off.1)
+}
+
 fn hide_and_show_creatures(
     mut creatures: Query<(&mut Visibility, &Position)>,
     players: Query<&Position, With<RealityAnchor>>,

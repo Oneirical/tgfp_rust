@@ -64,16 +64,16 @@ fn await_input(
         else if input.any_pressed(bindings.right.clone()){
             ActionType::Walk { momentum: (1, 0)}
         }
-        else if input.any_pressed(bindings.one.clone()){
+        else if input.any_just_pressed(bindings.one.clone()){
             ActionType::SoulCast { slot: 0 }
         }
-        else if input.any_pressed(bindings.two.clone()){
+        else if input.any_just_pressed(bindings.two.clone()){
             ActionType::SoulCast { slot: 1 }
         }
-        else if input.any_pressed(bindings.three.clone()){
+        else if input.any_just_pressed(bindings.three.clone()){
             ActionType::SoulCast { slot: 2 }
         }
-        else if input.any_pressed(bindings.four.clone()){
+        else if input.any_just_pressed(bindings.four.clone()){
             ActionType::SoulCast { slot: 3 }
         }
         else { 

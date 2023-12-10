@@ -16,8 +16,10 @@ pub enum Form {
 #[derive(Clone)]
 pub enum Function {
     Empty,
-    Dash { dist: usize },
-    DiscardSlot { slot: usize },
+    Dash { dx: i32, dy: i32 }, // Position is incremented by dx and dy, but stops when it hits an edge or a creature.
+    Teleport { x: usize, y: usize }, // 
+    LinearDash { dist: usize },
+    DiscardSoul { soul: Entity, slot: usize },
 }
 
 pub fn match_soul_with_axiom(

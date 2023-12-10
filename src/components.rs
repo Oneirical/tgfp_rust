@@ -51,7 +51,6 @@ pub struct MinimapTile{
 #[derive(Component)]
 pub struct QueuedAction{
     pub action: ActionType,
-    pub function: Vec<Function>,
 }
 
 #[derive(Component)]

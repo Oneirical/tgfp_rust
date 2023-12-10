@@ -4,7 +4,7 @@ use bevy::prelude::*;
 use bevy_tweening::{*, lens::{TransformPositionLens, TransformScaleLens}};
 use rand::seq::SliceRandom;
 
-use crate::{components::{QueuedAction, RealityAnchor, Position, SoulBreath, UIElement}, input::ActionType, TurnState, map::{xy_idx, WorldMap, WORLD_WIDTH, WORLD_HEIGHT, is_in_bounds, bresenham_line}, soul::Soul, ui::CenterOfWheel, axiom::{grab_coords_from_form, CasterInfo, match_soul_with_axiom, Function}, species::Species};
+use crate::{components::{QueuedAction, RealityAnchor, Position, SoulBreath, UIElement}, input::ActionType, TurnState, map::{xy_idx, WorldMap, is_in_bounds, bresenham_line}, soul::Soul, ui::CenterOfWheel, axiom::{grab_coords_from_form, CasterInfo, match_soul_with_axiom, Function}, species::Species, transform_to_ui, CameraOffset, ui_to_transform};
 
 pub struct TurnPlugin;
 
@@ -30,8 +30,7 @@ fn execute_turn (
     mut creatures: Query<(Entity, &QueuedAction, &Transform, &Species, &mut SoulBreath, &mut Animator<Transform>, &mut Position)>,
     mut next_state: ResMut<NextState<TurnState>>,
     mut world_map: ResMut<WorldMap>,
-    mut souls: Query<(&mut Animator<Transform>, &mut UIElement, &Transform, &Soul), Without<Position>>,
-    ui_center: Res<CenterOfWheel>,
+    souls: Query<(&mut Animator<Transform>, &mut UIElement, &Transform, &Soul), Without<Position>>,
 ){
     for (entity, queue, transform, species, mut breath, mut anim, mut pos) in creatures.iter_mut(){
         
@@ -41,11 +40,10 @@ fn execute_turn (
                     Some(soul) => soul,
                     None => continue
                 };
-
+                let info = CasterInfo{ pos: (pos.x,pos.y), species: species.clone(), momentum: pos.momentum};
                 if let Ok((_anim, _ui, _transform, soul_id), ) = souls.get(soul) {
                     let axioms = breath.axioms.clone();
                     let (form, function) = axioms[match_soul_with_axiom(soul_id)].clone();
-                    let info = CasterInfo{ pos: (pos.x,pos.y), species: species.clone(), momentum: pos.momentum};
                     let targets = grab_coords_from_form(&world_map.entities, form, info.clone());
                     for target in targets.entities {
                         world_map.targeted_axioms.push((target, function.clone(), info.clone()));
@@ -54,52 +52,10 @@ fn execute_turn (
                     panic!("The used Soul did not have a soul type!");
                 }
 
-                breath.discard.push(soul); // Move the soul to the discard.
-                if breath.pile.is_empty() { // If empty, reshuffle.
-                    breath.discard.shuffle(&mut rand::thread_rng());
-                    let mut new_content = breath.discard.clone();
-                    breath.pile.append(&mut new_content);
-                    breath.discard.clear();
-                }
-                let replacement = breath.pile.pop();
-                match replacement { // Replace the used soul.
-                    Some(new_soul) => {
-                        breath.held[slot] = new_soul;
-
-                        let slot_coords = [ // TODO: Adjust these to the centerofwheel.
-                            (22.689, 9.561),
-                            (24.811, 9.561),
-                            (22.689, 7.439),
-                            (24.811, 7.439),
-                        ];
-                        if let Ok((mut anim, mut ui, transform, soul_id), ) = souls.get_mut(new_soul) { 
-
-                            let tween_tr = Tween::new(
-                                EaseFunction::QuadraticInOut,
-                                Duration::from_millis(500),
-                                TransformPositionLens {
-                                    start: transform.translation,
-                                    end: Vec3{ x: slot_coords[slot].0, y: slot_coords[slot].1, z: 0.5},
-                                },
-                            );
-                            let tween_sc = Tween::new(
-                                EaseFunction::QuadraticInOut,
-                                Duration::from_millis(500),
-                                TransformScaleLens {
-                                    start: transform.scale,
-                                    end: Vec3{ x: transform.scale.x*2.2, y: transform.scale.y*2.2, z: 0.},
-                                },
-                            );
-                            let track = Tracks::new([tween_tr, tween_sc]);
-                            anim.set_tweenable(track);
-                            (ui.x, ui.y) = slot_coords[slot];
-                        }
-                    },
-                    None => panic!("The Breath pile is still empty after reshuffling it!")
-                }
+                world_map.targeted_axioms.push((entity, Function::DiscardSoul { soul, slot }, info.clone()));
             }
             ActionType::Walk { momentum } => {
-                world_map.targeted_axioms.push((entity, Function::Dash { dist: 1 }, CasterInfo{pos: (pos.x, pos.y), species: species.clone(), momentum}));
+                world_map.targeted_axioms.push((entity, Function::LinearDash { dist: 1 }, CasterInfo{pos: (pos.x, pos.y), species: species.clone(), momentum}));
             },
             ActionType::Nothing => ()
         };
@@ -111,31 +67,25 @@ fn dispense_functions(
     mut creatures: Query<(&QueuedAction, &Transform, &Species, &mut SoulBreath, &mut Animator<Transform>, &mut Position)>,
     mut next_state: ResMut<NextState<TurnState>>,
     mut world_map: ResMut<WorldMap>,
+    player: Query<&Transform, With<RealityAnchor>>,
     mut souls: Query<(&mut Animator<Transform>, &mut UIElement, &Transform, &Soul), Without<Position>>,
+    ui_center: Res<CenterOfWheel>,
+    cam_offset: Res<CameraOffset>,
 ){
     for (i, (entity, function, info)) in world_map.targeted_axioms.clone().iter().enumerate(){
         if let Ok((queue, transform, species, mut breath, mut anim, mut pos)) = creatures.get_mut(entity.to_owned()) {
             let function = function.to_owned();
             match function {
-                Function::Dash { dist } => {
-                    let dest = (dist as i32 * info.momentum.0, dist as i32 * info.momentum.1);
-                    let mut line = bresenham_line(pos.x as i32, pos.y as i32, pos.x as i32 + dest.0, pos.y as i32 + dest.1);
-                    let old_idx = xy_idx(pos.x, pos.y);
-                    line.remove(0); // remove the origin point
-                    for (nx, ny) in line {
-                        if is_in_bounds(nx, ny){
-                            if world_map.entities[xy_idx(nx as usize, ny as usize)].is_some() {
-                                // TODO Raise a collision event here
-                                break;
-                            }
-                            else {(pos.x, pos.y) = (nx as usize, ny as usize)}
-                        } else {
-                            break;
-                        }
+                Function::Teleport { x, y } => {
+                    if world_map.entities[xy_idx(x, y)].is_some() { // Cancel teleport if target is occupied
+                        continue;
                     }
+                    let dest = (pos.x, pos.y);
+                    let old_idx = xy_idx(pos.x, pos.y);
+                    (pos.x, pos.y) = (x, y);
+                    let dest = (pos.x as i32 -dest.0 as i32, pos.y as i32-dest.1 as i32);
                     let idx = xy_idx(pos.x, pos.y);
                     world_map.entities.swap(old_idx, idx);
-
                     let max = dest.0.abs().max(dest.1.abs());
                     pos.momentum = if max == dest.0.abs(){ // Reassign the new momentum.
                         (dest.0/dest.0.abs(), 0)
@@ -153,8 +103,80 @@ fn dispense_functions(
                         },
                     );
                     anim.set_tweenable(tween);
+                }
+                Function::Dash { dx, dy } => {
+                    let dest = (dx, dy);
+                    let mut line = bresenham_line(pos.x as i32, pos.y as i32, pos.x as i32 + dest.0, pos.y as i32 + dest.1);
+                    line.remove(0); // remove the origin point
+                    let (mut fx, mut fy) = (pos.x, pos.y);
+                    for (nx, ny) in line {
+                        if is_in_bounds(nx, ny){
+                            if world_map.entities[xy_idx(nx as usize, ny as usize)].is_some() {
+                                // TODO Raise a collision event here
+                                break;
+                            }
+                            else {(fx, fy) = (nx as usize, ny as usize)}
+                        } else {
+                            break;
+                        }
+                    }
+                    world_map.targeted_axioms.push((*entity, Function::Teleport { x: fx, y: fy }, info.clone()));
                 },
-                Function::DiscardSlot { slot } => todo!(),
+                Function::LinearDash { dist } => {
+                    let dest = (dist as i32 * info.momentum.0, dist as i32 * info.momentum.1);
+                    world_map.targeted_axioms.push((*entity, Function::Dash { dx: dest.0, dy: dest.1 }, info.clone()));
+                }
+                Function::DiscardSoul { soul, slot } => {
+                    let player_trans = if let Ok(player_transform) = player.get_single() {player_transform.translation } else { panic!("0 or 2+ players found!")};
+                    let (offx, offy) = (player_trans.x, player_trans.y);
+                    breath.discard.push(soul); // Move the soul to the discard.
+                    if breath.pile.is_empty() { // If empty, reshuffle.
+                        breath.discard.shuffle(&mut rand::thread_rng());
+                        let mut new_content = breath.discard.clone();
+                        breath.pile.append(&mut new_content);
+                        breath.discard.clear();
+                    }
+                    let replacement = breath.pile.pop();
+                    match replacement { // Replace the used soul.
+                        Some(new_soul) => {
+                            breath.held[slot] = new_soul;
+    
+                            let slot_coords_ui = [
+                                ((1.*PI/4.).cos() * 1.5 +ui_center.x, (1.*PI/4.).sin() * 1.5 +ui_center.y),
+                                ((3.*PI/4.).cos() * 1.5 +ui_center.x, (3.*PI/4.).sin() * 1.5 +ui_center.y),
+                                ((5.*PI/4.).cos() * 1.5 +ui_center.x, (5.*PI/4.).sin() * 1.5 +ui_center.y),
+                                ((7.*PI/4.).cos() * 1.5 +ui_center.x, (7.*PI/4.).sin() * 1.5 +ui_center.y)
+                            ];
+                            let mut slot_coords_transform = Vec::with_capacity(4);
+                            for i in slot_coords_ui{
+                                slot_coords_transform.push(ui_to_transform(i.0, i.1, (offx, offy), (cam_offset.playx, cam_offset.playy)));
+                            }
+                            if let Ok((mut anim, mut ui, transform, soul_id), ) = souls.get_mut(new_soul) { 
+    
+                                let tween_tr = Tween::new(
+                                    EaseFunction::QuadraticInOut,
+                                    Duration::from_millis(500),
+                                    TransformPositionLens {
+                                        start: transform.translation,
+                                        end: Vec3{ x: slot_coords_transform[slot].0, y: slot_coords_transform[slot].1, z: 0.5},
+                                    },
+                                );
+                                let tween_sc = Tween::new(
+                                    EaseFunction::QuadraticInOut,
+                                    Duration::from_millis(500),
+                                    TransformScaleLens {
+                                        start: transform.scale,
+                                        end: Vec3{ x: transform.scale.x*3., y: transform.scale.y*3., z: 0.},
+                                    },
+                                );
+                                let track = Tracks::new([tween_tr, tween_sc]);
+                                anim.set_tweenable(track);
+                                (ui.x, ui.y) = slot_coords_ui[slot];
+                            }
+                        },
+                        None => panic!("The Breath pile is still empty after reshuffling it!")
+                    }
+                },
                 Function::Empty => ()
             };
             world_map.targeted_axioms.remove(i);

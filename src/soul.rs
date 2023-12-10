@@ -41,24 +41,33 @@ fn soul_rotation(
     ui_center: Res<CenterOfWheel>,
     current: Res<CurrentEntityInUI>,
     query: Query<&SoulBreath>,
-    mut soul: Query<&mut UIElement>,
+    mut soul: Query<(&mut UIElement, &Soul)>,
     time: Res<Time>,
 ){
     let (draw, _held, disc) = if let Ok(breath) = query.get(current.entity) { (&breath.pile, &breath.held, &breath.discard) } 
     else{ panic!("The entity meant to be represented in the UI doesn't have a SoulBreath component!")};
     let spacing = 3.;
     for i in draw.iter().enumerate() {
-        if let Ok(mut ui) = soul.get_mut(*i.1) { 
+        if let Ok((mut ui, soul_type)) = soul.get_mut(*i.1) {
+            let offset = 30.15;
+            let dist_between_souls = 412.;
+            let slide_factor = match soul_type {
+                Soul::Saintly => i.0 as f32*PI/dist_between_souls,
+                Soul::Ordered => (1.*offset)+i.0 as f32*PI/dist_between_souls,
+                Soul::Feral => (2.*offset)+i.0 as f32*PI/dist_between_souls,
+                Soul::Vile => (3.*offset)+i.0 as f32*PI/dist_between_souls,
+                Soul::Serene => (4.*offset)+i.0 as f32*PI/dist_between_souls,
+            };
             (ui.x, ui.y) = (
-                (i.0 as f32*PI/32. + time.elapsed_seconds_wrapped()*PI/5.).cos() * spacing +ui_center.x,
-                (i.0 as f32*PI/32. + time.elapsed_seconds_wrapped()*PI/5.).sin() * spacing +ui_center.y,
+                (slide_factor + time.elapsed_seconds_wrapped()*PI/5.).cos() * spacing +ui_center.x,
+                (slide_factor + time.elapsed_seconds_wrapped()*PI/5.).sin() * spacing +ui_center.y,
             );
         }
         else{ panic!("A soul in the draw pile has no UIElement component!")};
     }
     let spacing = 0.6;
     for i in disc.iter().enumerate() {
-        if let Ok(mut ui) = soul.get_mut(*i.1) { 
+        if let Ok((mut ui, _soul_type)) = soul.get_mut(*i.1) { 
             (ui.x, ui.y) = (
                 (i.0 as f32*PI/32. + time.elapsed_seconds_wrapped()*PI/5.).cos() * spacing +ui_center.x,
                 (i.0 as f32*PI/32. + time.elapsed_seconds_wrapped()*PI/5.).sin() * spacing +ui_center.y,
@@ -87,7 +96,7 @@ fn distribute_some_souls(
             sprite_bundle: SpriteSheetBundle {
                 texture_atlas: texture_atlas_handle.handle.clone(),
                 sprite: TextureAtlasSprite{
-                    index : match_soul_with_sprite(&soul[i%4]),
+                    index : match_soul_with_sprite(&soul[i%5]),
                     custom_size: Some(Vec2::new(0.25, 0.25)),
                     ..default()
                 },
@@ -99,13 +108,13 @@ fn distribute_some_souls(
             },
             animation: Animator::new(tween),
             name: Name::new("Breathed Soul"),
-            soul: soul[i%4].clone(),
+            soul: soul[i%5].clone(),
             ui: UIElement { x: 0., y: 0. }
         }).id();
         if let Ok(mut breath) = player.get_single_mut() {
             if i < 4 {breath.held.push(entity)}
             else if i < 18 {breath.pile.push(entity)}
-            else {breath.discard.push(entity)}
+            else {breath.pile.push(entity)}
         } else {
             panic!("There are zero or more than 1 players!")
         }   
