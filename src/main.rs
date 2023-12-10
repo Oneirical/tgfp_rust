@@ -2,7 +2,7 @@ use std::time::Duration;
 
 use bevy::{prelude::*, render::camera::ScalingMode, window::WindowMode, input::common_conditions::input_toggle_active};
 use bevy_inspector_egui::quick::WorldInspectorPlugin;
-use bevy_tweening::TweeningPlugin;
+use bevy_tweening::{TweeningPlugin, Animator};
 use components::*;
 use input::*;
 use map::MapPlugin;
@@ -32,9 +32,9 @@ fn main() {
                     fit_canvas_to_parent: true,
                     focused: true,
                     resizable: false,
-                    resolution: (1024.0, 576.0).into(),
+                    resolution: (1920.0, 1080.0).into(),
                     title: "The Games Foxes Play".into(),
-                    mode: WindowMode::Fullscreen,
+                    //mode: WindowMode::Fullscreen,
                     position: WindowPosition::Centered(MonitorSelection::Current),
                     ..default()
                 }),
@@ -196,7 +196,7 @@ struct CameraOffset{
 fn camera_follow(
     players: Query<&Transform, With<RealityAnchor>>,
     mut cameras: Query<&mut Transform, (With<Camera>, Without<RealityAnchor>)>,
-    mut ui: Query<(&mut Transform, &UIElement), (Without<Camera>, Without<RealityAnchor>)>,
+    mut ui: Query<(&mut Transform, &UIElement, Option<&Animator<Transform>>), (Without<Camera>, Without<RealityAnchor>)>,
     offset: Res<CameraOffset>,
 ) {
     for player_transform in &players {
@@ -207,7 +207,8 @@ fn camera_follow(
             transform.translation.x = pos.x+offset.uix; // To offset it to the left
             transform.translation.y = pos.y+offset.uiy;
         }
-        for (mut transform, ui) in &mut ui {
+        for (mut transform, ui, anim) in &mut ui {
+            if let Some(ani) = anim { if ani.tweenable().progress() != 1.0 { continue; } } // If an animator is handling the UI element, don't adjust it, trust the animator.
             transform.translation.x = ui.x + pos.x+offset.playx;
             transform.translation.y = ui.y + pos.y+offset.playy;
         }

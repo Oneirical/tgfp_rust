@@ -4,7 +4,7 @@ use bevy::prelude::*;
 use bevy_tweening::{*, lens::{TransformPositionLens, TransformScaleLens}};
 use rand::seq::SliceRandom;
 
-use crate::{components::{QueuedAction, RealityAnchor, Position, SoulBreath, UIElement}, input::ActionType, TurnState, map::{xy_idx, WorldMap, is_in_bounds, bresenham_line}, soul::Soul, ui::CenterOfWheel, axiom::{grab_coords_from_form, CasterInfo, match_soul_with_axiom, Function}, species::Species, transform_to_ui, CameraOffset, ui_to_transform};
+use crate::{components::{QueuedAction, RealityAnchor, Position, SoulBreath, UIElement}, input::ActionType, TurnState, map::{xy_idx, WorldMap, is_in_bounds, bresenham_line}, soul::Soul, ui::CenterOfWheel, axiom::{grab_coords_from_form, CasterInfo, match_soul_with_axiom, Function}, species::Species, CameraOffset, ui_to_transform};
 
 pub struct TurnPlugin;
 
@@ -27,12 +27,12 @@ fn calculate_actions (
 }
 
 fn execute_turn (
-    mut creatures: Query<(Entity, &QueuedAction, &Transform, &Species, &mut SoulBreath, &mut Animator<Transform>, &mut Position)>,
+    mut creatures: Query<(Entity, &QueuedAction, &Species, &mut SoulBreath, &mut Position)>,
     mut next_state: ResMut<NextState<TurnState>>,
     mut world_map: ResMut<WorldMap>,
     souls: Query<(&mut Animator<Transform>, &mut UIElement, &Transform, &Soul), Without<Position>>,
 ){
-    for (entity, queue, transform, species, mut breath, mut anim, mut pos) in creatures.iter_mut(){
+    for (entity, queue, species, breath, pos) in creatures.iter_mut(){
         
         match queue.action{
             ActionType::SoulCast { slot } => {
@@ -72,7 +72,8 @@ fn dispense_functions(
     ui_center: Res<CenterOfWheel>,
     cam_offset: Res<CameraOffset>,
 ){
-    for (i, (entity, function, info)) in world_map.targeted_axioms.clone().iter().enumerate(){
+    let mut next_axioms = Vec::new();
+    for (entity, function, info) in world_map.targeted_axioms.clone().iter(){
         if let Ok((queue, transform, species, mut breath, mut anim, mut pos)) = creatures.get_mut(entity.to_owned()) {
             let function = function.to_owned();
             match function {
@@ -120,11 +121,11 @@ fn dispense_functions(
                             break;
                         }
                     }
-                    world_map.targeted_axioms.push((*entity, Function::Teleport { x: fx, y: fy }, info.clone()));
+                    next_axioms.push((*entity, Function::Teleport { x: fx, y: fy }, info.clone()));
                 },
                 Function::LinearDash { dist } => {
                     let dest = (dist as i32 * info.momentum.0, dist as i32 * info.momentum.1);
-                    world_map.targeted_axioms.push((*entity, Function::Dash { dx: dest.0, dy: dest.1 }, info.clone()));
+                    next_axioms.push((*entity, Function::Dash { dx: dest.0, dy: dest.1 }, info.clone()));
                 }
                 Function::DiscardSoul { soul, slot } => {
                     let player_trans = if let Ok(player_transform) = player.get_single() {player_transform.translation } else { panic!("0 or 2+ players found!")};
@@ -142,8 +143,8 @@ fn dispense_functions(
                             breath.held[slot] = new_soul;
     
                             let slot_coords_ui = [
-                                ((1.*PI/4.).cos() * 1.5 +ui_center.x, (1.*PI/4.).sin() * 1.5 +ui_center.y),
                                 ((3.*PI/4.).cos() * 1.5 +ui_center.x, (3.*PI/4.).sin() * 1.5 +ui_center.y),
+                                ((1.*PI/4.).cos() * 1.5 +ui_center.x, (1.*PI/4.).sin() * 1.5 +ui_center.y),
                                 ((5.*PI/4.).cos() * 1.5 +ui_center.x, (5.*PI/4.).sin() * 1.5 +ui_center.y),
                                 ((7.*PI/4.).cos() * 1.5 +ui_center.x, (7.*PI/4.).sin() * 1.5 +ui_center.y)
                             ];
@@ -179,9 +180,10 @@ fn dispense_functions(
                 },
                 Function::Empty => ()
             };
-            world_map.targeted_axioms.remove(i);
         }
     }
+    world_map.targeted_axioms.clear();
+    world_map.targeted_axioms.append(&mut next_axioms);
     if world_map.targeted_axioms.is_empty() {
         next_state.set(TurnState::AwaitingInput);
     }

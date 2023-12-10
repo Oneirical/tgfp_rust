@@ -34,7 +34,7 @@ pub fn xy_idx (x: usize, y: usize) -> usize{
     (y * WORLD_WIDTH) + x
 }
 
-pub fn get_entity_at_coords (map: &Vec<Option<Entity>>, x: usize, y: usize) -> Option<Entity> {
+pub fn get_entity_at_coords (map: &[Option<Entity>], x: usize, y: usize) -> Option<Entity> {
     map[xy_idx(x, y)]
 }
 

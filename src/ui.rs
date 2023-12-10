@@ -49,7 +49,7 @@ fn draw_soul_deck(
                 },
                 transform: Transform {
                     translation: Vec3{ x: 0., y: 0., z: 0.2},
-                    rotation: Quat::from_rotation_z(rot[i%2]*(i as f32-2.) as f32/2.),
+                    rotation: Quat::from_rotation_z(rot[i%2]*(i as f32-2.)/2.),
                     ..default()
                 },
                 ..default()
@@ -90,7 +90,7 @@ fn update_minimap(
 ){
     for (mut sprite, tile) in minimap.iter_mut(){
         let tex = match map.entities[xy_idx(tile.x, tile.y)]{
-            Some(entity) => if let Ok(species) = query.get(entity) { match_species_with_pixel(&species) } else{ panic!("There is an entity in the map that doesn't have a species!")},
+            Some(entity) => if let Ok(species) = query.get(entity) { match_species_with_pixel(species) } else{ panic!("There is an entity in the map that doesn't have a species!")},
             None => 107,
         };
         if sprite.index != tex{

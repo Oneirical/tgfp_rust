@@ -44,7 +44,7 @@ fn soul_rotation(
     mut soul: Query<(&mut UIElement, &Soul)>,
     time: Res<Time>,
 ){
-    let (draw, _held, disc) = if let Ok(breath) = query.get(current.entity) { (&breath.pile, &breath.held, &breath.discard) } 
+    let (draw, held, disc) = if let Ok(breath) = query.get(current.entity) { (&breath.pile, &breath.held, &breath.discard) } 
     else{ panic!("The entity meant to be represented in the UI doesn't have a SoulBreath component!")};
     let spacing = 3.;
     for i in draw.iter().enumerate() {
@@ -62,6 +62,18 @@ fn soul_rotation(
                 (slide_factor + time.elapsed_seconds_wrapped()*PI/5.).cos() * spacing +ui_center.x,
                 (slide_factor + time.elapsed_seconds_wrapped()*PI/5.).sin() * spacing +ui_center.y,
             );
+        }
+        else{ panic!("A soul in the draw pile has no UIElement component!")};
+    }
+    for i in held.iter().enumerate(){
+        let slot_coords_ui = [
+            ((3.*PI/4.).cos() * 1.5 +ui_center.x, (3.*PI/4.).sin() * 1.5 +ui_center.y),
+            ((1.*PI/4.).cos() * 1.5 +ui_center.x, (1.*PI/4.).sin() * 1.5 +ui_center.y),
+            ((5.*PI/4.).cos() * 1.5 +ui_center.x, (5.*PI/4.).sin() * 1.5 +ui_center.y),
+            ((7.*PI/4.).cos() * 1.5 +ui_center.x, (7.*PI/4.).sin() * 1.5 +ui_center.y)
+        ];
+        if let Ok((mut ui, _soul_type)) = soul.get_mut(*i.1) { 
+            (ui.x, ui.y) = slot_coords_ui[i.0];
         }
         else{ panic!("A soul in the draw pile has no UIElement component!")};
     }
@@ -92,6 +104,9 @@ fn distribute_some_souls(
                 end: Vec3{ x: 0., y: 0., z: 0.5},
             },
         );
+        let scale = if i < 4 {
+            Vec3::new(3., 3., 0.)
+        } else { Vec3::new(1., 1., 0.) };
         let entity = commands.spawn(SoulBundle{
             sprite_bundle: SpriteSheetBundle {
                 texture_atlas: texture_atlas_handle.handle.clone(),
@@ -102,6 +117,7 @@ fn distribute_some_souls(
                 },
                 transform: Transform {
                     translation: Vec3::ZERO,
+                    scale,
                     ..default()
                 },
                 ..default()

@@ -13,7 +13,7 @@ pub enum Form {
     Empty,
     Ego,
 }
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub enum Function {
     Empty,
     Dash { dx: i32, dy: i32 }, // Position is incremented by dx and dy, but stops when it hits an edge or a creature.
@@ -39,7 +39,7 @@ pub struct ReturnedForm{
     pub coords: Vec<(usize,usize)>,
 }
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct CasterInfo{
     pub pos: (usize,usize),
     pub species: Species,
@@ -47,7 +47,7 @@ pub struct CasterInfo{
 }
 
 pub fn grab_coords_from_form( // vec in vec for better, synchronized animations?
-    map: &Vec<Option<Entity>>,
+    map: &[Option<Entity>],
     form: Form,
     caster: CasterInfo,
 ) -> ReturnedForm {
