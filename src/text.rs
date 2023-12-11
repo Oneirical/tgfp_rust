@@ -24,7 +24,7 @@ use regex::Regex;
 
 pub fn split_text(
     text: &str,
-    asset_server: Res<AssetServer>,
+    asset_server: &Res<AssetServer>,
 ) -> Vec<(String, TextStyle)> {
     let re = Regex::new(r"\[([^\]]+)\]").unwrap();
 

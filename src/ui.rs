@@ -1,19 +1,20 @@
 use std::{f32::consts::PI, time::Duration};
 
-use bevy::{prelude::*, text::{BreakLineOn, Text2dBounds}};
-use bevy_inspector_egui::quick::ResourceInspectorPlugin;
+use bevy::{prelude::*, text::{BreakLineOn, Text2dBounds, TextLayoutInfo}};
 use bevy_tweening::{Tween, EaseFunction, lens::TransformPositionLens, Animator};
 
-use crate::{SpriteSheetHandle, components::{UIElement, RightFaith, FaithPoint, MinimapTile}, map::{WORLD_HEIGHT, WORLD_WIDTH, WorldMap, xy_idx}, species::{Species, match_species_with_pixel}, TurnState, text::{LORE, split_text}};
+use crate::{SpriteSheetHandle, components::{UIElement, MinimapTile, LogIndex, RealityAnchor}, map::{WORLD_HEIGHT, WORLD_WIDTH, WorldMap, xy_idx}, species::{Species, match_species_with_pixel}, TurnState, text::{LORE, split_text}, ui_to_transform, CameraOffset};
 
 pub struct UIPlugin;
 
 impl Plugin for UIPlugin {
     fn build(&self, app: &mut App) {
-        app.add_systems(Startup, (draw_chain_borders, draw_soul_deck, place_down_text));
+        app.add_systems(Startup, (draw_chain_borders, draw_soul_deck));
         app.add_systems(PostStartup, draw_minimap);
         app.add_systems(OnEnter(TurnState::AwaitingInput), update_minimap);
+        app.add_systems(Update, (place_down_text, push_log));
         app.insert_resource(CenterOfWheel{x: 16.5, y: 2.3});
+        app.add_event::<LogMessage>();
     }
 }
 
@@ -130,38 +131,101 @@ fn draw_minimap(
     }
 }
 
+#[derive(Event)]
+pub struct LogMessage(pub usize);
+
 fn place_down_text(
     mut commands: Commands, 
-    texture_atlas_handle: Res<SpriteSheetHandle>,
     asset_server: Res<AssetServer>,
+    mut events: EventReader<LogMessage>
 ){
-    let mut text_sections = Vec::new();
-    let chosen_text = LORE[6];
-    let split_text = split_text(chosen_text, asset_server);
-    for (snippet, style) in split_text {
-        text_sections.push(TextSection::new(snippet, style));
-    }
-    let text = Text {
-        sections: text_sections,
-        alignment: TextAlignment::Left,
-        linebreak_behavior: BreakLineOn::WordBoundary
-    };
-
-    commands.spawn((
-        Text2dBundle {
-            text,
-            transform: Transform {
-                translation: Vec3{ x: 0., y: 0., z: 0.2},
-                scale: Vec3{x: 1./64., y: 1./64., z: 0.}, // Set to the camera scaling mode fixed size
-                
+    for event in events.read(){
+        let mut text_sections = Vec::new();
+        let chosen_text = LORE[event.0];
+        let split_text = split_text(chosen_text, &asset_server);
+        for (snippet, style) in split_text {
+            text_sections.push(TextSection::new(snippet, style));
+        }
+        let text = Text {
+            sections: text_sections,
+            alignment: TextAlignment::Left,
+            linebreak_behavior: BreakLineOn::WordBoundary
+        };
+        let tween = Tween::new(
+            EaseFunction::QuadraticInOut,
+            Duration::from_millis(0),
+            TransformPositionLens {
+                start: Vec3::ZERO,
+                end: Vec3{ x: 0., y: 0., z: 0.5},
+            },
+        );
+        commands.spawn((
+            Text2dBundle {
+                text,
+                transform: Transform {
+                    translation: Vec3{ x: 0., y: 0., z: 0.2},
+                    scale: Vec3{x: 1./64., y: 1./64., z: 0.}, // Set to the camera scaling mode fixed size
+                    
+                    ..default()
+                },
+                text_2d_bounds: Text2dBounds { size: Vec2 { x: 550., y: 600. }},
                 ..default()
             },
-            text_2d_bounds: Text2dBounds { size: Vec2 { x: 550., y: 600. }},
-            ..default()
-        },
-        UIElement { x: 16.5, y: -8.4},
-        Name::new("Log Message"),
-    ));
+            UIElement { x: 16.5, y: -9.4},
+            LogIndex { index: 0 },
+            Name::new("Log Message"),
+            Animator::new(tween)
+        ));
+    }
+
+}
+
+fn push_log(
+    mut new_text: Query<(Entity, &TextLayoutInfo, &mut UIElement, &mut Animator<Transform>, &Transform, &mut LogIndex)>,
+    player: Query<&Transform, With<RealityAnchor>>,
+    cam_offset: Res<CameraOffset>,
+){
+    let mut newcomer = None;
+    let player_trans = if let Ok(player_transform) = player.get_single() {player_transform.translation } else { panic!("0 or 2+ players found!")};
+    let (offx, offy) = (player_trans.x, player_trans.y);
+    for (entity, entry, mut ui, mut anim, transform, mut num) in new_text.iter_mut(){
+        if num.index == 0 && transform.translation.x != 0.{ // needs transform to be modified by the main update before operating otherwise it is just 000
+            let size = Vec2::new(entry.logical_size.x/64., entry.logical_size.y/64.);
+            newcomer = Some((entity, size));
+            let final_pos = (16.5, -8.2 + (size.y)/20.);
+            let final_pos_trans = ui_to_transform(final_pos.0, final_pos.1, (offx, offy), (cam_offset.playx, cam_offset.playy));
+            let tween_tr = Tween::new(
+                EaseFunction::QuadraticInOut,
+                Duration::from_millis(500),
+                TransformPositionLens {
+                    start: transform.translation,
+                    end: Vec3{ x: final_pos_trans.0, y: final_pos_trans.1, z: 0.5},
+                },
+            );
+            anim.set_tweenable(tween_tr);
+            (ui.x, ui.y) = final_pos;
+            num.index = 1;
+            break;
+        }
+    }
+    for (entity, _entry, mut ui, mut anim, transform, mut num) in new_text.iter_mut(){
+        if newcomer.is_some(){
+            if newcomer.unwrap().0 == entity {continue;}
+            let final_pos = (16.5, ui.y + newcomer.unwrap().1.y/20.);
+            let final_pos_trans = ui_to_transform(final_pos.0, final_pos.1, (offx, offy), (cam_offset.playx, cam_offset.playy));
+            let tween_tr = Tween::new(
+                EaseFunction::QuadraticInOut,
+                Duration::from_millis(500),
+                TransformPositionLens {
+                    start: transform.translation,
+                    end: Vec3{ x: final_pos_trans.0, y: final_pos_trans.1, z: 0.5},
+                },
+            );
+            anim.set_tweenable(tween_tr);
+            (ui.x, ui.y) = final_pos;
+            num.index += 1;
+        }
+    }
 }
 
 fn draw_chain_borders(

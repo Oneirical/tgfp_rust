@@ -43,6 +43,12 @@ pub struct FaithPoint{
 }
 
 #[derive(Component)]
+pub struct LogIndex{
+    pub index: usize,
+}
+
+
+#[derive(Component)]
 pub struct MinimapTile{
     pub x: usize,
     pub y: usize,

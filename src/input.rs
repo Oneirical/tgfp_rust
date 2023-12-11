@@ -1,6 +1,6 @@
 use bevy::prelude::*;
 
-use crate::{InputDelay, TurnState, components::{RealityAnchor, QueuedAction}};
+use crate::{InputDelay, TurnState, components::{RealityAnchor, QueuedAction}, ui::LogMessage};
 
 pub struct InputPlugin;
 
@@ -46,6 +46,8 @@ fn await_input(
     bindings: Res<InputBindings>,
     mut player: Query<&mut QueuedAction, With<RealityAnchor>>,
     mut next_state: ResMut<NextState<TurnState>>,
+
+    mut events: EventWriter<LogMessage>,
 ) {
     if !delay.time.finished() {
         delay.time.tick(time.delta());
@@ -81,6 +83,7 @@ fn await_input(
             ActionType::Nothing
         };
         if reset_queued {
+            events.send(LogMessage(6));
             if let Ok(mut queued) = player.get_single_mut() {
                 queued.action = action.clone();
                 next_state.set(TurnState::CalculatingResponse);
