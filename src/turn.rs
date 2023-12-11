@@ -98,12 +98,13 @@ fn dispense_functions(
                     let start = transform.translation;
                     let tween = Tween::new(
                         EaseFunction::QuadraticInOut,
-                        Duration::from_millis(200),
+                        Duration::from_millis(300),
                         TransformPositionLens {
                             start,
                             end: Vec3::new(pos.x as f32/2., pos.y as f32/2., 0.),
                         },
                     );
+                    //if anim.tweenable().progress() != 1.0 { continue; }
                     anim.set_tweenable(tween);
                 }
                 Function::Dash { dx, dy } => {

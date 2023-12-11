@@ -1,18 +1,19 @@
 use std::{f32::consts::PI, time::Duration};
 
-use bevy::prelude::*;
+use bevy::{prelude::*, text::{BreakLineOn, Text2dBounds}};
+use bevy_inspector_egui::quick::ResourceInspectorPlugin;
 use bevy_tweening::{Tween, EaseFunction, lens::TransformPositionLens, Animator};
 
-use crate::{SpriteSheetHandle, components::{UIElement, RightFaith, FaithPoint, MinimapTile}, map::{WORLD_HEIGHT, WORLD_WIDTH, WorldMap, xy_idx}, species::{Species, match_species_with_pixel}, TurnState};
+use crate::{SpriteSheetHandle, components::{UIElement, RightFaith, FaithPoint, MinimapTile}, map::{WORLD_HEIGHT, WORLD_WIDTH, WorldMap, xy_idx}, species::{Species, match_species_with_pixel}, TurnState, text::{LORE, split_text}};
 
 pub struct UIPlugin;
 
 impl Plugin for UIPlugin {
     fn build(&self, app: &mut App) {
-        app.add_systems(Startup, (draw_chain_borders, draw_soul_deck));
+        app.add_systems(Startup, (draw_chain_borders, draw_soul_deck, place_down_text));
         app.add_systems(PostStartup, draw_minimap);
         app.add_systems(OnEnter(TurnState::AwaitingInput), update_minimap);
-        app.insert_resource(CenterOfWheel{x: 16.5, y: 1.});
+        app.insert_resource(CenterOfWheel{x: 16.5, y: 2.3});
     }
 }
 
@@ -23,7 +24,7 @@ pub struct UIBundle {
     name: Name
 }
 
-#[derive(Resource)]
+#[derive(Resource, Default, Reflect)]
 pub struct CenterOfWheel{
     pub x: f32,
     pub y: f32,
@@ -129,71 +130,38 @@ fn draw_minimap(
     }
 }
 
-fn draw_resource_bars(
+fn place_down_text(
     mut commands: Commands, 
     texture_atlas_handle: Res<SpriteSheetHandle>,
+    asset_server: Res<AssetServer>,
 ){
-    let names = ["Left Faith","Right Faith"];
-    let rot = [Quat::from_rotation_z(0.),Quat::from_rotation_z(PI)];
-    let pos = [(11.3,5.7),(16.46,5.7)];
-    for i in 0..2{
-        let entity_id = commands.spawn(UIBundle{
-            sprite_bundle: SpriteSheetBundle {
-                texture_atlas: texture_atlas_handle.handle.clone(),
-                sprite: TextureAtlasSprite{
-                    index : 30_usize,
-                    custom_size: Some(Vec2::new(1.3, 1.3)),
-                    ..default()
-                },
-                transform: Transform {
-                    translation: Vec3{ x: 0., y: 0., z: 0.2},
-                    rotation: rot[i % 2],
-                    ..default()
-                },
-                ..default()
-            },
-            ui: UIElement{
-                x: pos[i].0,
-                y: pos[i].1,
-            },
-            name: Name::new(names[i]),
-        }).id();
-        if i % 2 != 0{
-            let tween = Tween::new(
-                EaseFunction::BackInOut,
-                Duration::from_millis(500),
-                TransformPositionLens {
-                    start: Vec3{ x: 0., y: 0., z: 0.2},
-                    end: Vec3{ x: 0., y: 0., z: 0.2}
-                },
-            );
-            commands.entity(entity_id).insert((RightFaith, Animator::new(tween)));
-        }
+    let mut text_sections = Vec::new();
+    let chosen_text = LORE[6];
+    let split_text = split_text(chosen_text, asset_server);
+    for (snippet, style) in split_text {
+        text_sections.push(TextSection::new(snippet, style));
     }
-    for i in 0..20{
-        commands.spawn((UIBundle{
-            sprite_bundle: SpriteSheetBundle {
-                texture_atlas: texture_atlas_handle.handle.clone(),
-                sprite: TextureAtlasSprite{
-                    index : 9_usize,
-                    custom_size: Some(Vec2::new(0.8, 0.8)),
-                    ..default()
-                },
-                transform: Transform {
-                    translation: Vec3{ x: 0., y: 0., z: 0.2},
-                    ..default()
-                },
-                ..default()
-            },
-            ui: UIElement{
-                x: 11.8 + i as f32/4.,
-                y: 5.7,
-            },
-            name: Name::new("Faith Point"),
-        }, 
-        FaithPoint{num: i}));
-    }
+    let text = Text {
+        sections: text_sections,
+        alignment: TextAlignment::Left,
+        linebreak_behavior: BreakLineOn::WordBoundary
+    };
 
+    commands.spawn((
+        Text2dBundle {
+            text,
+            transform: Transform {
+                translation: Vec3{ x: 0., y: 0., z: 0.2},
+                scale: Vec3{x: 1./64., y: 1./64., z: 0.}, // Set to the camera scaling mode fixed size
+                
+                ..default()
+            },
+            text_2d_bounds: Text2dBounds { size: Vec2 { x: 550., y: 600. }},
+            ..default()
+        },
+        UIElement { x: 16.5, y: -8.4},
+        Name::new("Log Message"),
+    ));
 }
 
 fn draw_chain_borders(
@@ -246,12 +214,14 @@ fn draw_chain_borders(
     let mut main_square = get_chain_border(31, 31, (8., -1.5));
     let mut side_left = get_chain_border(6, 6, (-11.5, 11.));
     let mut side_left_bottom = get_chain_border(6, 24, (-11.5, -5.));
-    let mut side_right = get_chain_border(18, 31, (33.5, -1.5));
+    let mut side_right = get_chain_border(18, 18, (33.5, 5.));
+    let mut side_right_bottom = get_chain_border(18, 12, (33.5, -11.));
     let mut all = Vec::new();
     all.append(&mut main_square);
     all.append(&mut side_left);
     all.append(&mut side_left_bottom);
     all.append(&mut side_right);
+    all.append(&mut side_right_bottom);
     
     for chain in all{
         commands.spawn(UIBundle{

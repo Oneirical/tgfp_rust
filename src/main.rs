@@ -21,6 +21,7 @@ mod ui;
 mod turn;
 mod soul;
 mod axiom;
+mod text;
 
 fn main() {
     App::new()
