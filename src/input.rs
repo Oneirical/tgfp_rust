@@ -1,4 +1,5 @@
 use bevy::prelude::*;
+use rand::Rng;
 
 use crate::{InputDelay, TurnState, components::{RealityAnchor, QueuedAction}, ui::LogMessage};
 
@@ -83,7 +84,8 @@ fn await_input(
             ActionType::Nothing
         };
         if reset_queued {
-            events.send(LogMessage(6));
+            let mut rng = rand::thread_rng();
+            events.send(LogMessage(rng.gen_range(0..10)));
             if let Ok(mut queued) = player.get_single_mut() {
                 queued.action = action.clone();
                 next_state.set(TurnState::CalculatingResponse);
