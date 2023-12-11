@@ -1,7 +1,7 @@
 use std::{f32::consts::PI, time::Duration};
 
 use bevy::{prelude::*, text::{BreakLineOn, Text2dBounds, TextLayoutInfo}};
-use bevy_tweening::{Tween, EaseFunction, lens::TransformPositionLens, Animator};
+use bevy_tweening::{Tween, EaseFunction, lens::{TransformPositionLens, TextColorLens}, Animator, Tracks};
 
 use crate::{SpriteSheetHandle, components::{UIElement, MinimapTile, LogIndex, RealityAnchor}, map::{WORLD_HEIGHT, WORLD_WIDTH, WorldMap, xy_idx}, species::{Species, match_species_with_pixel}, TurnState, text::{LORE, split_text}, ui_to_transform, CameraOffset};
 
@@ -181,14 +181,14 @@ fn place_down_text(
 }
 
 fn push_log(
-    mut new_text: Query<(Entity, &TextLayoutInfo, &mut UIElement, &mut Animator<Transform>, &Transform, &mut LogIndex)>,
+    mut new_text: Query<(Entity, &Text, &TextLayoutInfo, &mut UIElement, &mut Animator<Transform>, &Transform, &mut LogIndex)>,
     player: Query<&Transform, With<RealityAnchor>>,
     cam_offset: Res<CameraOffset>,
 ){
     let mut newcomer = None;
     let player_trans = if let Ok(player_transform) = player.get_single() {player_transform.translation } else { panic!("0 or 2+ players found!")};
     let (offx, offy) = (player_trans.x, player_trans.y);
-    for (entity, entry, mut ui, mut anim, transform, mut num) in new_text.iter_mut(){
+    for (entity, text, entry, mut ui, mut anim, transform, mut num) in new_text.iter_mut(){
         if num.index == 0 && transform.translation.x != 0.{ // needs transform to be modified by the main update before operating otherwise it is just 000
             let size = Vec2::new(entry.logical_size.x/64., entry.logical_size.y/64.);
             newcomer = Some((entity, size));
@@ -208,11 +208,30 @@ fn push_log(
             break;
         }
     }
-    for (entity, _entry, mut ui, mut anim, transform, mut num) in new_text.iter_mut(){
+    for (entity, text, _entry, mut ui, mut anim, transform, mut num) in new_text.iter_mut(){
         if newcomer.is_some(){
             if newcomer.unwrap().0 == entity {continue;}
-            let final_pos = (16.5, ui.y + newcomer.unwrap().1.y/20.);
+            let final_pos = (16.5, ui.y + newcomer.unwrap().1.y);
             let final_pos_trans = ui_to_transform(final_pos.0, final_pos.1, (offx, offy), (cam_offset.playx, cam_offset.playy));
+            let sections = &text.sections;
+            let mut tween_box = Vec::new();
+            for (i, sec) in sections.iter().enumerate(){
+                let cols = sec.style.color.as_rgba_f32();
+                let start = sec.style.color;
+                let end = Color::Rgba { red: cols[0], green: cols[1], blue: cols[2], alpha: cols[3] - 0.1 };
+                tween_box.push(
+                    Tween::new(
+                        EaseFunction::QuadraticInOut,
+                        Duration::from_millis(500),
+                        TextColorLens {
+                            start,
+                            end,
+                            section: i,
+                        },
+                    )
+                );
+            }
+            let track = Tracks::new(tween_box);
             let tween_tr = Tween::new(
                 EaseFunction::QuadraticInOut,
                 Duration::from_millis(500),
