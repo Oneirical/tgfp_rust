@@ -171,7 +171,7 @@ fn place_down_text(
                 text_2d_bounds: Text2dBounds { size: Vec2 { x: 550., y: 600. }},
                 ..default()
             },
-            UIElement { x: 12.1, y: -10.4},
+            UIElement { x: 12.1, y: -10.},
             LogIndex { index: 0 },
             Name::new("Log Message"),
             Animator::new(tween)

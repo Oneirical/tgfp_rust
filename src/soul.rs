@@ -48,7 +48,7 @@ fn soul_rotation(
     ui_center: Res<CenterOfWheel>,
     current: Res<CurrentEntityInUI>,
     query: Query<&SoulBreath>,
-    mut soul: Query<(&mut Transform, &mut UIElement, &Soul)>,
+    mut soul: Query<(&mut Transform, &Animator<Transform>, &mut UIElement, &Soul)>,
     mut time: ResMut<SoulRotationTimer>,
     epoch: Res<Time>,
 ){
@@ -57,7 +57,7 @@ fn soul_rotation(
     else{ panic!("The entity meant to be represented in the UI doesn't have a SoulBreath component!")};
     for j in draw.iter() {
         for i in j{
-            if let Ok((mut trans, mut ui, soul_type)) = soul.get_mut(*i) {
+            if let Ok((mut trans, anim, mut ui, soul_type)) = soul.get_mut(*i) {
                 let index = draw[match_soul_with_display_index(soul_type)].iter().position(|&ent| ent == *i);
                 let index = match index {
                     Some(ind) => ind,
@@ -67,6 +67,7 @@ fn soul_rotation(
                     }
                 };
                 (ui.x, ui.y) = get_soul_rot_position(soul_type, (ui_center.x, ui_center.y), false, time.timer.elapsed_secs(), index);
+                if anim.tweenable().progress() != 1.0 { continue; }
                 trans.scale = Vec3{ x: 1., y: 1., z: 0.};
             }
             else{ panic!("A soul in the draw pile has no UIElement component!")};
@@ -79,17 +80,19 @@ fn soul_rotation(
             ((5.*PI/4.).cos() * 1.5 +ui_center.x, (5.*PI/4.).sin() * 1.5 +ui_center.y),
             ((7.*PI/4.).cos() * 1.5 +ui_center.x, (7.*PI/4.).sin() * 1.5 +ui_center.y)
         ];
-        if let Ok((mut trans, mut ui, _soul_type)) = soul.get_mut(*i.1) { 
+        if let Ok((mut trans, anim, mut ui, _soul_type)) = soul.get_mut(*i.1) { 
             (ui.x, ui.y) = slot_coords_ui[i.0];
+            if anim.tweenable().progress() != 1.0 { continue; }
             trans.scale = Vec3{ x: 3., y: 3., z: 0.}; // TODO add an animation filter to avoid bobbing
         }
         else{ panic!("A soul in the draw pile has no UIElement component!")};
     }
     for j in disc.iter() {
         for i in j.iter(){
-            if let Ok((mut trans, mut ui, soul_type)) = soul.get_mut(*i) { 
+            if let Ok((mut trans, anim, mut ui, soul_type)) = soul.get_mut(*i) { 
                 let index = disc[match_soul_with_display_index(soul_type)].iter().position(|&ent| ent == *i);
                 (ui.x, ui.y) = get_soul_rot_position(soul_type, (ui_center.x, ui_center.y), true, time.timer.elapsed_secs(), index.unwrap());
+                if anim.tweenable().progress() != 1.0 { continue; }
                 trans.scale = Vec3{ x: 1., y: 1., z: 0.};
             }
             else{ panic!("A soul in the draw pile has no UIElement component!")};
@@ -126,7 +129,7 @@ fn distribute_some_souls(
     texture_atlas_handle: Res<SpriteSheetHandle>,
     mut player: Query<&mut SoulBreath, With<RealityAnchor>>,
 ){  
-    for i in 0..100{
+    for i in 0..200{
         let soul = vec![Soul::Serene, Soul::Feral, Soul::Ordered, Soul::Saintly, Soul::Vile];
         let tween = Tween::new(
             EaseFunction::QuadraticInOut,
@@ -165,7 +168,7 @@ fn distribute_some_souls(
             if i < 4 {
                 breath.held.push(entity);
             }
-            else if i < 18 {
+            else if i < 12 {
                 breath.pile[index].push(entity);
             }
             else {

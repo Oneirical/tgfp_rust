@@ -82,10 +82,10 @@ fn dispense_functions(
                     if world_map.entities[xy_idx(x, y)].is_some() { // Cancel teleport if target is occupied
                         continue;
                     }
-                    let dest = (pos.x, pos.y);
+                    let old_pos = (pos.x, pos.y);
                     let old_idx = xy_idx(pos.x, pos.y);
                     (pos.x, pos.y) = (x, y);
-                    let dest = (pos.x as i32 -dest.0 as i32, pos.y as i32-dest.1 as i32);
+                    let dest = (pos.x as i32 -old_pos.0 as i32, pos.y as i32-old_pos.1 as i32);
                     let idx = xy_idx(pos.x, pos.y);
                     world_map.entities.swap(old_idx, idx);
                     let max = dest.0.abs().max(dest.1.abs());
@@ -100,7 +100,7 @@ fn dispense_functions(
                         EaseFunction::QuadraticInOut,
                         Duration::from_millis(300),
                         TransformPositionLens {
-                            start,
+                            start: Vec3::new(old_pos.0 as f32/2., old_pos.1 as f32/2., 0.),
                             end: Vec3::new(pos.x as f32/2., pos.y as f32/2., 0.),
                         },
                     );
@@ -215,7 +215,6 @@ fn dispense_functions(
                                 slot_coords_transform.push(ui_to_transform(i.0, i.1, (offx, offy), (cam_offset.playx, cam_offset.playy)));
                             }
                             if let Ok((mut anim, mut ui, transform, soul_id), ) = souls.get_mut(new_soul) { 
-                                breath.pile[match_soul_with_display_index(soul_id)].pop();
                                 let tween_tr = Tween::new(
                                     EaseFunction::QuadraticInOut,
                                     Duration::from_millis(500),
@@ -229,7 +228,7 @@ fn dispense_functions(
                                     Duration::from_millis(500),
                                     TransformScaleLens {
                                         start: transform.scale,
-                                        end: Vec3{ x: transform.scale.x*3., y: transform.scale.y*3., z: 0.},
+                                        end: Vec3{ x: 3., y: 3., z: 0.},
                                     },
                                 );
                                 let track = Tracks::new([tween_tr, tween_sc]);
