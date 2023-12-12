@@ -4,7 +4,7 @@ use bevy::prelude::*;
 use bevy_tweening::{*, lens::{TransformPositionLens, TransformScaleLens}};
 use rand::seq::SliceRandom;
 
-use crate::{components::{QueuedAction, RealityAnchor, Position, SoulBreath, UIElement}, input::ActionType, TurnState, map::{xy_idx, WorldMap, is_in_bounds, bresenham_line}, soul::{Soul, get_soul_rot_position, SoulRotationTimer, match_soul_with_display_index}, ui::CenterOfWheel, axiom::{grab_coords_from_form, CasterInfo, match_soul_with_axiom, Function}, species::Species, CameraOffset, ui_to_transform};
+use crate::{components::{QueuedAction, RealityAnchor, Position, SoulBreath}, input::ActionType, TurnState, map::{xy_idx, WorldMap, is_in_bounds, bresenham_line}, soul::{Soul, get_soul_rot_position, SoulRotationTimer, match_soul_with_display_index}, ui::CenterOfWheel, axiom::{grab_coords_from_form, CasterInfo, match_soul_with_axiom, Function}, species::Species};
 
 pub struct TurnPlugin;
 
@@ -30,7 +30,7 @@ fn execute_turn (
     mut creatures: Query<(Entity, &QueuedAction, &Species, &mut SoulBreath, &mut Position)>,
     mut next_state: ResMut<NextState<TurnState>>,
     mut world_map: ResMut<WorldMap>,
-    souls: Query<(&mut Animator<Transform>, &mut UIElement, &Transform, &Soul), Without<Position>>,
+    souls: Query<(&mut Animator<Transform>, &Transform, &Soul), Without<Position>>,
 ){
     for (entity, queue, species, breath, pos) in creatures.iter_mut(){
         
@@ -41,7 +41,7 @@ fn execute_turn (
                     None => continue
                 };
                 let info = CasterInfo{ pos: (pos.x,pos.y), species: species.clone(), momentum: pos.momentum};
-                if let Ok((_anim, _ui, _transform, soul_id), ) = souls.get(soul) {
+                if let Ok((_anim, _transform, soul_id), ) = souls.get(soul) {
                     let axioms = breath.axioms.clone();
                     let (form, function) = axioms[match_soul_with_axiom(soul_id)].clone();
                     let targets = grab_coords_from_form(&world_map.entities, form, info.clone());
@@ -67,10 +67,8 @@ fn dispense_functions(
     mut creatures: Query<(&Transform, &Species, &mut SoulBreath, &mut Animator<Transform>, &mut Position, Has<RealityAnchor>)>,
     mut next_state: ResMut<NextState<TurnState>>,
     mut world_map: ResMut<WorldMap>,
-    player: Query<&Transform, With<RealityAnchor>>,
-    mut souls: Query<(&mut Animator<Transform>, &mut UIElement, &Transform, &Soul), Without<Position>>,
+    mut souls: Query<(&mut Animator<Transform>, &Transform, &Soul), Without<Position>>,
     ui_center: Res<CenterOfWheel>,
-    cam_offset: Res<CameraOffset>,
     time: Res<SoulRotationTimer>,
 ){
     let mut next_axioms = Vec::new();
@@ -143,21 +141,17 @@ fn dispense_functions(
                     next_axioms.push((*entity, Function::Dash { dx: dest.0, dy: dest.1 }, info.clone()));
                 }
                 Function::DiscardSoul { soul, slot } => {
-                    let player_trans = if let Ok(player_transform) = player.get_single() {player_transform.translation } else { panic!("0 or 2+ players found!")};
-                    let (offx, offy) = (player_trans.x, player_trans.y);
-
-                    if let Ok((mut anim, mut ui, transform, soul_id), ) = souls.get_mut(soul) { 
+                    if let Ok((mut anim, transform, soul_id), ) = souls.get_mut(soul) { 
                         // Move the soul to the discard.
                         breath.discard[match_soul_with_display_index(soul_id)].push(soul);
                         let index = breath.discard[match_soul_with_display_index(soul_id)].iter().position(|&ent| ent == soul);
                         let final_pos = get_soul_rot_position(soul_id, (ui_center.x, ui_center.y), true, time.timer.elapsed_secs()+0.5, index.unwrap());
-                        let final_pos_trans = ui_to_transform(final_pos.0, final_pos.1, (offx, offy), (cam_offset.playx, cam_offset.playy));
                         let tween_tr = Tween::new(
                             EaseFunction::QuadraticInOut,
                             Duration::from_millis(500),
                             TransformPositionLens {
                                 start: transform.translation,
-                                end: Vec3{ x: final_pos_trans.0, y: final_pos_trans.1, z: 0.5},
+                                end: Vec3{ x: final_pos.0, y: final_pos.1, z: 0.5},
                             },
                         );
                         let tween_sc = Tween::new(
@@ -170,7 +164,6 @@ fn dispense_functions(
                         );
                         let track = Tracks::new([tween_tr, tween_sc]);
                         anim.set_tweenable(track);
-                        (ui.x, ui.y) = final_pos;
                     }
                     let mut rng = rand::thread_rng();
                     let mut possible_indices = Vec::new();
@@ -178,16 +171,15 @@ fn dispense_functions(
                     if possible_indices.is_empty() {
                         for j in breath.discard.iter() { // Reshuffle if no souls are left!
                             for i in j.iter(){
-                                if let Ok((mut anim, mut ui, transform, soul_id), ) = souls.get_mut(*i) { 
+                                if let Ok((mut anim, transform, soul_id), ) = souls.get_mut(*i) { 
                                     let index = breath.discard[match_soul_with_display_index(soul_id)].iter().position(|&ent| ent == *i);
                                     let final_pos = get_soul_rot_position(soul_id, (ui_center.x, ui_center.y), false, time.timer.elapsed_secs()+0.5, index.unwrap());
-                                    let final_pos_trans = ui_to_transform(final_pos.0, final_pos.1, (offx, offy), (cam_offset.playx, cam_offset.playy));
                                     let tween_tr = Tween::new(
                                         EaseFunction::QuadraticInOut,
                                         Duration::from_millis(500),
                                         TransformPositionLens {
                                             start: transform.translation,
-                                            end: Vec3{ x: final_pos_trans.0, y: final_pos_trans.1, z: 0.5},
+                                            end: Vec3{ x: final_pos.0, y: final_pos.1, z: 0.5},
                                         },
                                     );
                                     let tween_sc = Tween::new(
@@ -200,7 +192,6 @@ fn dispense_functions(
                                     );
                                     let track = Tracks::new([tween_tr, tween_sc]);
                                     anim.set_tweenable(track);
-                                    (ui.x, ui.y) = final_pos;
                                 }
                                 else{ panic!("A soul in the draw pile has no UIElement component!")};
                             }
@@ -223,17 +214,13 @@ fn dispense_functions(
                                 ((5.*PI/4.).cos() * 1.5 +ui_center.x, (5.*PI/4.).sin() * 1.5 +ui_center.y),
                                 ((7.*PI/4.).cos() * 1.5 +ui_center.x, (7.*PI/4.).sin() * 1.5 +ui_center.y)
                             ];
-                            let mut slot_coords_transform = Vec::with_capacity(4);
-                            for i in slot_coords_ui{
-                                slot_coords_transform.push(ui_to_transform(i.0, i.1, (offx, offy), (cam_offset.playx, cam_offset.playy)));
-                            }
-                            if let Ok((mut anim, mut ui, transform, _soul_id), ) = souls.get_mut(new_soul) { 
+                            if let Ok((mut anim, transform, _soul_id), ) = souls.get_mut(new_soul) { 
                                 let tween_tr = Tween::new(
                                     EaseFunction::QuadraticInOut,
                                     Duration::from_millis(500),
                                     TransformPositionLens {
                                         start: transform.translation,
-                                        end: Vec3{ x: slot_coords_transform[slot].0, y: slot_coords_transform[slot].1, z: 0.5},
+                                        end: Vec3{ x: slot_coords_ui[slot].0, y: slot_coords_ui[slot].1, z: 0.5},
                                     },
                                 );
                                 let tween_sc = Tween::new(
@@ -246,7 +233,6 @@ fn dispense_functions(
                                 );
                                 let track = Tracks::new([tween_tr, tween_sc]);
                                 anim.set_tweenable(track);
-                                (ui.x, ui.y) = slot_coords_ui[slot];
                             }
                         },
                         None => panic!("The chosen Soul category had nothing left!")

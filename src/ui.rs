@@ -3,7 +3,7 @@ use std::{f32::consts::PI, time::Duration};
 use bevy::{prelude::*, text::{BreakLineOn, Text2dBounds, TextLayoutInfo}, sprite::Anchor};
 use bevy_tweening::{Tween, EaseFunction, lens::TransformPositionLens, Animator};
 
-use crate::{SpriteSheetHandle, components::{UIElement, MinimapTile, LogIndex, RealityAnchor, MomentumMarker}, map::{WORLD_HEIGHT, WORLD_WIDTH, WorldMap, xy_idx}, species::{Species, match_species_with_pixel}, TurnState, text::{LORE, split_text}, ui_to_transform, CameraOffset};
+use crate::{SpriteSheetHandle, components::{MinimapTile, LogIndex, MomentumMarker}, map::{WORLD_HEIGHT, WORLD_WIDTH, WorldMap, xy_idx}, species::{Species, match_species_with_pixel}, TurnState, text::{LORE, split_text}};
 
 pub struct UIPlugin;
 
@@ -13,7 +13,7 @@ impl Plugin for UIPlugin {
         app.add_systems(PostStartup, draw_minimap);
         app.add_systems(OnEnter(TurnState::AwaitingInput), update_minimap);
         app.add_systems(Update, (place_down_text, push_log));
-        app.insert_resource(CenterOfWheel{x: 16.5, y: 2.3});
+        app.insert_resource(CenterOfWheel{x: 16.5+7.25, y: 2.3+5.});
         app.add_event::<LogMessage>();
     }
 }
@@ -21,7 +21,6 @@ impl Plugin for UIPlugin {
 #[derive(Bundle)]
 pub struct UIBundle {
     sprite_bundle: SpriteSheetBundle,
-    ui: UIElement,
     name: Name
 }
 
@@ -51,13 +50,12 @@ fn draw_soul_deck(
                     ..default()
                 },
                 transform: Transform {
-                    translation: Vec3{ x: 0., y: 0., z: 0.2},
+                    translation: Vec3{ x: (i as f32*PI/4.).cos() * (spacing + 0.2*(1.-(i as f32%2.))) +ui_center.x, y: (i as f32*PI/4.).sin() * (spacing + 0.2*(1.-(i as f32%2.)))+ui_center.y, z: 0.2},
                     rotation: Quat::from_rotation_z(rot[i%2]*(i as f32-2.)/2.),
                     ..default()
                 },
                 ..default()
             },
-            ui: UIElement { x: (i as f32*PI/4.).cos() * (spacing + 0.2*(1.-(i as f32%2.))) +ui_center.x, y: (i as f32*PI/4.).sin() * (spacing + 0.2*(1.-(i as f32%2.)))+ui_center.y},
             name: Name::new("Wheel Element")
         },
         )).id();
@@ -76,14 +74,13 @@ fn draw_soul_deck(
             Text2dBundle {
                 text: Text::from_section(text[i], text_style.clone()),
                 transform: Transform {
-                    translation: Vec3{ x: 0., y: 0., z: 0.2},
+                    translation: Vec3{ x: (i as f32*PI/4.).cos() * spacing +ui_center.x, y: (i as f32*PI/4.).sin() * spacing+ui_center.y, z: 0.2},
                     scale: Vec3{x: 1./64., y: 1./64., z: 0.}, // Set to the camera scaling mode fixed size
                     
                     ..default()
                 },
                 ..default()
             },
-            UIElement { x: (i as f32*PI/4.).cos() * spacing +ui_center.x, y: (i as f32*PI/4.).sin() * spacing+ui_center.y},
             Name::new("Wheel Label"),
         ));
     }
@@ -121,12 +118,11 @@ fn draw_minimap(
                         ..default()
                     },
                     transform: Transform {
-                        translation: Vec3{ x: 0., y: 0., z: 0.2},
+                        translation: Vec3{  x: -6.9+x as f32/size_factor+7.25, y: 3.4+y as f32/size_factor +5., z: 0.2},
                         ..default()
                     },
                     ..default()
                 },
-                ui: UIElement { x: -6.9+x as f32/size_factor, y: 3.4+y as f32/size_factor },
                 name: Name::new("Minimap Tile")
             },
             MinimapTile{x, y}
@@ -159,8 +155,8 @@ fn place_down_text(
             EaseFunction::QuadraticInOut,
             Duration::from_millis(0),
             TransformPositionLens {
-                start: Vec3{ x: 0., y: -100., z: 0.07},
-                end: Vec3{ x: 0., y: -100., z: 0.07},
+                start: Vec3{ x: 12.1+7.25, y: -10.+5., z: 0.07},
+                end: Vec3{ x: 12.1+7.25, y: -10.+5., z: 0.07},
             },
         );
         commands.spawn((
@@ -168,14 +164,13 @@ fn place_down_text(
                 text,
                 text_anchor: Anchor::BottomLeft,
                 transform: Transform {
-                    translation: Vec3{ x: 0., y: -100., z: 0.07},
+                    translation: Vec3{ x: 12.1+7.25, y: -10.+5., z: 0.07},
                     scale: Vec3{x: 1./64., y: 1./64., z: 0.}, // Set to the camera scaling mode fixed size
                     ..default()
                 },
                 text_2d_bounds: Text2dBounds { size: Vec2 { x: 550., y: 600. }},
                 ..default()
             },
-            UIElement { x: 12.1, y: -10.},
             LogIndex { index: 0 },
             Name::new("Log Message"),
             Animator::new(tween)
@@ -186,53 +181,45 @@ fn place_down_text(
 }
 
 fn push_log(
-    mut new_text: Query<(Entity, &TextLayoutInfo, &mut UIElement, &mut Animator<Transform>, &Transform, &mut LogIndex)>,
-    player: Query<&Transform, With<RealityAnchor>>,
-    cam_offset: Res<CameraOffset>,
+    mut new_text: Query<(Entity, &TextLayoutInfo, &mut Animator<Transform>, &Transform, &mut LogIndex)>,
     mut commands: Commands
 ){
     let mut newcomer = None;
-    let player_trans = if let Ok(player_transform) = player.get_single() {player_transform.translation } else { panic!("0 or 2+ players found!")};
-    let (offx, offy) = (player_trans.x, player_trans.y);
-    for (entity, entry, mut ui, mut anim, transform, mut num) in new_text.iter_mut(){
+    for (entity, entry, mut anim, transform, mut num) in new_text.iter_mut(){
         if num.index == 0 && transform.translation.x != 0.{ // needs transform to be modified by the main update before operating otherwise it is just 000
             let size = Vec2::new(entry.logical_size.x/64., entry.logical_size.y/64.);
             newcomer = Some((entity, size));
-            let final_pos = (12.1, -8.7 + (size.y)/20.);
-            let final_pos_trans = ui_to_transform(final_pos.0, final_pos.1, (offx, offy), (cam_offset.playx, cam_offset.playy));
+            let final_pos = (12.1+7.25, -3.7 + (size.y)/20.);
             let tween_tr = Tween::new(
                 EaseFunction::QuadraticInOut,
-                Duration::from_millis(500),
+                Duration::from_millis(300),
                 TransformPositionLens {
                     start: transform.translation,
-                    end: Vec3{ x: final_pos_trans.0, y: final_pos_trans.1, z: 0.07},
+                    end: Vec3{ x: final_pos.0, y: final_pos.1, z: 0.07},
                 },
             );
             anim.set_tweenable(tween_tr);
-            (ui.x, ui.y) = final_pos;
             num.index = 1;
             break;
         }
     }
-    for (entity, _entry, mut ui, mut anim, transform, mut num) in new_text.iter_mut(){
+    for (entity, _entry, mut anim, transform, mut num) in new_text.iter_mut(){
         if newcomer.is_some(){
             if newcomer.unwrap().0 == entity {continue;}
-            let final_pos = (12.1, ui.y + 0.2 + newcomer.unwrap().1.y);
-            if final_pos.1 > -1. {
+            let final_pos = (12.1+7.25, transform.translation.y + 0.2 + newcomer.unwrap().1.y);
+            if final_pos.1 > 4. {
                 commands.entity(entity).despawn();
                 continue;
             }
-            let final_pos_trans = ui_to_transform(final_pos.0, final_pos.1, (offx, offy), (cam_offset.playx, cam_offset.playy));
             let tween_tr = Tween::new(
                 EaseFunction::QuadraticInOut,
-                Duration::from_millis(500),
+                Duration::from_millis(300),
                 TransformPositionLens {
                     start: transform.translation,
-                    end: Vec3{ x: final_pos_trans.0, y: final_pos_trans.1, z: 0.07},
+                    end: Vec3{ x: final_pos.0, y: final_pos.1, z: 0.07},
                 },
             );
             anim.set_tweenable(tween_tr);
-            (ui.x, ui.y) = final_pos;
             num.index += 1;
         }
     }
@@ -251,14 +238,10 @@ fn draw_chain_borders(
                 ..default()
             },
             transform: Transform {
-                translation: Vec3{ x: 0., y: 0., z: 0.05},
+                translation: Vec3{ x: 11., y: 4., z: 0.05},
                 ..default()
             },
             ..default()
-        },
-        ui: UIElement{
-            x: 3.75,
-            y: -1.
         },
         name: Name::new("Grid Border Mask"),
     });
@@ -272,14 +255,10 @@ fn draw_chain_borders(
                 ..default()
             },
             transform: Transform {
-                translation: Vec3{ x: 0., y: 0., z: 0.1},
+                translation: Vec3{ x: 19.35+7.25, y: 4.9, z: 0.1},
                 ..default()
             },
             ..default()
-        },
-        ui: UIElement{
-            x: 19.35,
-            y: -0.1
         },
         name: Name::new("Top Log Border Mask"),
     });
@@ -293,14 +272,10 @@ fn draw_chain_borders(
                 ..default()
             },
             transform: Transform {
-                translation: Vec3{ x: 0., y: 0., z: 0.1},
+                translation: Vec3{x: 19.35+7.25, y: -11.4+5., z: 0.1},
                 ..default()
             },
             ..default()
-        },
-        ui: UIElement{
-            x: 19.35,
-            y: -11.4
         },
         name: Name::new("Bottom Log Border Mask"),
     });
@@ -349,15 +324,11 @@ fn draw_chain_borders(
                     ..default()
                 },
                 transform: Transform {
-                    translation: Vec3{ x: chain.position.0, y: chain.position.1, z: 1.0},
+                    translation: Vec3{ x: chain.position.0+7.25, y: chain.position.1+5., z: 1.0},
                     rotation: Quat::from_rotation_z(chain.rotation),
                     ..default()
                 },
                 ..default()
-            },
-            ui: UIElement{
-                x: chain.position.0,
-                y: chain.position.1
             },
             name: Name::new("Small Chain Border")
         });

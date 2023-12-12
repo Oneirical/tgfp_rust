@@ -51,13 +51,12 @@ fn main() {
             WorldInspectorPlugin::default().run_if(input_toggle_active(true, KeyCode::Escape)),
         )
         .add_state::<TurnState>()
-        .register_type::<UIElement>()
         .insert_resource(ClearColor(Color::rgb(0., 0., 0.)))
         .insert_resource(Msaa::Off) // This fixes weird black lines on the tiles.
-        .insert_resource(CameraOffset{uix: 3., uiy: 0., playx: -3.75, playy: 1.})
+        .insert_resource(CameraOffset{uix: 3., uiy: 0., playx: 7.25, playy: 5.})
         .add_systems(PreStartup, load_spritesheet)
         .add_systems(Startup, (setup, spawn_players, summon_walls))
-        .add_systems(Update, (camera_follow, toggle_resolution, hide_and_show_creatures))
+        .add_systems(Update, (toggle_resolution, hide_and_show_creatures))
         .insert_resource(ResolutionSettings {
             giga: 80.,
             large: 64.,
@@ -198,31 +197,6 @@ struct CameraOffset{
     uiy: f32,
     playx: f32,
     playy: f32,
-}
-
-fn camera_follow(
-    players: Query<&Transform, With<RealityAnchor>>,
-    mut ui: Query<(&mut Transform, &UIElement, Option<&Animator<Transform>>), Without<RealityAnchor>>,
-    offset: Res<CameraOffset>,
-) {
-    for player_transform in &players {
-
-        let pos = player_transform.translation;
-
-        for (mut transform, ui, anim) in &mut ui {
-            if let Some(ani) = anim { if ani.tweenable().progress() != 1.0 { continue; } } // If an animator is handling the UI element, don't adjust it, trust the animator.
-            transform.translation.x = ui.x + pos.x+offset.playx;
-            transform.translation.y = ui.y + pos.y+offset.playy;
-        }
-    }
-}
-
-pub fn ui_to_transform (x: f32, y: f32, player_off: (f32, f32), cam_off: (f32, f32)) -> (f32, f32) {
-    (x + player_off.0 + cam_off.0, y + player_off.1 + cam_off.1)
-}
-
-pub fn transform_to_ui (x: f32, y: f32, player_off: (f32, f32), cam_off: (f32, f32)) -> (f32, f32) {
-    (x - player_off.0 - cam_off.0, y - player_off.1 - cam_off.1)
 }
 
 fn hide_and_show_creatures(
