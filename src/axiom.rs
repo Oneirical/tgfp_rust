@@ -30,7 +30,7 @@ pub fn match_soul_with_axiom(
         Soul::Ordered => 1,
         Soul::Saintly => 0,
         Soul::Vile => 3,
-        Soul::Serene => 0, // Temporary
+        Soul::Serene => 0, // Temporary, imitates saintly
     }
 }
 

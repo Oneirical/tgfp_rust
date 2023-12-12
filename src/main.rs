@@ -73,7 +73,7 @@ fn setup(mut commands: Commands) {
     camera_bundle.projection.scaling_mode = ScalingMode::WindowSize(64.);
     //camera_bundle.projection.scale = 0.99;
     commands.spawn(camera_bundle);
-    commands.insert_resource(InputDelay{time: Timer::new(Duration::from_millis(100), TimerMode::Once)});
+    commands.insert_resource(InputDelay{time: Timer::new(Duration::from_millis(200), TimerMode::Once)});
     commands.insert_resource(BuildDelay{time: Timer::new(Duration::from_millis(200), TimerMode::Repeating)});
 }
 

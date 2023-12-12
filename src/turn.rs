@@ -64,7 +64,7 @@ fn execute_turn (
 }
 
 fn dispense_functions(
-    mut creatures: Query<(&QueuedAction, &Transform, &Species, &mut SoulBreath, &mut Animator<Transform>, &mut Position)>,
+    mut creatures: Query<(&QueuedAction, &Transform, &Species, &mut SoulBreath, &mut Animator<Transform>, &mut Position, Has<RealityAnchor>)>,
     mut next_state: ResMut<NextState<TurnState>>,
     mut world_map: ResMut<WorldMap>,
     player: Query<&Transform, With<RealityAnchor>>,
@@ -75,7 +75,7 @@ fn dispense_functions(
 ){
     let mut next_axioms = Vec::new();
     for (entity, function, info) in world_map.targeted_axioms.clone().iter(){
-        if let Ok((queue, transform, species, mut breath, mut anim, mut pos)) = creatures.get_mut(entity.to_owned()) {
+        if let Ok((queue, transform, species, mut breath, mut anim, mut pos, is_player)) = creatures.get_mut(entity.to_owned()) {
             let function = function.to_owned();
             match function {
                 Function::Teleport { x, y } => {
@@ -85,6 +85,7 @@ fn dispense_functions(
                     let old_pos = (pos.x, pos.y);
                     let old_idx = xy_idx(pos.x, pos.y);
                     (pos.x, pos.y) = (x, y);
+                    let new_pos = (x, y);
                     let dest = (pos.x as i32 -old_pos.0 as i32, pos.y as i32-old_pos.1 as i32);
                     let idx = xy_idx(pos.x, pos.y);
                     world_map.entities.swap(old_idx, idx);
@@ -98,14 +99,28 @@ fn dispense_functions(
                     let start = transform.translation;
                     let tween = Tween::new(
                         EaseFunction::QuadraticInOut,
-                        Duration::from_millis(300),
+                        Duration::from_millis(200),
                         TransformPositionLens {
                             start: Vec3::new(old_pos.0 as f32/2., old_pos.1 as f32/2., 0.),
                             end: Vec3::new(pos.x as f32/2., pos.y as f32/2., 0.),
                         },
                     );
                     //if anim.tweenable().progress() != 1.0 { continue; }
-                    anim.set_tweenable(tween);
+                    if !is_player {anim.set_tweenable(tween)}
+                    else {
+                        for (queue, transform, species, mut breath, mut anim, mut posi, is_player) in creatures.iter_mut(){
+                            if is_player {continue;}
+                            let tween = Tween::new(
+                                EaseFunction::QuadraticInOut,
+                                Duration::from_millis(200), // must be the same as input delay to avoid offset
+                                TransformPositionLens {
+                                    start: transform.translation,
+                                    end: Vec3::new(transform.translation.x + (old_pos.0 as f32-new_pos.0 as f32)/2., transform.translation.y + (old_pos.1 as f32-new_pos.1 as f32)/2., 0.),
+                                },
+                            );
+                            anim.set_tweenable(tween);
+                        }
+                    }
                 }
                 Function::Dash { dx, dy } => {
                     let dest = (dx, dy);
