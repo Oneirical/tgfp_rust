@@ -37,6 +37,8 @@ impl CreatureBundle { // Creatures displayed on screen.
         tex_handle: &SpriteSheetHandle
     ) -> Self {
         let texture_atlas_handle = &tex_handle.handle;
+        let mut lots_of_vec = Vec::new();
+        for _i in 0..5 {lots_of_vec.push(Vec::new())}
         let tween = Tween::new(
             EaseFunction::QuadraticInOut,
             Duration::from_millis(1000),
@@ -65,7 +67,7 @@ impl CreatureBundle { // Creatures displayed on screen.
             species: Species::BuggedSpecies,
             position: Position { x: 0, y: 0, momentum: (-1, 0)},
             action: QueuedAction { action: ActionType::Nothing},
-            breath: SoulBreath { pile: Vec::new(), held: Vec::new(), discard: Vec::new(), axioms: vec![
+            breath: SoulBreath { pile: lots_of_vec.clone(), discard: lots_of_vec.clone(), held: Vec::new(), axioms: vec![
                 (Form::Ego, Function::LinearDash { dist: 0 }),
                 (Form::Empty, Function::Empty),
                 (Form::Empty, Function::Empty),

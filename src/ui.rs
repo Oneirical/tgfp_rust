@@ -1,7 +1,7 @@
 use std::{f32::consts::PI, time::Duration};
 
-use bevy::{prelude::*, text::{BreakLineOn, Text2dBounds, TextLayoutInfo}};
-use bevy_tweening::{Tween, EaseFunction, lens::{TransformPositionLens, TextColorLens}, Animator, Tracks};
+use bevy::{prelude::*, text::{BreakLineOn, Text2dBounds, TextLayoutInfo}, sprite::Anchor};
+use bevy_tweening::{Tween, EaseFunction, lens::TransformPositionLens, Animator};
 
 use crate::{SpriteSheetHandle, components::{UIElement, MinimapTile, LogIndex, RealityAnchor}, map::{WORLD_HEIGHT, WORLD_WIDTH, WorldMap, xy_idx}, species::{Species, match_species_with_pixel}, TurnState, text::{LORE, split_text}, ui_to_transform, CameraOffset};
 
@@ -162,20 +162,21 @@ fn place_down_text(
         commands.spawn((
             Text2dBundle {
                 text,
+                text_anchor: Anchor::BottomLeft,
                 transform: Transform {
                     translation: Vec3{ x: 0., y: -100., z: 0.07},
                     scale: Vec3{x: 1./64., y: 1./64., z: 0.}, // Set to the camera scaling mode fixed size
-                    
                     ..default()
                 },
                 text_2d_bounds: Text2dBounds { size: Vec2 { x: 550., y: 600. }},
                 ..default()
             },
-            UIElement { x: 16.5, y: -9.4},
+            UIElement { x: 12.1, y: -10.4},
             LogIndex { index: 0 },
             Name::new("Log Message"),
             Animator::new(tween)
         ));
+        
     }
 
 }
@@ -193,7 +194,7 @@ fn push_log(
         if num.index == 0 && transform.translation.x != 0.{ // needs transform to be modified by the main update before operating otherwise it is just 000
             let size = Vec2::new(entry.logical_size.x/64., entry.logical_size.y/64.);
             newcomer = Some((entity, size));
-            let final_pos = (16.5, -8.25 + (size.y)/20.);
+            let final_pos = (12.1, -8.7 + (size.y)/20.);
             let final_pos_trans = ui_to_transform(final_pos.0, final_pos.1, (offx, offy), (cam_offset.playx, cam_offset.playy));
             let tween_tr = Tween::new(
                 EaseFunction::QuadraticInOut,
@@ -212,7 +213,7 @@ fn push_log(
     for (entity, _entry, mut ui, mut anim, transform, mut num) in new_text.iter_mut(){
         if newcomer.is_some(){
             if newcomer.unwrap().0 == entity {continue;}
-            let final_pos = (16.5, ui.y + newcomer.unwrap().1.y);
+            let final_pos = (12.1, ui.y + 0.2 + newcomer.unwrap().1.y);
             if final_pos.1 > -1. {
                 commands.entity(entity).despawn();
                 continue;

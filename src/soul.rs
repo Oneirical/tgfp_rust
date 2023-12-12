@@ -1,7 +1,8 @@
 use std::{f32::consts::PI, time::Duration};
 
 use bevy::prelude::*;
-use bevy_tweening::{Animator, Tween, EaseFunction, lens::TransformPositionLens};
+use bevy_tweening::{Animator, Tween, EaseFunction, lens::TransformPositionLens, Tweenable};
+use rand::Rng;
 
 use crate::{SpriteSheetHandle, components::{UIElement, SoulBreath, RealityAnchor}, ui::CenterOfWheel};
 
@@ -11,6 +12,7 @@ impl Plugin for SoulPlugin {
     fn build(&self, app: &mut App) {
         app.add_systems(PostStartup, distribute_some_souls);
         app.add_systems(Update, soul_rotation);
+        app.insert_resource(SoulRotationTimer{timer: Timer::new(Duration::from_millis(10000), TimerMode::Repeating)});
     }
 }
 
@@ -37,20 +39,38 @@ pub struct CurrentEntityInUI {
     pub entity: Entity,
 }
 
+#[derive(Resource)]
+pub struct SoulRotationTimer {
+    pub timer: Timer
+}
+
 fn soul_rotation(
     ui_center: Res<CenterOfWheel>,
     current: Res<CurrentEntityInUI>,
     query: Query<&SoulBreath>,
-    mut soul: Query<(&mut UIElement, &Soul)>,
-    time: Res<Time>,
+    mut soul: Query<(&mut Transform, &mut UIElement, &Soul)>,
+    mut time: ResMut<SoulRotationTimer>,
+    epoch: Res<Time>,
 ){
+    time.timer.tick(epoch.delta());
     let (draw, held, disc) = if let Ok(breath) = query.get(current.entity) { (&breath.pile, &breath.held, &breath.discard) } 
     else{ panic!("The entity meant to be represented in the UI doesn't have a SoulBreath component!")};
-    for i in draw.iter().enumerate() {
-        if let Ok((mut ui, soul_type)) = soul.get_mut(*i.1) {
-            (ui.x, ui.y) = get_soul_rot_position(soul_type, (ui_center.x, ui_center.y), false, time.elapsed_seconds_wrapped(), i.0);
+    for j in draw.iter() {
+        for i in j{
+            if let Ok((mut trans, mut ui, soul_type)) = soul.get_mut(*i) {
+                let index = draw[match_soul_with_display_index(soul_type)].iter().position(|&ent| ent == *i);
+                let index = match index {
+                    Some(ind) => ind,
+                    None => {
+                        dbg!(draw);
+                        panic!("waa");
+                    }
+                };
+                (ui.x, ui.y) = get_soul_rot_position(soul_type, (ui_center.x, ui_center.y), false, time.timer.elapsed_secs(), index);
+                trans.scale = Vec3{ x: 1., y: 1., z: 0.};
+            }
+            else{ panic!("A soul in the draw pile has no UIElement component!")};
         }
-        else{ panic!("A soul in the draw pile has no UIElement component!")};
     }
     for i in held.iter().enumerate(){
         let slot_coords_ui = [
@@ -59,16 +79,21 @@ fn soul_rotation(
             ((5.*PI/4.).cos() * 1.5 +ui_center.x, (5.*PI/4.).sin() * 1.5 +ui_center.y),
             ((7.*PI/4.).cos() * 1.5 +ui_center.x, (7.*PI/4.).sin() * 1.5 +ui_center.y)
         ];
-        if let Ok((mut ui, _soul_type)) = soul.get_mut(*i.1) { 
+        if let Ok((mut trans, mut ui, _soul_type)) = soul.get_mut(*i.1) { 
             (ui.x, ui.y) = slot_coords_ui[i.0];
+            trans.scale = Vec3{ x: 3., y: 3., z: 0.}; // TODO add an animation filter to avoid bobbing
         }
         else{ panic!("A soul in the draw pile has no UIElement component!")};
     }
-    for i in disc.iter().enumerate() {
-        if let Ok((mut ui, soul_type)) = soul.get_mut(*i.1) { 
-            (ui.x, ui.y) = get_soul_rot_position(soul_type, (ui_center.x, ui_center.y), true, time.elapsed_seconds_wrapped(), i.0);
+    for j in disc.iter() {
+        for i in j.iter(){
+            if let Ok((mut trans, mut ui, soul_type)) = soul.get_mut(*i) { 
+                let index = disc[match_soul_with_display_index(soul_type)].iter().position(|&ent| ent == *i);
+                (ui.x, ui.y) = get_soul_rot_position(soul_type, (ui_center.x, ui_center.y), true, time.timer.elapsed_secs(), index.unwrap());
+                trans.scale = Vec3{ x: 1., y: 1., z: 0.};
+            }
+            else{ panic!("A soul in the draw pile has no UIElement component!")};
         }
-        else{ panic!("A soul in the draw pile has no UIElement component!")};
     }
 }
 
@@ -81,8 +106,9 @@ pub fn get_soul_rot_position(
 ) -> (f32, f32){
     let spacing = if is_discard { 4. } else { 3. };
     let offset = 30.15;
-    let dist_between_souls = 412.;
+    let dist_between_souls = 210.;
     let slide_factor = match soul_type {
+        //_ => stack_pos as f32*PI/dist_between_souls,
         Soul::Saintly => stack_pos as f32*PI/dist_between_souls,
         Soul::Ordered => (1.*offset)+stack_pos as f32*PI/dist_between_souls,
         Soul::Feral => (2.*offset)+stack_pos as f32*PI/dist_between_souls,
@@ -113,11 +139,13 @@ fn distribute_some_souls(
         let scale = if i < 4 {
             Vec3::new(3., 3., 0.)
         } else { Vec3::new(1., 1., 0.) };
+        let mut rng = rand::thread_rng();
+        let index = rng.gen_range(0..5);
         let entity = commands.spawn(SoulBundle{
             sprite_bundle: SpriteSheetBundle {
                 texture_atlas: texture_atlas_handle.handle.clone(),
                 sprite: TextureAtlasSprite{
-                    index : match_soul_with_sprite(&soul[i%5]),
+                    index : match_soul_with_sprite(&soul[index]),
                     custom_size: Some(Vec2::new(0.25, 0.25)),
                     ..default()
                 },
@@ -130,13 +158,19 @@ fn distribute_some_souls(
             },
             animation: Animator::new(tween),
             name: Name::new("Breathed Soul"),
-            soul: soul[i%5].clone(),
+            soul: soul[index].clone(),
             ui: UIElement { x: 0., y: 0. }
         }).id();
         if let Ok(mut breath) = player.get_single_mut() {
-            if i < 4 {breath.held.push(entity)}
-            else if i < 18 {breath.pile.push(entity)}
-            else {breath.discard.push(entity)}
+            if i < 4 {
+                breath.held.push(entity);
+            }
+            else if i < 18 {
+                breath.pile[index].push(entity);
+            }
+            else {
+                breath.discard[index].push(entity);
+            }
         } else {
             panic!("There are zero or more than 1 players!")
         }   
@@ -152,5 +186,17 @@ fn match_soul_with_sprite(
         Soul::Saintly => 160,
         Soul::Serene => 26,
         Soul::Vile => 165
+    }
+}
+
+pub fn match_soul_with_display_index(
+    soul: &Soul,
+) -> usize{
+    match soul{
+        Soul::Feral => 1,
+        Soul::Ordered => 2,
+        Soul::Saintly => 3,
+        Soul::Serene => 0,
+        Soul::Vile => 4
     }
 }

@@ -61,8 +61,8 @@ pub struct QueuedAction{
 
 #[derive(Component)]
 pub struct SoulBreath{
-    pub pile: Vec<Entity>,
+    pub pile: Vec<Vec<Entity>>,
     pub held: Vec<Entity>,
-    pub discard: Vec<Entity>,
+    pub discard: Vec<Vec<Entity>>,
     pub axioms: Vec<(Form, Function)>,
 }
