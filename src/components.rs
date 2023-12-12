@@ -38,8 +38,8 @@ pub struct RightFaith;
 pub struct Intangible;
 
 #[derive(Component)]
-pub struct FaithPoint{
-    pub num: usize,
+pub struct MomentumMarker{
+    pub dir: (i32, i32),
 }
 
 #[derive(Component)]

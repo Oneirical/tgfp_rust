@@ -1,10 +1,10 @@
 use std::{f32::consts::PI, time::Duration};
 
 use bevy::prelude::*;
-use bevy_tweening::{Animator, Tween, EaseFunction, lens::TransformPositionLens, Tweenable};
+use bevy_tweening::{Animator, Tween, EaseFunction, lens::TransformPositionLens};
 use rand::Rng;
 
-use crate::{SpriteSheetHandle, components::{UIElement, SoulBreath, RealityAnchor}, ui::CenterOfWheel};
+use crate::{SpriteSheetHandle, components::{UIElement, SoulBreath, RealityAnchor, Position, MomentumMarker}, ui::CenterOfWheel};
 
 pub struct SoulPlugin;
 
@@ -47,14 +47,23 @@ pub struct SoulRotationTimer {
 fn soul_rotation(
     ui_center: Res<CenterOfWheel>,
     current: Res<CurrentEntityInUI>,
-    query: Query<&SoulBreath>,
+    query: Query<(&SoulBreath, &Position)>,
     mut soul: Query<(&mut Transform, &Animator<Transform>, &mut UIElement, &Soul)>,
     mut time: ResMut<SoulRotationTimer>,
+    mut momentum_mark: Query<(&mut TextureAtlasSprite, &MomentumMarker)>,
     epoch: Res<Time>,
 ){
     time.timer.tick(epoch.delta());
-    let (draw, held, disc) = if let Ok(breath) = query.get(current.entity) { (&breath.pile, &breath.held, &breath.discard) } 
+    let (draw, held, disc, momentum) = if let Ok((breath, pos)) = query.get(current.entity) { (&breath.pile, &breath.held, &breath.discard, pos.momentum) } 
     else{ panic!("The entity meant to be represented in the UI doesn't have a SoulBreath component!")};
+    for (mut sprite, mom) in momentum_mark.iter_mut(){
+        if mom.dir == momentum {
+            sprite.index = 59;
+        }
+        else {
+            sprite.index = 58;
+        }
+    }
     for j in draw.iter() {
         for i in j{
             if let Ok((mut trans, anim, mut ui, soul_type)) = soul.get_mut(*i) {

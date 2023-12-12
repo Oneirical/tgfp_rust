@@ -3,7 +3,7 @@ use std::{f32::consts::PI, time::Duration};
 use bevy::{prelude::*, text::{BreakLineOn, Text2dBounds, TextLayoutInfo}, sprite::Anchor};
 use bevy_tweening::{Tween, EaseFunction, lens::TransformPositionLens, Animator};
 
-use crate::{SpriteSheetHandle, components::{UIElement, MinimapTile, LogIndex, RealityAnchor}, map::{WORLD_HEIGHT, WORLD_WIDTH, WorldMap, xy_idx}, species::{Species, match_species_with_pixel}, TurnState, text::{LORE, split_text}, ui_to_transform, CameraOffset};
+use crate::{SpriteSheetHandle, components::{UIElement, MinimapTile, LogIndex, RealityAnchor, MomentumMarker}, map::{WORLD_HEIGHT, WORLD_WIDTH, WorldMap, xy_idx}, species::{Species, match_species_with_pixel}, TurnState, text::{LORE, split_text}, ui_to_transform, CameraOffset};
 
 pub struct UIPlugin;
 
@@ -39,9 +39,10 @@ fn draw_soul_deck(
 ){
     let sprites = [58, 167];
     let rot = [PI/2., 0.];
+    let momentum = [(1,0),(0,1),(-1,0),(0,-1)];
     for i in 0..8{
         let spacing = 1.5;
-        commands.spawn((UIBundle{
+        let icon = commands.spawn((UIBundle{
             sprite_bundle:SpriteSheetBundle {
                 texture_atlas: texture_atlas_handle.handle.clone(),
                 sprite: TextureAtlasSprite{
@@ -59,7 +60,10 @@ fn draw_soul_deck(
             ui: UIElement { x: (i as f32*PI/4.).cos() * (spacing + 0.2*(1.-(i as f32%2.))) +ui_center.x, y: (i as f32*PI/4.).sin() * (spacing + 0.2*(1.-(i as f32%2.)))+ui_center.y},
             name: Name::new("Wheel Element")
         },
-        ));
+        )).id();
+        if i%2 == 0 {
+            commands.entity(icon).insert(MomentumMarker{dir: momentum[i/2]});
+        }
         let font = asset_server.load("Play-Regular.ttf");
         let text_style = TextStyle {
             font: font.clone(),

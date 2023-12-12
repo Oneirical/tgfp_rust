@@ -69,7 +69,13 @@ fn main() {
 }
 
 fn setup(mut commands: Commands) {
-    let mut camera_bundle = Camera2dBundle::default();
+    let mut camera_bundle = Camera2dBundle {
+        transform: Transform {
+            translation: Vec3::new(14.0, 4.0, 0.0),
+            ..default()
+        },
+        ..default()
+    };
     camera_bundle.projection.scaling_mode = ScalingMode::WindowSize(64.);
     //camera_bundle.projection.scale = 0.99;
     commands.spawn(camera_bundle);
@@ -196,18 +202,13 @@ struct CameraOffset{
 
 fn camera_follow(
     players: Query<&Transform, With<RealityAnchor>>,
-    mut cameras: Query<&mut Transform, (With<Camera>, Without<RealityAnchor>)>,
-    mut ui: Query<(&mut Transform, &UIElement, Option<&Animator<Transform>>), (Without<Camera>, Without<RealityAnchor>)>,
+    mut ui: Query<(&mut Transform, &UIElement, Option<&Animator<Transform>>), Without<RealityAnchor>>,
     offset: Res<CameraOffset>,
 ) {
     for player_transform in &players {
 
         let pos = player_transform.translation;
 
-        for mut transform in &mut cameras {
-            transform.translation.x = pos.x+offset.uix; // To offset it to the left
-            transform.translation.y = pos.y+offset.uiy;
-        }
         for (mut transform, ui, anim) in &mut ui {
             if let Some(ani) = anim { if ani.tweenable().progress() != 1.0 { continue; } } // If an animator is handling the UI element, don't adjust it, trust the animator.
             transform.translation.x = ui.x + pos.x+offset.playx;

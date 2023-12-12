@@ -2,7 +2,7 @@ use std::{time::Duration, f32::consts::PI};
 
 use bevy::prelude::*;
 use bevy_tweening::{*, lens::{TransformPositionLens, TransformScaleLens}};
-use rand::{seq::SliceRandom, Rng};
+use rand::seq::SliceRandom;
 
 use crate::{components::{QueuedAction, RealityAnchor, Position, SoulBreath, UIElement}, input::ActionType, TurnState, map::{xy_idx, WorldMap, is_in_bounds, bresenham_line}, soul::{Soul, get_soul_rot_position, SoulRotationTimer, match_soul_with_display_index}, ui::CenterOfWheel, axiom::{grab_coords_from_form, CasterInfo, match_soul_with_axiom, Function}, species::Species, CameraOffset, ui_to_transform};
 
@@ -64,7 +64,7 @@ fn execute_turn (
 }
 
 fn dispense_functions(
-    mut creatures: Query<(&QueuedAction, &Transform, &Species, &mut SoulBreath, &mut Animator<Transform>, &mut Position, Has<RealityAnchor>)>,
+    mut creatures: Query<(&Transform, &Species, &mut SoulBreath, &mut Animator<Transform>, &mut Position, Has<RealityAnchor>)>,
     mut next_state: ResMut<NextState<TurnState>>,
     mut world_map: ResMut<WorldMap>,
     player: Query<&Transform, With<RealityAnchor>>,
@@ -75,7 +75,7 @@ fn dispense_functions(
 ){
     let mut next_axioms = Vec::new();
     for (entity, function, info) in world_map.targeted_axioms.clone().iter(){
-        if let Ok((queue, transform, species, mut breath, mut anim, mut pos, is_player)) = creatures.get_mut(entity.to_owned()) {
+        if let Ok((_transform, _species, mut breath, mut anim, mut pos, is_player)) = creatures.get_mut(entity.to_owned()) {
             let function = function.to_owned();
             match function {
                 Function::Teleport { x, y } => {
@@ -95,8 +95,6 @@ fn dispense_functions(
                     } else {
                         (0, dest.1/dest.1.abs())
                     };
-
-                    let start = transform.translation;
                     let tween = Tween::new(
                         EaseFunction::QuadraticInOut,
                         Duration::from_millis(200),
@@ -108,7 +106,7 @@ fn dispense_functions(
                     //if anim.tweenable().progress() != 1.0 { continue; }
                     if !is_player {anim.set_tweenable(tween)}
                     else {
-                        for (queue, transform, species, mut breath, mut anim, mut posi, is_player) in creatures.iter_mut(){
+                        for (transform, _species, _breath, mut anim, _posi, is_player) in creatures.iter_mut(){
                             if is_player {continue;}
                             let tween = Tween::new(
                                 EaseFunction::QuadraticInOut,
@@ -229,7 +227,7 @@ fn dispense_functions(
                             for i in slot_coords_ui{
                                 slot_coords_transform.push(ui_to_transform(i.0, i.1, (offx, offy), (cam_offset.playx, cam_offset.playy)));
                             }
-                            if let Ok((mut anim, mut ui, transform, soul_id), ) = souls.get_mut(new_soul) { 
+                            if let Ok((mut anim, mut ui, transform, _soul_id), ) = souls.get_mut(new_soul) { 
                                 let tween_tr = Tween::new(
                                     EaseFunction::QuadraticInOut,
                                     Duration::from_millis(500),
