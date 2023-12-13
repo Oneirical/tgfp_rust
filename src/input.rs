@@ -85,7 +85,7 @@ fn await_input(
         };
         if reset_queued {
             let mut rng = rand::thread_rng();
-            events.send(LogMessage(rng.gen_range(0..10)));
+            //events.send(LogMessage(rng.gen_range(0..10)));
             if let Ok(mut queued) = player.get_single_mut() {
                 queued.action = action.clone();
                 next_state.set(TurnState::CalculatingResponse);

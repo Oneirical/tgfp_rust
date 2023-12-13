@@ -88,6 +88,7 @@ fn dispense_functions(
                     let idx = xy_idx(pos.x, pos.y);
                     world_map.entities.swap(old_idx, idx);
                     let max = dest.0.abs().max(dest.1.abs());
+                    assert!(!(dest.0 == 0 && dest.1 == 0));
                     pos.momentum = if max == dest.0.abs(){ // Reassign the new momentum.
                         (dest.0/dest.0.abs(), 0)
                     } else {

@@ -79,19 +79,20 @@ impl CreatureBundle { // Creatures displayed on screen.
         mut self,
         x: usize,
         y: usize,
+        offset: (f32, f32),
         species: Species,
     ) -> Self{
         self = self.with_species(species);
-        self = self.with_position(x, y);
+        self = self.with_position(x, y, offset);
         self
     }
-    pub fn with_position(mut self, x: usize, y: usize) -> Self {
+    pub fn with_position(mut self, x: usize, y: usize, offset: (f32, f32)) -> Self {
         self.position.x = x;
         self.position.y = y;
-        let end = Vec3::new(self.position.x as f32/2., self.position.y as f32/2., self.sprite_bundle.transform.translation.z);
+        let end = Vec3::new(self.position.x as f32/2. + offset.0, self.position.y as f32/2. + offset.1, self.sprite_bundle.transform.translation.z);
         let tween = Tween::new(
             EaseFunction::QuadraticInOut,
-            Duration::from_millis(1000),
+            Duration::from_millis(1),
             TransformPositionLens {
                 start: end,
                 end

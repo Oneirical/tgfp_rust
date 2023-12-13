@@ -5,7 +5,7 @@ use bevy_inspector_egui::quick::WorldInspectorPlugin;
 use bevy_tweening::{TweeningPlugin, Animator};
 use components::*;
 use input::*;
-use map::MapPlugin;
+use map::{MapPlugin, WorldMap, generate_world_vector, xy_idx};
 use soul::{SoulPlugin, CurrentEntityInUI};
 use species::{CreatureBundle, Species, is_intangible};
 use turn::TurnPlugin;
@@ -22,6 +22,7 @@ mod turn;
 mod soul;
 mod axiom;
 mod text;
+mod world;
 
 fn main() {
     App::new()
@@ -56,7 +57,7 @@ fn main() {
         .insert_resource(CameraOffset{uix: 3., uiy: 0., playx: 7.25, playy: 5.})
         .add_systems(PreStartup, load_spritesheet)
         .add_systems(Startup, (setup, spawn_players, summon_walls))
-        .add_systems(Update, (toggle_resolution, hide_and_show_creatures))
+        .add_systems(Update, (toggle_resolution, hide_and_show_creatures, world_swap))
         .insert_resource(ResolutionSettings {
             giga: 80.,
             large: 64.,
@@ -163,7 +164,7 @@ fn spawn_players(
     // Player 1
     let position = (22,8);
     let player_1 = CreatureBundle::new(&texture_atlas_handle)
-        .with_data(position.0, position.1, Species::Terminal);
+        .with_data(position.0, position.1, (0.,0.), Species::Terminal);
     let entity = commands.spawn((
         player_1, 
         RealityAnchor { player_id: 0},
@@ -177,16 +178,47 @@ fn summon_walls(
 ){
     let queue = get_build_sequence(Vault::EpicWow, (1,1));
     for task in &queue{
-        /*let task = match build_list.build_queue.pop(){
-            Some(result) => result,
-            None => continue
-        }; */
         let position = task.1;
         let new_creature = CreatureBundle::new(&texture_atlas_handle)
-            .with_data(position.0, position.1, task.0.clone());
+            .with_data(position.0, position.1, (0.,0.), task.0.clone());
         let entity_id = commands.spawn(new_creature).id();
         if is_intangible(&task.0){
             commands.entity(entity_id).insert(Intangible);
+        }
+    }
+}
+
+fn world_swap(
+    despawn: Query<Entity,(With<Species>, Without<RealityAnchor>)>,
+    player: Query<(Entity, &Position),With<RealityAnchor>>,
+    texture_atlas_handle: Res<SpriteSheetHandle>,
+    mut map: ResMut<WorldMap>,
+    mut commands: Commands, 
+
+    keys: Res<Input<KeyCode>>,
+){
+    if keys.just_pressed(KeyCode::U) {
+        for crea in despawn.iter(){
+            commands.entity(crea).despawn();
+        }
+
+        map.entities = generate_world_vector(); // Empty the map.
+        map.targeted_axioms = Vec::new();
+        let mut player_pos = (0.,0.);
+        if let Ok((ent, pos)) = player.get_single() {
+            map.entities[xy_idx(pos.x, pos.y)] = Some(ent);
+            player_pos = ((22. - pos.x as f32)/2., (8. - pos.y as f32)/2.);
+        }
+
+        let queue = get_build_sequence(Vault::Epsilon, (0,0));
+        for task in &queue{
+            let position = task.1;
+            let new_creature = CreatureBundle::new(&texture_atlas_handle)
+                .with_data(position.0, position.1, player_pos, task.0.clone());
+            let entity_id = commands.spawn(new_creature).id();
+            if is_intangible(&task.0){
+                commands.entity(entity_id).insert(Intangible);
+            }
         }
     }
 }
