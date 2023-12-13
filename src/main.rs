@@ -2,15 +2,16 @@ use std::time::Duration;
 
 use bevy::{prelude::*, render::camera::ScalingMode, window::WindowMode, input::common_conditions::input_toggle_active};
 use bevy_inspector_egui::quick::WorldInspectorPlugin;
-use bevy_tweening::{TweeningPlugin, Animator};
+use bevy_tweening::{TweeningPlugin, Animator, TweenCompleted};
 use components::*;
 use input::*;
-use map::{MapPlugin, WorldMap, generate_world_vector, xy_idx};
+use map::{MapPlugin, WorldMap, generate_world_vector, xy_idx, PlanePassage};
 use soul::{SoulPlugin, CurrentEntityInUI};
 use species::{CreatureBundle, Species, is_intangible};
 use turn::TurnPlugin;
 use ui::UIPlugin;
-use vaults::{get_build_sequence, Vault};
+use vaults::{get_build_sequence, Vault, match_vault_with_spawn_loc};
+use world::match_plane_with_vaults;
 
 mod components;
 mod input;
@@ -57,7 +58,7 @@ fn main() {
         .insert_resource(CameraOffset{uix: 3., uiy: 0., playx: 7.25, playy: 5.})
         .add_systems(PreStartup, load_spritesheet)
         .add_systems(Startup, (setup, spawn_players, summon_walls))
-        .add_systems(Update, (toggle_resolution, hide_and_show_creatures, world_swap))
+        .add_systems(Update, (toggle_resolution, world_swap, zoom_in, event_relay))
         .insert_resource(ResolutionSettings {
             giga: 80.,
             large: 64.,
@@ -79,7 +80,7 @@ fn setup(mut commands: Commands) {
     camera_bundle.projection.scaling_mode = ScalingMode::WindowSize(64.);
     //camera_bundle.projection.scale = 0.99;
     commands.spawn(camera_bundle);
-    commands.insert_resource(InputDelay{time: Timer::new(Duration::from_millis(200), TimerMode::Once)});
+    commands.insert_resource(InputDelay{time: Timer::new(Duration::from_millis(100), TimerMode::Once)});
     commands.insert_resource(BuildDelay{time: Timer::new(Duration::from_millis(200), TimerMode::Repeating)});
 }
 
@@ -140,6 +141,18 @@ fn toggle_resolution(
     }
 }
 
+fn event_relay(
+    mut tweens: EventReader<TweenCompleted>,
+    mut events: EventWriter<PlanePassage>,
+
+){
+    for complete in tweens.read() {
+        if complete.user_data == 42 {
+            events.send(PlanePassage(world::Plane::Epsilon));
+        }
+    }
+}
+
 
 fn load_spritesheet(
     asset_server: Res<AssetServer>,
@@ -190,27 +203,32 @@ fn summon_walls(
 
 fn world_swap(
     despawn: Query<Entity,(With<Species>, Without<RealityAnchor>)>,
-    player: Query<(Entity, &Position),With<RealityAnchor>>,
+    mut player: Query<(Entity, &mut Position),With<RealityAnchor>>,
     texture_atlas_handle: Res<SpriteSheetHandle>,
     mut map: ResMut<WorldMap>,
     mut commands: Commands, 
 
-    keys: Res<Input<KeyCode>>,
+    mut events: EventReader<PlanePassage>
 ){
-    if keys.just_pressed(KeyCode::U) {
+    for plane in events.read() {
         for crea in despawn.iter(){
+            commands.entity(crea).clear_children();
             commands.entity(crea).despawn();
         }
 
         map.entities = generate_world_vector(); // Empty the map.
         map.targeted_axioms = Vec::new();
         let mut player_pos = (0.,0.);
-        if let Ok((ent, pos)) = player.get_single() {
+
+        let vault = match_plane_with_vaults(plane.0.clone());
+        let spawnpoint = match_vault_with_spawn_loc(vault.clone());
+        if let Ok((ent, mut pos)) = player.get_single_mut() {
+            (pos.x, pos.y) = spawnpoint;
             map.entities[xy_idx(pos.x, pos.y)] = Some(ent);
             player_pos = ((22. - pos.x as f32)/2., (8. - pos.y as f32)/2.);
         }
 
-        let queue = get_build_sequence(Vault::Epsilon, (0,0));
+        let queue = get_build_sequence(vault, (0,0));
         for task in &queue{
             let position = task.1;
             let new_creature = CreatureBundle::new(&texture_atlas_handle)
@@ -231,16 +249,13 @@ struct CameraOffset{
     playy: f32,
 }
 
-fn hide_and_show_creatures(
-    mut creatures: Query<(&mut Visibility, &Position)>,
-    players: Query<&Position, With<RealityAnchor>>,
-){
-    for player_pos in &players {
-        let view_range = 20;
-        for (mut vis, crea_pos) in &mut creatures {
-            if (crea_pos.x as i32-player_pos.x as i32).abs() > view_range || (crea_pos.y as i32-player_pos.y as i32).abs() > view_range {
-                *vis = Visibility::Hidden;
-            } else { *vis = Visibility::Visible};
+fn zoom_in(
+    keyboard_input: Res<Input<KeyCode>>,
+    mut query: Query<&mut OrthographicProjection, With<Camera>>,
+ ) {
+    if keyboard_input.just_pressed(KeyCode::Z) {
+        for mut projection in query.iter_mut() {
+            projection.scale -= 0.1;
         }
     }
-}
+ }

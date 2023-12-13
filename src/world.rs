@@ -1,5 +1,6 @@
 use crate::vaults::Vault;
 
+#[derive(Clone)]
 pub enum Plane {
     Terminal,
     Epsilon,

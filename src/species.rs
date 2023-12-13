@@ -2,7 +2,7 @@ use std::time::Duration;
 
 use crate::{components::{Position, QueuedAction, SoulBreath}, SpriteSheetHandle, input::ActionType, axiom::{Form, Function}};
 use bevy::prelude::*;
-use bevy_tweening::{*, lens::TransformPositionLens};
+use bevy_tweening::{*, lens::{TransformPositionLens, TransformScaleLens}};
 use std::f32::consts::PI;
 
 #[derive(Component, PartialEq, Clone, Debug)]
@@ -11,9 +11,10 @@ pub enum Species {
     Terminal,
     BuggedSpecies,
     Void,
+    Projector,
     Felidol,
     TermiWall,
-    HypnoWell{dir: usize},
+    RiftBorder{dir: usize},
 }
 
 pub enum MapColour {
@@ -90,15 +91,24 @@ impl CreatureBundle { // Creatures displayed on screen.
         self.position.x = x;
         self.position.y = y;
         let end = Vec3::new(self.position.x as f32/2. + offset.0, self.position.y as f32/2. + offset.1, self.sprite_bundle.transform.translation.z);
-        let tween = Tween::new(
+        let tween_tr = Tween::new(
             EaseFunction::QuadraticInOut,
-            Duration::from_millis(1),
+            Duration::from_millis(10000),
             TransformPositionLens {
-                start: end,
+                start: Vec3::new(3., 3., 0.),
                 end
             },
         );
-        self.animation.set_tweenable(tween);
+        let tween_sc = Tween::new(
+            EaseFunction::QuadraticInOut,
+            Duration::from_millis(10000),
+            TransformScaleLens {
+                start: Vec3::new(0.1, 0.1, 0.),
+                end: Vec3::ONE,
+            },
+        );
+        let track = Tracks::new([tween_sc, tween_tr]);
+        self.animation.set_tweenable(track);
         self
     }
     pub fn with_species(mut self, species: Species) -> Self {
@@ -107,6 +117,9 @@ impl CreatureBundle { // Creatures displayed on screen.
         self.sprite_bundle.transform.rotation = match_species_with_rotation(&species);
         if is_intangible(&species){
             self.sprite_bundle.transform.translation.z = -0.1;
+        }
+        if is_invisible(&species){
+            self.sprite_bundle.visibility = Visibility::Hidden;
         }
         self.species = species;
         self
@@ -136,7 +149,8 @@ pub fn match_species_with_sprite(
         Species::Void => 2,
         Species::Felidol => 49,
         Species::TermiWall => 37,
-        Species::HypnoWell { dir: _ } => 108
+        Species::RiftBorder { dir: _ } => 108,
+        Species::Projector => 2,
     }
 }
 
@@ -150,7 +164,8 @@ pub fn match_species_with_name(
         Species::Felidol => "Greedswept Felidol",
         Species::Void => "A Bugged Void",
         Species::TermiWall => "Tangled Circuits",
-        Species::HypnoWell { dir: _ } => "Thought-Matter Rift",
+        Species::RiftBorder { dir: _ } => "Thought-Matter Rift",
+        Species::Projector => "Hypnotic Well",
     }
 }
 
@@ -182,7 +197,7 @@ pub fn match_species_with_rotation(
     species: &Species
 ) -> Quat{
     match species{
-        Species::HypnoWell { dir } => Quat::from_rotation_z((PI/2.)*(*dir as f32)),
+        Species::RiftBorder { dir } => Quat::from_rotation_z((PI/2.)*(*dir as f32)),
         _ => Quat::from_rotation_z(0.)
     }
 }
@@ -191,7 +206,18 @@ pub fn is_intangible(
     species: &Species
 ) -> bool{
     match species{
-        Species::HypnoWell { dir: _ } => true,
+        Species::RiftBorder { dir: _ } => true,
+        Species::Projector => true,
         _ => false
+    }
+}
+
+pub fn is_invisible(
+    species: &Species
+) -> bool {
+    match species {
+        Species::Void => true,
+        Species::Projector => true,
+        _ => false,
     }
 }

@@ -41,15 +41,15 @@ T.........TTTT.....T...T.....TTTT.........T
 T..........TT......T...T......TT..........T
 T.........................................T
 T.........................................T
-T.........................................T
-T......TTTTTT.....TT...TT.....TTTTTT......T
-T.....TT....TTT...T.nnn.T...TTT....TT.....T
-T.....T$TT.........w...e.........TT$T.....T
-T.....TPTT.........w...e.........TTPT.....T
-T.....T$TT.........w...e.........TT$T.....T
-T.....TT....TTT...T.sss.T...TTT....TT.....T
-T......TTTTTT.....TT...TT.....TTTTTT......T
-T.........................................T
+T................TT.....TT................T
+T......TTTTTT....T.nnnnn.T....TTTTTT......T
+T.....TT....TTT...w.....e...TTT....TT.....T
+T.....T$TT........w.....e........TT$T.....T
+T.....TPTT........w..>..e........TTPT.....T
+T.....T$TT........w.....e........TT$T.....T
+T.....TT....TTT...w.....e...TTT....TT.....T
+T......TTTTTT....T.sssss.T....TTTTTT......T
+T................TT.....TT................T
 T....................F....................T
 T.........................................T
 T..................T...T..................T
@@ -154,18 +154,53 @@ fn grab_vault(
     }
 }
 
+pub fn match_vault_with_spawn_loc(
+    vault: Vault
+) -> (usize,usize){
+    match vault {
+        Vault::EpicWow => (22,8),
+        Vault::Epsilon => (22,8),
+    }
+}
+
 fn get_species_from_char(
     char: char,
 ) -> Species {
     match char{
         '.' => Species::Void,
+        '>' => Species::Projector,
         'F' => Species::Felidol,
         '#' => Species::Wall,
         'T' => Species::TermiWall,
-        'n' => Species::HypnoWell { dir: 0 },
-        'e' => Species::HypnoWell { dir: 3 },
-        's' => Species::HypnoWell { dir: 2 },
-        'w' => Species::HypnoWell { dir: 1 },
+        'n' => Species::RiftBorder { dir: 0 },
+        'e' => Species::RiftBorder { dir: 3 },
+        's' => Species::RiftBorder { dir: 2 },
+        'w' => Species::RiftBorder { dir: 1 },
         _ => Species::BuggedSpecies
     }
 }
+
+pub fn extract_square(vault: Vault, x: usize, y: usize) -> Vec<Vec<Species>> {
+    let range = 19;
+    let map = string_to_2d_vec(VAULTS[grab_vault(vault)]);
+    let mut square = Vec::new();
+    for i in (y as i32-range)..=(y as i32+range) {
+        let mut row = Vec::new();
+        for j in (x as i32-range)..=(x as i32 +range) {
+            if i < map.len() as i32 && i >= 0 {
+                if j >= 0 && j < map[i as usize].len() as i32 {row.push(get_species_from_char(map[i as usize][j as usize]));}
+            } else {
+                row.push(get_species_from_char('.'));
+            }
+        }
+        square.push(row);
+    }
+    square
+ }
+ 
+ fn string_to_2d_vec(s: &str) -> Vec<Vec<char>> {
+    s.lines()
+     .map(|line| line.chars().collect())
+     .collect()
+ }
+ 
