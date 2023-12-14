@@ -27,9 +27,6 @@ pub struct Faith {
 #[derive(Component)]
 pub struct RightFaith;
 
-#[derive(Component)]
-pub struct MovingTowards(pub Vec3);
-
 // Add this component to a creature to have it not interact with the world and be pass-through.
 #[derive(Component)]
 pub struct Intangible;

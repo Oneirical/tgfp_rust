@@ -91,7 +91,7 @@ fn soul_rotation(
         if let Ok((mut trans, anim, _soul_type)) = soul.get_mut(*i.1) { 
             if anim.tweenable().progress() != 1.0 { continue; }
             (trans.translation.x, trans.translation.y) = slot_coords_ui[i.0];
-            trans.scale = Vec3{ x: 3., y: 3., z: 0.}; // TODO add an animation filter to avoid bobbing
+            trans.scale = Vec3{ x: 3., y: 3., z: 0.};
         }
         else{ panic!("A soul in the draw pile has no UIElement component!")};
     }

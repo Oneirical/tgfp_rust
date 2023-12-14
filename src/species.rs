@@ -1,6 +1,6 @@
 use std::time::Duration;
 
-use crate::{components::{Position, QueuedAction, SoulBreath, MovingTowards}, SpriteSheetHandle, input::ActionType, axiom::{Form, Function}};
+use crate::{components::{Position, QueuedAction, SoulBreath}, SpriteSheetHandle, input::ActionType, axiom::{Form, Function}};
 use bevy::prelude::*;
 use bevy_tweening::{*, lens::TransformPositionLens};
 use std::f32::consts::PI;
@@ -31,7 +31,6 @@ pub struct CreatureBundle {
     position: Position,
     action: QueuedAction,
     breath: SoulBreath,
-    moving_towards: MovingTowards
 }
 
 impl CreatureBundle { // Creatures displayed on screen.
@@ -75,7 +74,6 @@ impl CreatureBundle { // Creatures displayed on screen.
                 (Form::Empty, Function::Empty),
                 (Form::Empty, Function::Empty),
             ]},
-            moving_towards: MovingTowards(Vec3::ZERO),
         }
     }
     pub fn with_data(
@@ -102,7 +100,6 @@ impl CreatureBundle { // Creatures displayed on screen.
             },
         );
         self.animation.set_tweenable(tween);
-        self.moving_towards.0 = end;
         self
     }
     pub fn with_species(mut self, species: Species) -> Self {

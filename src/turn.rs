@@ -4,14 +4,13 @@ use bevy::prelude::*;
 use bevy_tweening::{*, lens::{TransformPositionLens, TransformScaleLens}};
 use rand::seq::SliceRandom;
 
-use crate::{components::{QueuedAction, RealityAnchor, Position, SoulBreath, MovingTowards}, input::ActionType, TurnState, map::{xy_idx, WorldMap, is_in_bounds, bresenham_line}, soul::{Soul, get_soul_rot_position, SoulRotationTimer, match_soul_with_display_index}, ui::CenterOfWheel, axiom::{grab_coords_from_form, CasterInfo, match_soul_with_axiom, Function}, species::Species, ZoomInEffect};
+use crate::{components::{QueuedAction, RealityAnchor, Position, SoulBreath}, input::ActionType, TurnState, map::{xy_idx, WorldMap, is_in_bounds, bresenham_line}, soul::{Soul, get_soul_rot_position, SoulRotationTimer, match_soul_with_display_index}, ui::CenterOfWheel, axiom::{grab_coords_from_form, CasterInfo, match_soul_with_axiom, Function}, species::Species, ZoomInEffect};
 
 pub struct TurnPlugin;
 
 #[derive(Debug)]
 pub enum Animation{
-    Motion { delta: (f32, f32)},
-    PlayerMotion
+    Motion
 }
 
 impl Plugin for TurnPlugin {
@@ -29,7 +28,11 @@ fn calculate_actions (
 ){
     for (mut queue, species) in creatures.iter_mut(){
         queue.action = match species {
-            Species::Felidol => ActionType::Walk { momentum: (-1,0) },
+            Species::Felidol => {
+                let mut rng = rand::thread_rng();
+                let mom = [(-1,0)].choose(&mut rng).unwrap();
+                ActionType::Walk { momentum: *mom }
+            },
             _ => ActionType::Nothing,
         };
     }
@@ -117,13 +120,11 @@ fn dispense_functions(
 
                     //if anim.tweenable().progress() != 1.0 { continue; }
                     if !is_player {
-                        world_map.anim_queue.push((*entity, Animation::Motion { delta: (dest.0 as f32, dest.1 as f32) }));
                         continue;
                     }
                     else {
                         let mut passage_detected = false;
                         let mut player_coords = (0., 0.);
-                        world_map.anim_queue.push((*entity, Animation::PlayerMotion));
                         for (transform, _species, _breath, mut anim, posi, is_player) in creatures.iter_mut(){
                             if is_player {
                                 for (passage_coords, destination) in &world_map.warp_zones{
@@ -305,54 +306,35 @@ fn unpack_animations(
     if !world_map.animation_timer.just_finished() {
         return;
     }
-    if world_map.anim_queue.is_empty() {
-        world_map.animation_timer.set_duration(Duration::from_millis(1));
-        next_state.set(TurnState::AwaitingInput);
-        return;
-    }
-    dbg!(&world_map.anim_queue);
-    let (entity, anim_choice) = world_map.anim_queue.pop().unwrap();
     let (player_pos, player_trans) = if let Ok(pos) = player.get_single() {
-        ((pos.x,pos.y),Vec2::new(11., 4.))
+        ((pos.x,pos.y),Vec2::new(11., 4.)) // These hardcoded values might be dangerous
     } else {panic!("0 or 2 players!")};
-    if let Ok((mut transform, mut anim, fin, _is_player)) = creatures.get_mut(entity.to_owned()) {
-        let relative_pos = Vec3::new(player_trans.x + (fin.x as f32 -player_pos.0 as f32)/2., player_trans.y + (fin.y as f32 -player_pos.1 as f32)/2., 0.);
-        match anim_choice {
-            Animation::Motion { delta } => {
-                let end = Vec3::new(relative_pos.x+delta.0/2., relative_pos.y+delta.1/2., 0.);
+    let (entity, anim_choice) = match world_map.anim_queue.pop() {
+        Some(element) => element,
+        None => {
+            for (trans_crea, mut anim_crea, fini, is_player) in creatures.iter_mut(){
+                let end = Vec3::new(player_trans.x + (fini.x as f32 -player_pos.0 as f32)/2., player_trans.y + (fini.y as f32 -player_pos.1 as f32)/2., 0.);
+                if is_player {continue;}
                 let tween = Tween::new(
                     EaseFunction::QuadraticInOut,
-                    Duration::from_millis(150),
+                    Duration::from_millis(150), // must be the same as input delay to avoid offset
                     TransformPositionLens {
-                        start: transform.translation,
-                        end,
+                        start: trans_crea.translation,
+                        end
                     },
                 );
-                anim.set_tweenable(tween);
-
-                world_map.animation_timer.set_duration(Duration::from_millis(1));
-            },
-            Animation::PlayerMotion => {
-                for (trans_crea, mut anim_crea, fini, is_player) in creatures.iter_mut(){
-                    let relative_pos = Vec3::new(player_trans.x + (fini.x as f32 -player_pos.0 as f32)/2., player_trans.y + (fini.y as f32 -player_pos.1 as f32)/2., 0.);
-                    if is_player {continue;}
-                    let end = Vec3::new(relative_pos.x, relative_pos.y, 0.);
-                    let tween = Tween::new(
-                        EaseFunction::QuadraticInOut,
-                        Duration::from_millis(150), // must be the same as input delay to avoid offset
-                        TransformPositionLens {
-                            start: trans_crea.translation,
-                            end
-                        },
-                    );
-                    anim_crea.set_tweenable(tween);
-                    world_map.animation_timer.set_duration(Duration::from_millis(150));
-                }
+                anim_crea.set_tweenable(tween);
+                world_map.animation_timer.set_duration(Duration::from_millis(150));
+            }
+            world_map.animation_timer.set_duration(Duration::from_millis(1));
+            next_state.set(TurnState::AwaitingInput);
+            return;
+        }
+    };
+    if let Ok((transform, mut anim, fin, _is_player)) = creatures.get_mut(entity.to_owned()) {
+        match anim_choice {
+            Animation::Motion => {
             }
         }
-    }
-    if world_map.anim_queue.is_empty() {
-        world_map.animation_timer.set_duration(Duration::from_millis(1));
-        next_state.set(TurnState::AwaitingInput);
     }
 }
