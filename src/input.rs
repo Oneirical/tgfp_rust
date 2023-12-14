@@ -42,7 +42,6 @@ struct InputBindings{
 
 fn await_input(
     input: Res<Input<KeyCode>>,
-    time: Res<Time>,
     mut delay: ResMut<InputDelay>,
     bindings: Res<InputBindings>,
     mut player: Query<&mut QueuedAction, With<RealityAnchor>>,
@@ -50,50 +49,45 @@ fn await_input(
 
     mut events: EventWriter<LogMessage>,
 ) {
-    if !delay.time.finished() {
-        delay.time.tick(time.delta());
+    let mut reset_queued = true;
+    let action = if input.any_pressed(bindings.up.clone()){
+        ActionType::Walk { momentum: (0,1)}
     }
-    if delay.time.finished() {
-        let mut reset_queued = true;
-        let action = if input.any_pressed(bindings.up.clone()){
-            ActionType::Walk { momentum: (0,1)}
-        }
-        else if input.any_pressed(bindings.down.clone()){
-            ActionType::Walk { momentum: (0,-1)}
-        }
-        else if input.any_pressed(bindings.left.clone()){
-            ActionType::Walk { momentum: (-1, 0)}
-        }
-        else if input.any_pressed(bindings.right.clone()){
-            ActionType::Walk { momentum: (1, 0)}
-        }
-        else if input.any_just_pressed(bindings.one.clone()){
-            ActionType::SoulCast { slot: 0 }
-        }
-        else if input.any_just_pressed(bindings.two.clone()){
-            ActionType::SoulCast { slot: 1 }
-        }
-        else if input.any_just_pressed(bindings.three.clone()){
-            ActionType::SoulCast { slot: 2 }
-        }
-        else if input.any_just_pressed(bindings.four.clone()){
-            ActionType::SoulCast { slot: 3 }
-        }
-        else { 
-            reset_queued = false;
-            ActionType::Nothing
-        };
-        if reset_queued {
-            let mut rng = rand::thread_rng();
-            //events.send(LogMessage(rng.gen_range(0..10)));
-            if let Ok(mut queued) = player.get_single_mut() {
-                queued.action = action.clone();
-                next_state.set(TurnState::CalculatingResponse);
-                delay.time.reset();
-            } else {
-                panic!("There are zero or more than 1 players!")
-            }            
-        }        
+    else if input.any_pressed(bindings.down.clone()){
+        ActionType::Walk { momentum: (0,-1)}
     }
+    else if input.any_pressed(bindings.left.clone()){
+        ActionType::Walk { momentum: (-1, 0)}
+    }
+    else if input.any_pressed(bindings.right.clone()){
+        ActionType::Walk { momentum: (1, 0)}
+    }
+    else if input.any_just_pressed(bindings.one.clone()){
+        ActionType::SoulCast { slot: 0 }
+    }
+    else if input.any_just_pressed(bindings.two.clone()){
+        ActionType::SoulCast { slot: 1 }
+    }
+    else if input.any_just_pressed(bindings.three.clone()){
+        ActionType::SoulCast { slot: 2 }
+    }
+    else if input.any_just_pressed(bindings.four.clone()){
+        ActionType::SoulCast { slot: 3 }
+    }
+    else { 
+        reset_queued = false;
+        ActionType::Nothing
+    };
+    if reset_queued {
+        let mut rng = rand::thread_rng();
+        //events.send(LogMessage(rng.gen_range(0..10)));
+        if let Ok(mut queued) = player.get_single_mut() {
+            queued.action = action.clone();
+            next_state.set(TurnState::CalculatingResponse);
+            delay.time.reset();
+        } else {
+            panic!("There are zero or more than 1 players!")
+        }            
+    }        
 
 }

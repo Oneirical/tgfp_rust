@@ -2,10 +2,10 @@ use std::time::Duration;
 
 use bevy::{prelude::*, render::camera::ScalingMode, window::WindowMode, input::common_conditions::input_toggle_active};
 use bevy_inspector_egui::quick::WorldInspectorPlugin;
-use bevy_tweening::{TweeningPlugin, Animator, TweenCompleted, Tweenable};
+use bevy_tweening::TweeningPlugin;
 use components::*;
 use input::*;
-use map::{MapPlugin, WorldMap, generate_world_vector, xy_idx, PlanePassage};
+use map::{MapPlugin, WorldMap, generate_world_vector, xy_idx};
 use soul::{SoulPlugin, CurrentEntityInUI};
 use species::{CreatureBundle, Species, is_intangible};
 use turn::TurnPlugin;
@@ -37,7 +37,7 @@ fn main() {
                     resizable: false,
                     resolution: (1920.0, 1080.0).into(),
                     title: "The Games Foxes Play".into(),
-                    mode: WindowMode::Fullscreen,
+                    //mode: WindowMode::Fullscreen,
                     position: WindowPosition::Centered(MonitorSelection::Current),
                     ..default()
                 }),
@@ -84,7 +84,7 @@ fn setup(
     camera_bundle.projection.scaling_mode = ScalingMode::WindowSize(64.);
     //camera_bundle.projection.scale = 0.99;
     commands.spawn(camera_bundle);
-    commands.insert_resource(InputDelay{time: Timer::new(Duration::from_millis(100), TimerMode::Once)});
+    commands.insert_resource(InputDelay{time: Timer::new(Duration::from_millis(1), TimerMode::Once)});
     commands.insert_resource(BuildDelay{time: Timer::new(Duration::from_millis(200), TimerMode::Repeating)});
     zoom.timer.pause();
 }
@@ -151,7 +151,8 @@ enum TurnState {
     AwaitingInput,
     CalculatingResponse,
     ExecutingTurn,
-    DispensingFunctions
+    DispensingFunctions,
+    UnpackingAnimation
 }
 
 #[derive(Resource)]

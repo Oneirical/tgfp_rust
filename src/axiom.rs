@@ -44,6 +44,7 @@ pub struct CasterInfo{
     pub pos: (usize,usize),
     pub species: Species,
     pub momentum: (i32,i32),
+    pub is_player: bool,
 }
 
 pub fn grab_coords_from_form( // vec in vec for better, synchronized animations?

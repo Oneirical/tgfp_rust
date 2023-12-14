@@ -1,14 +1,15 @@
+use std::time::Duration;
+
 use bevy::prelude::*;
 
-use crate::{components::{Position, Intangible}, axiom::{Function, CasterInfo}, world::{Plane, match_plane_with_vaults}, species::{Species, match_species_with_sprite, match_species_with_rotation, is_invisible}, vaults::{extract_square, match_vault_with_spawn_loc}, SpriteSheetHandle};
+use crate::{components::{Position, Intangible}, axiom::{Function, CasterInfo}, world::{Plane, match_plane_with_vaults}, species::{Species, match_species_with_sprite, match_species_with_rotation, is_invisible}, vaults::{extract_square, match_vault_with_spawn_loc}, SpriteSheetHandle, turn::Animation};
 
 pub struct MapPlugin;
 
 impl Plugin for MapPlugin {
     fn build(&self, app: &mut App) {
-        app.insert_resource(WorldMap{ entities: vec![None; WORLD_HEIGHT*WORLD_WIDTH], targeted_axioms: Vec::new(), warp_zones: Vec::new()});
+        app.insert_resource(WorldMap{ entities: vec![None; WORLD_HEIGHT*WORLD_WIDTH], targeted_axioms: Vec::new(), warp_zones: Vec::new(), anim_queue: Vec::new(), animation_timer: Timer::new(Duration::from_millis(1),TimerMode::Repeating)});
         app.add_systems(Update, place_down_new_entities);
-        app.add_event::<PlanePassage>();
     }
 }
 
@@ -20,10 +21,9 @@ pub struct WorldMap {
     pub entities: Vec<Option<Entity>>,
     pub targeted_axioms: Vec<(Entity,Function, CasterInfo)>,
     pub warp_zones: Vec<((usize, usize), Plane)>,
+    pub anim_queue: Vec<(Entity, Animation)>,
+    pub animation_timer: Timer,
 }
-
-#[derive(Event)]
-pub struct PlanePassage(pub Plane);
 
 pub fn generate_world_vector() -> Vec<Option<Entity>>{
     vec![None; WORLD_HEIGHT*WORLD_WIDTH]
