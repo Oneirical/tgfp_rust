@@ -49,17 +49,17 @@ T.....TPTT........w..>..e........TTPT.....T
 T.....T$TT........w.....e........TT$T.....T
 T.....TT....TTT...w.....e...TTT....TT.....T
 T......TTTTTT....T.sssss.T....TTTTTT......T
-T...............FTT.....TT................T
+T................TT.....TT................T
 T....................F....................T
-T.......................F.................T
+T.........................................T
 T..................T...T..................T
 T..........TT......T...T......TT..........T
 T.........TTTT....TT...TT....TTTT.........T
-TT........TTTT....T.....T....TTTT........TT
-.TT........TT.....T.....T.....TT........TT.
-..TT..............T.T.T.T..............TT..
-...TTT............T.T.T.T............TTT...
-T....T............TTT.TTT............T....T
+TT........TTTT....T.....T..E.TTTT........TT
+.TT........TT.....T.....T..1..TT........TT.
+..TT..............T.T.T.T..2...........TT..
+...TTT............T.T.T.T..3.........TTT...
+T....T............TTT.TTT..4.........T....T
 TT...T.............TTTTT.............T...TT
 TTTTTTTTTTT.....................TTTTTTTTTTT
 .T...T....TTT.................TTT....T...T.
@@ -176,6 +176,11 @@ fn get_species_from_char(
         'e' => Species::RiftBorder { dir: 3 },
         's' => Species::RiftBorder { dir: 2 },
         'w' => Species::RiftBorder { dir: 1 },
+        'E' => Species::EpsilonHead,
+        '1' => Species::EpsilonTail { order: 0 },
+        '2' => Species::EpsilonTail { order: 1 },
+        '3' => Species::EpsilonTail { order: 2 },
+        '4' => Species::EpsilonTail { order: 3 },
         _ => Species::BuggedSpecies
     }
 }

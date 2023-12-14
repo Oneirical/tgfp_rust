@@ -18,5 +18,6 @@ bevy = { version = "0.12.1", features = ["multi-threaded", "webgl2", "dynamic_li
 bevy-inspector-egui = "0.21.0"
 bevy_tweening = "0.9.0"
 grid_pathfinding = "0.1.1"
+grid_util = "0.1.1"
 rand = "0.8.5"
 regex = "1.10.2"

@@ -33,6 +33,34 @@ pub fn xy_idx (x: usize, y: usize) -> usize{
     (y * WORLD_WIDTH) + x
 }
 
+pub fn idx_xy (idx: usize) -> (usize, usize) {
+    (idx%WORLD_WIDTH, idx/WORLD_WIDTH)
+}
+
+pub fn get_neighbours(x: usize, y: usize,) -> Vec<Option<(usize, usize)>>{
+    let mut output = Vec::with_capacity(4);
+    let offsets = [(-1,0),(1,0),(0,1),(0,-1)];
+    for (dx,dy) in offsets{
+        let fx = x.checked_add_signed(dx);
+        let fy = y.checked_add_signed(dy);
+        if fx.is_some_and(|fx| fx < WORLD_WIDTH) && fy.is_some_and(|fy| fy < WORLD_HEIGHT){
+            output.push(Some((fx.unwrap(),fy.unwrap())));
+        } else { output.push(None)}
+    }
+    output
+}
+
+pub fn get_neighbouring_entities (map: &[Option<Entity>], x: usize, y: usize) -> Vec<Option<Entity>> {
+    let mut output = Vec::with_capacity(4);
+    for pair in get_neighbours(x, y) {
+        match pair {
+            Some((nx,ny)) => output.push(map[xy_idx(nx, ny)]),
+            None => output.push(None),
+        };
+    }
+    output
+}
+
 pub fn get_entity_at_coords (map: &[Option<Entity>], x: usize, y: usize) -> Option<Entity> {
     map[xy_idx(x, y)]
 }

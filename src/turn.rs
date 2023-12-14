@@ -4,13 +4,12 @@ use bevy::prelude::*;
 use bevy_tweening::{*, lens::{TransformPositionLens, TransformScaleLens}};
 use rand::seq::SliceRandom;
 
-use crate::{components::{QueuedAction, RealityAnchor, Position, SoulBreath}, input::ActionType, TurnState, map::{xy_idx, WorldMap, is_in_bounds, bresenham_line}, soul::{Soul, get_soul_rot_position, SoulRotationTimer, match_soul_with_display_index}, ui::CenterOfWheel, axiom::{grab_coords_from_form, CasterInfo, match_soul_with_axiom, Function}, species::Species, ZoomInEffect};
+use crate::{components::{QueuedAction, RealityAnchor, Position, SoulBreath}, input::ActionType, TurnState, map::{xy_idx, WorldMap, is_in_bounds, bresenham_line, get_neighbouring_entities}, soul::{Soul, get_soul_rot_position, SoulRotationTimer, match_soul_with_display_index}, ui::CenterOfWheel, axiom::{grab_coords_from_form, CasterInfo, match_soul_with_axiom, Function}, species::Species, ZoomInEffect};
 
 pub struct TurnPlugin;
 
 #[derive(Debug)]
 pub enum Animation{
-    Motion
 }
 
 impl Plugin for TurnPlugin {
@@ -23,15 +22,59 @@ impl Plugin for TurnPlugin {
 }
 
 fn calculate_actions (
-    mut creatures: Query<(&mut QueuedAction, &Species), Without<RealityAnchor>>,
+    mut creatures: Query<(&mut QueuedAction, &Position, &Species), Without<RealityAnchor>>,
+    read_species: Query<&Species>,
+    read_position: Query<&Position>,
     mut next_state: ResMut<NextState<TurnState>>,
+    world_map: Res<WorldMap>,
+    mut commands: Commands,
 ){
-    for (mut queue, species) in creatures.iter_mut(){
+    for (mut queue, pos, species) in creatures.iter_mut(){
         queue.action = match species {
-            Species::Felidol => {
+            Species::EpsilonHead => {
+                let neigh = get_neighbouring_entities(&world_map.entities, pos.x, pos.y);
+                for detected in neigh{
+                    match detected {
+                        Some(creature) => {
+                            match read_species.get(creature).unwrap() {
+                                Species::EpsilonTail { order } => {
+                                    if order.eq(&0) {
+                                        let crea_pos = read_position.get(creature).unwrap();
+                                        let momentum = (pos.x as i32-crea_pos.x as i32, pos.y as i32-crea_pos.y as i32);
+                                        commands.entity(creature).insert(QueuedAction{action: ActionType::Walk { momentum }});
+                                    } else {continue;}
+                                },
+                                _ => continue,
+                            };
+                        }
+                        None => continue,
+                    };
+                }
                 let mut rng = rand::thread_rng();
-                let mom = [(-1,0)].choose(&mut rng).unwrap();
+                let mom = [(0,1),(0,-1),(1,0),(-1,0)].choose(&mut rng).unwrap();
                 ActionType::Walk { momentum: *mom }
+            },
+            Species::EpsilonTail { order } => {
+                let neigh = get_neighbouring_entities(&world_map.entities, pos.x, pos.y);
+                let target_order = order+1;
+                for detected in neigh{
+                    match detected {
+                        Some(creature) => {
+                            match read_species.get(creature).unwrap() {
+                                Species::EpsilonTail { order } => {
+                                    if order.eq(&target_order) {
+                                        let crea_pos = read_position.get(creature).unwrap();
+                                        let momentum = (pos.x as i32-crea_pos.x as i32, pos.y as i32-crea_pos.y as i32);
+                                        commands.entity(creature).insert(QueuedAction{action: ActionType::Walk { momentum }});
+                                    } else {continue;}
+                                },
+                                _ => continue,
+                            };
+                        }
+                        None => continue,
+                    };
+                }
+                ActionType::Nothing
             },
             _ => ActionType::Nothing,
         };
@@ -80,6 +123,7 @@ fn execute_turn (
             (false, true) => Ordering::Greater,
         }
     });
+    world_map.targeted_axioms.reverse();
     next_state.set(TurnState::DispensingFunctions);
 }
 
@@ -170,7 +214,7 @@ fn dispense_functions(
                     let (mut fx, mut fy) = (pos.x, pos.y);
                     for (nx, ny) in line {
                         if is_in_bounds(nx, ny){
-                            if world_map.entities[xy_idx(nx as usize, ny as usize)].is_some() {
+                            if false && world_map.entities[xy_idx(nx as usize, ny as usize)].is_some() {
                                 // TODO Raise a collision event here
                                 break;
                             }
@@ -309,7 +353,7 @@ fn unpack_animations(
     let (player_pos, player_trans) = if let Ok(pos) = player.get_single() {
         ((pos.x,pos.y),Vec2::new(11., 4.)) // These hardcoded values might be dangerous
     } else {panic!("0 or 2 players!")};
-    let (entity, anim_choice) = match world_map.anim_queue.pop() {
+    let (entity, anim_choice) = match world_map.anim_queue.pop() { // The fact that this is pop and not a loop might cause "fake" lag with a lot of queued animations
         Some(element) => element,
         None => {
             for (trans_crea, mut anim_crea, fini, is_player) in creatures.iter_mut(){
@@ -324,7 +368,6 @@ fn unpack_animations(
                     },
                 );
                 anim_crea.set_tweenable(tween);
-                world_map.animation_timer.set_duration(Duration::from_millis(150));
             }
             world_map.animation_timer.set_duration(Duration::from_millis(1));
             next_state.set(TurnState::AwaitingInput);
@@ -333,8 +376,7 @@ fn unpack_animations(
     };
     if let Ok((transform, mut anim, fin, _is_player)) = creatures.get_mut(entity.to_owned()) {
         match anim_choice {
-            Animation::Motion => {
-            }
+
         }
     }
 }

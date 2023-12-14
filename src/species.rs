@@ -15,6 +15,8 @@ pub enum Species {
     Felidol,
     TermiWall,
     RiftBorder{dir: usize},
+    EpsilonHead,
+    EpsilonTail {order: usize},
 }
 
 pub enum MapColour {
@@ -142,6 +144,8 @@ pub fn match_species_with_sprite(
         Species::TermiWall => 37,
         Species::RiftBorder { dir: _ } => 108,
         Species::Projector => 2,
+        Species::EpsilonHead => 67,
+        Species::EpsilonTail { order: _ } => 68,
     }
 }
 
@@ -157,6 +161,8 @@ pub fn match_species_with_name(
         Species::TermiWall => "Tangled Circuits",
         Species::RiftBorder { dir: _ } => "Thought-Matter Rift",
         Species::Projector => "Hypnotic Well",
+        Species::EpsilonHead => "Epsilon, Adorned in Jade",
+        Species::EpsilonTail { order: _ } => "Rubberized Mecha-Segment",
     }
 }
 

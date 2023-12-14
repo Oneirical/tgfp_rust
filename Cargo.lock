@@ -3296,6 +3296,7 @@ dependencies = [
  "bevy-inspector-egui",
  "bevy_tweening",
  "grid_pathfinding",
+ "grid_util",
  "rand",
  "regex",
 ]
