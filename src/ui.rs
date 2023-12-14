@@ -279,6 +279,23 @@ fn draw_chain_borders(
         },
         name: Name::new("Bottom Log Border Mask"),
     });
+    commands.spawn(UIBundle{
+        sprite_bundle: SpriteSheetBundle {
+            texture_atlas: texture_atlas_handle.handle.clone(),
+            sprite: TextureAtlasSprite{
+                index : 3_usize,
+                custom_size: Some(Vec2::new(6.1, 17.)),
+                color: Color::BLACK,
+                ..default()
+            },
+            transform: Transform {
+                translation: Vec3{x: 26.5, y: 4.2, z: 0.01},
+                ..default()
+            },
+            ..default()
+        },
+        name: Name::new("Bottom Log Border Mask"),
+    });
     /*
     commands.spawn(UIBundle{
         sprite_bundle: SpriteSheetBundle {

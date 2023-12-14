@@ -2,7 +2,7 @@ use std::time::Duration;
 
 use bevy::{prelude::*, render::camera::ScalingMode, window::WindowMode, input::common_conditions::input_toggle_active};
 use bevy_inspector_egui::quick::WorldInspectorPlugin;
-use bevy_tweening::{TweeningPlugin, Animator, TweenCompleted};
+use bevy_tweening::{TweeningPlugin, Animator, TweenCompleted, Tweenable};
 use components::*;
 use input::*;
 use map::{MapPlugin, WorldMap, generate_world_vector, xy_idx, PlanePassage};
@@ -11,7 +11,7 @@ use species::{CreatureBundle, Species, is_intangible};
 use turn::TurnPlugin;
 use ui::UIPlugin;
 use vaults::{get_build_sequence, Vault, match_vault_with_spawn_loc};
-use world::match_plane_with_vaults;
+use world::{match_plane_with_vaults, Plane};
 
 mod components;
 mod input;
@@ -58,7 +58,7 @@ fn main() {
         .insert_resource(CameraOffset{uix: 3., uiy: 0., playx: 7.25, playy: 5.})
         .add_systems(PreStartup, load_spritesheet)
         .add_systems(Startup, (setup, spawn_players, summon_walls))
-        .add_systems(Update, (toggle_resolution, world_swap, zoom_in, event_relay))
+        .add_systems(Update, (toggle_resolution, world_swap, zoom_in))
         .insert_resource(ResolutionSettings {
             giga: 80.,
             large: 64.,
@@ -66,10 +66,14 @@ fn main() {
             small: 32.,
             tiny: 16.,
         })
+        .insert_resource(ZoomInEffect{timer: Timer::new(Duration::from_millis(500), TimerMode::Once), destination: Plane::Epsilon})
         .run();
 }
 
-fn setup(mut commands: Commands) {
+fn setup(
+    mut commands: Commands,
+    mut zoom: ResMut<ZoomInEffect>,
+) {
     let mut camera_bundle = Camera2dBundle {
         transform: Transform {
             translation: Vec3::new(14.0, 4.0, 0.0),
@@ -82,11 +86,63 @@ fn setup(mut commands: Commands) {
     commands.spawn(camera_bundle);
     commands.insert_resource(InputDelay{time: Timer::new(Duration::from_millis(100), TimerMode::Once)});
     commands.insert_resource(BuildDelay{time: Timer::new(Duration::from_millis(200), TimerMode::Repeating)});
+    zoom.timer.pause();
 }
 
 #[derive(Resource)]
 pub struct SpriteSheetHandle {
     handle: Handle<TextureAtlas>
+}
+
+#[derive(Resource)]
+pub struct ZoomInEffect {
+    timer: Timer,
+    destination: Plane,
+}
+
+fn world_swap(
+    time: Res<Time>,
+    mut zoom: ResMut<ZoomInEffect>,
+    despawn: Query<(Entity, &Species), (With<Position>, Without<RealityAnchor>)>,
+    mut player: Query<(Entity, &mut Position),With<RealityAnchor>>,
+    texture_atlas_handle: Res<SpriteSheetHandle>,
+    mut map: ResMut<WorldMap>,
+    mut commands: Commands, 
+
+) {
+    zoom.timer.tick(time.delta());
+    if zoom.timer.just_finished() {
+        zoom.timer.reset();
+        zoom.timer.pause();
+        for (crea, sp) in despawn.iter(){
+            if *sp == Species::Projector{
+                commands.entity(crea).clear_children();
+            }
+            commands.entity(crea).despawn();
+        }
+        map.entities = generate_world_vector(); // Empty the map.
+        map.targeted_axioms = Vec::new();
+        let mut player_pos = (0.,0.);
+
+        let vault = match_plane_with_vaults(zoom.destination.clone());
+        let spawnpoint = match_vault_with_spawn_loc(vault.clone());
+        if let Ok((ent, mut pos)) = player.get_single_mut() {
+            (pos.x, pos.y) = spawnpoint;
+            map.entities[xy_idx(pos.x, pos.y)] = Some(ent);
+            player_pos = ((22. - pos.x as f32)/2., (8. - pos.y as f32)/2.);
+        }
+
+        let queue = get_build_sequence(vault, (0,0));
+        for task in &queue{
+            let position = task.1;
+            let new_creature = CreatureBundle::new(&texture_atlas_handle)
+                .with_data(position.0, position.1, player_pos, task.0.clone());
+            let entity_id = commands.spawn(new_creature).id();
+            if is_intangible(&task.0){
+                commands.entity(entity_id).insert(Intangible);
+            }
+        }
+    }
 }
 
 #[derive(Debug, Clone, Eq, PartialEq, Hash, Default, States)]
@@ -141,18 +197,6 @@ fn toggle_resolution(
     }
 }
 
-fn event_relay(
-    mut tweens: EventReader<TweenCompleted>,
-    mut events: EventWriter<PlanePassage>,
-
-){
-    for complete in tweens.read() {
-        if complete.user_data == 42 {
-            events.send(PlanePassage(world::Plane::Epsilon));
-        }
-    }
-}
-
 
 fn load_spritesheet(
     asset_server: Res<AssetServer>,
@@ -197,46 +241,6 @@ fn summon_walls(
         let entity_id = commands.spawn(new_creature).id();
         if is_intangible(&task.0){
             commands.entity(entity_id).insert(Intangible);
-        }
-    }
-}
-
-fn world_swap(
-    despawn: Query<Entity,(With<Species>, Without<RealityAnchor>)>,
-    mut player: Query<(Entity, &mut Position),With<RealityAnchor>>,
-    texture_atlas_handle: Res<SpriteSheetHandle>,
-    mut map: ResMut<WorldMap>,
-    mut commands: Commands, 
-
-    mut events: EventReader<PlanePassage>
-){
-    for plane in events.read() {
-        for crea in despawn.iter(){
-            commands.entity(crea).clear_children();
-            commands.entity(crea).despawn();
-        }
-
-        map.entities = generate_world_vector(); // Empty the map.
-        map.targeted_axioms = Vec::new();
-        let mut player_pos = (0.,0.);
-
-        let vault = match_plane_with_vaults(plane.0.clone());
-        let spawnpoint = match_vault_with_spawn_loc(vault.clone());
-        if let Ok((ent, mut pos)) = player.get_single_mut() {
-            (pos.x, pos.y) = spawnpoint;
-            map.entities[xy_idx(pos.x, pos.y)] = Some(ent);
-            player_pos = ((22. - pos.x as f32)/2., (8. - pos.y as f32)/2.);
-        }
-
-        let queue = get_build_sequence(vault, (0,0));
-        for task in &queue{
-            let position = task.1;
-            let new_creature = CreatureBundle::new(&texture_atlas_handle)
-                .with_data(position.0, position.1, player_pos, task.0.clone());
-            let entity_id = commands.spawn(new_creature).id();
-            if is_intangible(&task.0){
-                commands.entity(entity_id).insert(Intangible);
-            }
         }
     }
 }

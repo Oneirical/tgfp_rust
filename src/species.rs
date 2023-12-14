@@ -91,24 +91,15 @@ impl CreatureBundle { // Creatures displayed on screen.
         self.position.x = x;
         self.position.y = y;
         let end = Vec3::new(self.position.x as f32/2. + offset.0, self.position.y as f32/2. + offset.1, self.sprite_bundle.transform.translation.z);
-        let tween_tr = Tween::new(
+        let tween = Tween::new(
             EaseFunction::QuadraticInOut,
-            Duration::from_millis(10000),
+            Duration::from_millis(1),
             TransformPositionLens {
-                start: Vec3::new(3., 3., 0.),
+                start: end,
                 end
             },
         );
-        let tween_sc = Tween::new(
-            EaseFunction::QuadraticInOut,
-            Duration::from_millis(10000),
-            TransformScaleLens {
-                start: Vec3::new(0.1, 0.1, 0.),
-                end: Vec3::ONE,
-            },
-        );
-        let track = Tracks::new([tween_sc, tween_tr]);
-        self.animation.set_tweenable(track);
+        self.animation.set_tweenable(tween);
         self
     }
     pub fn with_species(mut self, species: Species) -> Self {

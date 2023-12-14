@@ -4,7 +4,7 @@ use bevy::prelude::*;
 use bevy_tweening::{*, lens::{TransformPositionLens, TransformScaleLens}};
 use rand::seq::SliceRandom;
 
-use crate::{components::{QueuedAction, RealityAnchor, Position, SoulBreath}, input::ActionType, TurnState, map::{xy_idx, WorldMap, is_in_bounds, bresenham_line, PlanePassage}, soul::{Soul, get_soul_rot_position, SoulRotationTimer, match_soul_with_display_index}, ui::CenterOfWheel, axiom::{grab_coords_from_form, CasterInfo, match_soul_with_axiom, Function}, species::Species};
+use crate::{components::{QueuedAction, RealityAnchor, Position, SoulBreath}, input::ActionType, TurnState, map::{xy_idx, WorldMap, is_in_bounds, bresenham_line, PlanePassage}, soul::{Soul, get_soul_rot_position, SoulRotationTimer, match_soul_with_display_index}, ui::CenterOfWheel, axiom::{grab_coords_from_form, CasterInfo, match_soul_with_axiom, Function}, species::Species, world::Plane, ZoomInEffect};
 
 pub struct TurnPlugin;
 
@@ -70,6 +70,7 @@ fn dispense_functions(
     mut souls: Query<(&mut Animator<Transform>, &Transform, &Soul), Without<Position>>,
     ui_center: Res<CenterOfWheel>,
     time: Res<SoulRotationTimer>,
+    mut zoom: ResMut<ZoomInEffect>,
 ){
     let mut next_axioms = Vec::new();
     for (entity, function, info) in world_map.targeted_axioms.clone().iter(){
@@ -96,7 +97,7 @@ fn dispense_functions(
                     };
                     let tween = Tween::new(
                         EaseFunction::QuadraticInOut,
-                        Duration::from_millis(100),
+                        Duration::from_millis(150),
                         TransformPositionLens {
                             start: Vec3::new(old_pos.0 as f32/2., old_pos.1 as f32/2., 0.),
                             end: Vec3::new(pos.x as f32/2., pos.y as f32/2., 0.),
@@ -113,7 +114,7 @@ fn dispense_functions(
                                     if new_pos == *passage_coords {
                                         passage_detected = true;
                                         player_coords = (posi.x as f32, posi.y as f32);
-                                        //events.send(PlanePassage(destination.clone()));
+                                        zoom.destination = destination.clone();
                                     }
                                 }
 
@@ -121,7 +122,7 @@ fn dispense_functions(
                             }
                             let tween = Tween::new(
                                 EaseFunction::QuadraticInOut,
-                                Duration::from_millis(100), // must be the same as input delay to avoid offset
+                                Duration::from_millis(150), // must be the same as input delay to avoid offset
                                 TransformPositionLens {
                                     start: transform.translation,
                                     end: Vec3::new(transform.translation.x + (old_pos.0 as f32-new_pos.0 as f32)/2., transform.translation.y + (old_pos.1 as f32-new_pos.1 as f32)/2., 0.),
@@ -130,11 +131,12 @@ fn dispense_functions(
                             anim.set_tweenable(tween);
                         }
                         if passage_detected{
+                            zoom.timer.unpause();
                             for (transform, _species, _breath, mut anim, posi, is_player) in creatures.iter_mut(){
                                 if is_player {continue;}
                                 let tween_sc = Tween::new(
                                     EaseFunction::QuadraticInOut,
-                                    Duration::from_millis(5000), // must be the same as input delay to avoid offset
+                                    Duration::from_millis(500), // must be the same as input delay to avoid offset
                                     TransformScaleLens {
                                         start: transform.scale,
                                         end: Vec3::new(8., 8., 1.),
@@ -142,12 +144,12 @@ fn dispense_functions(
                                 );
                                 let tween_tr = Tween::new(
                                     EaseFunction::QuadraticInOut,
-                                    Duration::from_millis(5000), // must be the same as input delay to avoid offset
+                                    Duration::from_millis(500), // must be the same as input delay to avoid offset
                                     TransformPositionLens {
                                         start: transform.translation,
-                                        end: Vec3::new(posi.x as f32/2.*8.-player_coords.0/2.*8.+11., posi.y as f32/2.*8.-player_coords.1/2.*8.+2., transform.translation.z),
+                                        end: Vec3::new(posi.x as f32/2.*8.-player_coords.0/2.*8.+11., posi.y as f32/2.*8.-player_coords.1/2.*8.+3.5, transform.translation.z),
                                     },
-                                ).with_completed_event(42);
+                                );
                                 let track = Tracks::new([tween_sc,tween_tr]);
                                 anim.set_tweenable(track);
                             }

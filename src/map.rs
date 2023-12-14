@@ -68,7 +68,7 @@ pub fn place_down_new_entities(
                         },
                         visibility,
                         transform: Transform {
-                            translation: Vec3{ x: y as f32/2./8.-1.19, y: x as f32/2./8.-1.19, z: 2.0},
+                            translation: Vec3{ x: y as f32/2./8.-1.19, y: x as f32/2./8.-1.19, z: -0.1},
                             scale: Vec3 { x: 1./8., y: 1./8., z: 1. },
                             rotation: match_species_with_rotation(j),
                             ..default()
@@ -77,7 +77,7 @@ pub fn place_down_new_entities(
                     },
                     )).id();
                     commands.entity(entity_id).add_child(child);
-                }
+                } 
             }
         }
         if is_intangible {
