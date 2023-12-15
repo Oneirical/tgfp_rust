@@ -4,7 +4,7 @@ use bevy::prelude::*;
 use bevy_tweening::{*, lens::{TransformPositionLens, TransformScaleLens}};
 use rand::seq::SliceRandom;
 
-use crate::{components::{QueuedAction, RealityAnchor, Position, SoulBreath}, input::ActionType, TurnState, map::{xy_idx, WorldMap, is_in_bounds, bresenham_line, get_neighbouring_entities}, soul::{Soul, get_soul_rot_position, SoulRotationTimer, match_soul_with_display_index, match_soul_with_sprite}, ui::CenterOfWheel, axiom::{grab_coords_from_form, CasterInfo, match_soul_with_axiom, Function}, species::Species, ZoomInEffect};
+use crate::{components::{QueuedAction, RealityAnchor, Position, SoulBreath}, input::ActionType, TurnState, map::{xy_idx, WorldMap, is_in_bounds, bresenham_line, get_neighbouring_entities}, soul::{Soul, get_soul_rot_position, SoulRotationTimer, match_soul_with_display_index, match_soul_with_sprite, select_random_entities}, ui::CenterOfWheel, axiom::{grab_coords_from_form, CasterInfo, match_soul_with_axiom, Function}, species::Species, ZoomInEffect};
 
 pub struct TurnPlugin;
 
@@ -206,6 +206,20 @@ fn dispense_functions(
                             }
                         }
                     }
+                },
+                Function::StealSouls { dam, culprit } => {
+                    let mut rng = rand::thread_rng();
+                    let mut payload = select_random_entities(&mut breath.discard, dam, &mut rng);
+                    if payload.len() < dam {
+                        payload.append(&mut select_random_entities(&mut breath.pile, dam, &mut rng));
+                    }
+                    
+                    if let Ok((_transform, _species, mut breath_culprit, _anim, _pos, is_player)) = creatures.get_mut(culprit.to_owned()) {
+                        for (soul, slot) in payload{
+                            breath_culprit.discard[slot].push(soul);
+                        }
+                    }
+
                 }
                 Function::Dash { dx, dy } => {
                     let dest = (dx, dy);

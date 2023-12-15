@@ -240,6 +240,7 @@ fn summon_walls(
     let queue = get_build_sequence(Vault::EpicWow, (1,1));
     for task in &queue{
         let position = task.1;
+        if task.0 == Species::Void {continue;}
         let new_creature = CreatureBundle::new(&texture_atlas_handle)
             .with_data(position.0, position.1, (0.,0.), task.0.clone());
         let entity_id = commands.spawn(new_creature).id();

@@ -212,3 +212,23 @@ pub fn match_soul_with_display_index(
         Soul::Vile => 4
     }
 }
+
+fn select_random_entity<R: Rng>(entities: &mut Vec<Entity>, rng: &mut R) -> Option<Entity> {
+    let index = rng.gen_range(0..entities.len());
+    Some(entities.swap_remove(index))
+ }
+
+pub fn select_random_entities<R: Rng>(pools: &mut Vec<Vec<Entity>>, dam: usize, rng: &mut R) -> Vec<(Entity,usize)> {
+    let mut selected_entities = Vec::new();
+    let mut pool_indices: Vec<usize> = (0..pools.len()).collect();
+    while selected_entities.len() < dam && !pool_indices.is_empty() {
+        let pool_index = rng.gen_range(0..pool_indices.len());
+        let pool = &mut pools[pool_indices[pool_index]];
+        if let Some(entity) = select_random_entity(pool, rng) {
+            selected_entities.push((entity,pool_index));
+        } else {
+            pool_indices.remove(pool_index);
+        }
+    }
+    selected_entities
+ }

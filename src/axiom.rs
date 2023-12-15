@@ -1,6 +1,6 @@
 use bevy::ecs::entity::Entity;
 
-use crate::{soul::Soul, species::Species, map::get_entity_at_coords};
+use crate::{soul::Soul, species::Species, map::{get_entity_at_coords, bresenham_line, is_in_bounds, xy_idx}};
 
 pub enum Effect {
     Glamour {stacks : usize},
@@ -12,6 +12,7 @@ pub enum Effect {
 pub enum Form {
     Empty,
     Ego,
+    MomentumBeam,
 }
 #[derive(Clone, Debug)]
 pub enum Function {
@@ -20,6 +21,7 @@ pub enum Function {
     Teleport { x: usize, y: usize }, // 
     LinearDash { dist: usize },
     DiscardSoul { soul: Entity, slot: usize },
+    StealSouls { dam: usize, culprit: Entity },
 }
 
 pub fn match_soul_with_axiom(
@@ -55,6 +57,7 @@ pub fn grab_coords_from_form( // vec in vec for better, synchronized animations?
     let coords = match form {
         Form::Empty => Vec::new(),
         Form::Ego => vec![caster.pos],
+        Form::MomentumBeam => blocked_beam(tup_usize_to_i32(caster.pos), (caster.pos.0 as i32+ caster.momentum.0*45, caster.pos.1 as i32+ caster.momentum.1*45), map)
     };
     let mut entities = Vec::with_capacity(coords.len());
     for (x,y) in &coords {
@@ -64,4 +67,46 @@ pub fn grab_coords_from_form( // vec in vec for better, synchronized animations?
         }
     }
     ReturnedForm { entities, coords } 
+}
+
+fn blocked_beam(
+    start: (i32,i32),
+    end: (i32, i32),
+    map: &[Option<Entity>],
+) -> Vec<(usize, usize)> {
+    let mut line = bresenham_line(start.0 as i32, start.1 as i32, end.0, end.1);
+    line.remove(0);
+    let mut stop_point = 0;
+    for (i, (nx, ny)) in line.iter().enumerate() {
+        if is_in_bounds(*nx, *ny){
+            if map[xy_idx(*nx as usize,* ny as usize)].is_some() {
+                stop_point = i+1;
+                break;
+            }
+            else {continue;}
+        } else {
+            stop_point = i;
+            break;
+        }
+    }
+
+    line.drain(stop_point..);
+
+    let mut output = Vec::new();
+    for tu in line{
+        output.push(tup_i32_to_usize(tu))
+    }
+    output
+}
+
+pub fn tup_usize_to_i32(
+    tuple: (usize, usize)
+) -> (i32, i32) {
+    (tuple.0 as i32, tuple.1 as i32)
+}
+
+pub fn tup_i32_to_usize(
+    tuple: (i32, i32)
+) -> (usize, usize) {
+    (tuple.0 as usize, tuple.1 as usize)
 }

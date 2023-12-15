@@ -10,8 +10,8 @@ pub struct UIPlugin;
 impl Plugin for UIPlugin {
     fn build(&self, app: &mut App) {
         app.add_systems(Startup, (draw_chain_borders, draw_soul_deck));
-        app.add_systems(PostStartup, draw_minimap);
-        app.add_systems(OnEnter(TurnState::AwaitingInput), update_minimap);
+        //app.add_systems(PostStartup, draw_minimap);
+        //app.add_systems(OnEnter(TurnState::AwaitingInput), update_minimap);
         app.add_systems(Update, (place_down_text, push_log));
         app.insert_resource(CenterOfWheel{x: 16.5+7.25, y: 2.3+5.});
         app.add_event::<LogMessage>();
