@@ -47,7 +47,7 @@ fn soul_rotation(
     ui_center: Res<CenterOfWheel>,
     current: Res<CurrentEntityInUI>,
     query: Query<(&SoulBreath, &Position)>,
-    mut soul: Query<(&mut Transform, &Animator<Transform>, &Soul)>,
+    mut soul: Query<(&mut Transform, &mut Visibility, &Animator<Transform>, &Soul)>,
     mut time: ResMut<SoulRotationTimer>,
     mut momentum_mark: Query<(&mut TextureAtlasSprite, &MomentumMarker)>,
     epoch: Res<Time>,
@@ -65,7 +65,8 @@ fn soul_rotation(
     }
     for j in draw.iter() {
         for (caste, i) in j.iter().enumerate(){
-            if let Ok((mut trans, anim, soul_type)) = soul.get_mut(*i) {
+            if let Ok((mut trans, mut vis, anim, soul_type)) = soul.get_mut(*i) {
+                *vis = Visibility::Visible;
                 let index = draw[match_soul_with_display_index(soul_type)].iter().position(|&ent| ent == *i);
                 let index = match index {
                     Some(ind) => ind,
@@ -90,7 +91,8 @@ fn soul_rotation(
             ((5.*PI/4.).cos() * 1.5 +ui_center.x, (5.*PI/4.).sin() * 1.5 +ui_center.y),
             ((7.*PI/4.).cos() * 1.5 +ui_center.x, (7.*PI/4.).sin() * 1.5 +ui_center.y)
         ];
-        if let Ok((mut trans, anim, _soul_type)) = soul.get_mut(*i.1) { 
+        if let Ok((mut trans, mut vis, anim, _soul_type)) = soul.get_mut(*i.1) { 
+            *vis = Visibility::Visible;
             if anim.tweenable().progress() != 1.0 { continue; }
             (trans.translation.x, trans.translation.y) = slot_coords_ui[i.0];
             trans.scale = Vec3{ x: 2., y: 2., z: 0.};
@@ -99,7 +101,8 @@ fn soul_rotation(
     }
     for j in disc.iter() {
         for i in j.iter(){
-            if let Ok((mut trans, anim, soul_type)) = soul.get_mut(*i) { 
+            if let Ok((mut trans, mut vis, anim, soul_type)) = soul.get_mut(*i) { 
+                *vis = Visibility::Visible;
                 let index = disc[match_soul_with_display_index(soul_type)].iter().position(|&ent| ent == *i);
                 if anim.tweenable().progress() != 1.0 { continue; }
                 (trans.translation.x, trans.translation.y) = get_soul_rot_position(soul_type, (ui_center.x, ui_center.y), true, time.timer.elapsed_secs(), index.unwrap());
@@ -137,9 +140,9 @@ pub fn get_soul_rot_position(
 fn distribute_some_souls(
     mut commands: Commands,
     texture_atlas_handle: Res<SpriteSheetHandle>,
-    mut player: Query<&mut SoulBreath, With<RealityAnchor>>,
-){  
-    for i in 0..12{
+    mut creatures: Query<&mut SoulBreath>,
+){  for mut breath in creatures.iter_mut(){
+    for i in 0..100{
         let soul = vec![Soul::Serene, Soul::Feral, Soul::Ordered, Soul::Saintly, Soul::Vile];
         let tween = Tween::new(
             EaseFunction::QuadraticInOut,
@@ -162,6 +165,7 @@ fn distribute_some_souls(
                     custom_size: Some(Vec2::new(0.25, 0.25)),
                     ..default()
                 },
+                visibility: Visibility::Hidden,
                 transform: Transform {
                     translation: Vec3::ZERO,
                     scale,
@@ -173,20 +177,18 @@ fn distribute_some_souls(
             name: Name::new("Breathed Soul"),
             soul: soul[index].clone(),
         }).id();
-        if let Ok(mut breath) = player.get_single_mut() {
-            if i < 4 {
-                breath.held.push(entity);
-            }
-            else if i < 12 {
-                breath.pile[index].push(entity);
-            }
-            else {
-                breath.discard[index].push(entity);
-            }
-        } else {
-            panic!("There are zero or more than 1 players!")
-        }   
+        if i < 4 {
+            breath.held.push(entity);
+        }
+        else if i < 12 {
+            breath.pile[index].push(entity);
+        }
+        else {
+            breath.discard[index].push(entity);
+        }
     }
+}
+
 }
 
 pub fn match_soul_with_sprite(

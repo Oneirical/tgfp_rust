@@ -4,12 +4,13 @@ use bevy::prelude::*;
 use bevy_tweening::{*, lens::{TransformPositionLens, TransformScaleLens}};
 use rand::seq::SliceRandom;
 
-use crate::{components::{QueuedAction, RealityAnchor, Position, SoulBreath}, input::ActionType, TurnState, map::{xy_idx, WorldMap, is_in_bounds, bresenham_line, get_neighbouring_entities}, soul::{Soul, get_soul_rot_position, SoulRotationTimer, match_soul_with_display_index, match_soul_with_sprite, select_random_entities}, ui::CenterOfWheel, axiom::{grab_coords_from_form, CasterInfo, match_soul_with_axiom, Function}, species::Species, ZoomInEffect};
+use crate::{components::{QueuedAction, RealityAnchor, Position, SoulBreath, AxiomEffects}, input::ActionType, TurnState, map::{xy_idx, WorldMap, is_in_bounds, bresenham_line, get_neighbouring_entities}, soul::{Soul, get_soul_rot_position, SoulRotationTimer, match_soul_with_display_index, match_soul_with_sprite, select_random_entities}, ui::CenterOfWheel, axiom::{grab_coords_from_form, CasterInfo, match_soul_with_axiom, Function}, species::Species, ZoomInEffect};
 
 pub struct TurnPlugin;
 
 #[derive(Debug)]
 pub enum Animation{
+    Passage
 }
 
 impl Plugin for TurnPlugin {
@@ -83,12 +84,12 @@ fn calculate_actions (
 }
 
 fn execute_turn (
-    mut creatures: Query<(Entity, &QueuedAction, &Species, &mut SoulBreath, &mut Position, Has<RealityAnchor>)>,
+    mut creatures: Query<(Entity, &QueuedAction, &Species, &AxiomEffects, &mut SoulBreath, &mut Position, Has<RealityAnchor>)>,
     mut next_state: ResMut<NextState<TurnState>>,
     mut world_map: ResMut<WorldMap>,
     souls: Query<(&mut Animator<Transform>, &Transform, &Soul), Without<Position>>,
 ){
-    for (entity, queue, species, breath, pos, is_player) in creatures.iter_mut(){
+    for (entity, queue, species, effects, breath, pos, is_player) in creatures.iter_mut(){
         
         match queue.action{
             ActionType::SoulCast { slot } => {
@@ -98,7 +99,7 @@ fn execute_turn (
                 };
                 let info = CasterInfo{ pos: (pos.x,pos.y), species: species.clone(), momentum: pos.momentum, is_player};
                 if let Ok((_anim, _transform, soul_id), ) = souls.get(soul) {
-                    let axioms = breath.axioms.clone();
+                    let axioms = effects.axioms.clone();
                     let (form, function) = axioms[match_soul_with_axiom(soul_id)].clone();
                     let targets = grab_coords_from_form(&world_map.entities, form, info.clone());
                     for target in targets.entities {
@@ -168,13 +169,11 @@ fn dispense_functions(
                     }
                     else {
                         let mut passage_detected = false;
-                        let mut player_coords = (0., 0.);
                         for (transform, _species, _breath, mut anim, posi, is_player) in creatures.iter_mut(){
                             if is_player {
                                 for (passage_coords, destination) in &world_map.warp_zones{
                                     if new_pos == *passage_coords {
                                         passage_detected = true;
-                                        player_coords = (posi.x as f32, posi.y as f32);
                                         zoom.destination = destination.clone();
                                     }
                                 }
@@ -182,28 +181,8 @@ fn dispense_functions(
                             }
                         }
                         if passage_detected{
+                            world_map.anim_queue.push((*entity, Animation::Passage));
                             zoom.timer.unpause();
-                            for (transform, _species, _breath, mut anim, posi, is_player) in creatures.iter_mut(){
-                                if is_player {continue;}
-                                let tween_sc = Tween::new(
-                                    EaseFunction::QuadraticInOut,
-                                    Duration::from_millis(500), // must be the same as input delay to avoid offset
-                                    TransformScaleLens {
-                                        start: transform.scale,
-                                        end: Vec3::new(8., 8., 1.),
-                                    },
-                                );
-                                let tween_tr = Tween::new(
-                                    EaseFunction::QuadraticInOut,
-                                    Duration::from_millis(500), // must be the same as input delay to avoid offset
-                                    TransformPositionLens {
-                                        start: transform.translation,
-                                        end: Vec3::new(posi.x as f32/2.*8.-player_coords.0/2.*8.+11., posi.y as f32/2.*8.-player_coords.1/2.*8.+3.5, transform.translation.z),
-                                    },
-                                );
-                                let track = Tracks::new([tween_sc,tween_tr]);
-                                anim.set_tweenable(track);
-                            }
                         }
                     }
                 },
@@ -407,7 +386,30 @@ fn unpack_animations(
     };
     if let Ok((transform, mut anim, fin, _is_player)) = creatures.get_mut(entity.to_owned()) {
         match anim_choice {
-
+            Animation::Passage => {
+                for (transform, mut anim, posi, is_player) in creatures.iter_mut(){
+                    if is_player {continue;}
+                    let tween_sc = Tween::new(
+                        EaseFunction::QuadraticInOut,
+                        Duration::from_millis(500), // must be the same as input delay to avoid offset
+                        TransformScaleLens {
+                            start: transform.scale,
+                            end: Vec3::new(8., 8., 1.),
+                        },
+                    );
+                    let tween_tr = Tween::new(
+                        EaseFunction::QuadraticInOut,
+                        Duration::from_millis(500), // must be the same as input delay to avoid offset
+                        TransformPositionLens {
+                            start: transform.translation,
+                            end: Vec3::new(posi.x as f32/2.*8.-player_pos.0 as f32/2.*8.+11., posi.y as f32/2.*8.-player_pos.1 as f32/2.*8.+3.5, transform.translation.z),
+                        },
+                    );
+                    let track = Tracks::new([tween_sc,tween_tr]);
+                    anim.set_tweenable(track);
+                }
+                world_map.animation_timer.set_duration(Duration::from_millis(500));
+            }
         }
     }
 }

@@ -58,5 +58,9 @@ pub struct SoulBreath{
     pub pile: Vec<Vec<Entity>>,
     pub held: Vec<Entity>,
     pub discard: Vec<Vec<Entity>>,
+}
+
+#[derive(Component)]
+pub struct AxiomEffects{
     pub axioms: Vec<(Form, Function)>,
 }

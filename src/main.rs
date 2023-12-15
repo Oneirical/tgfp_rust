@@ -1,5 +1,6 @@
 use std::time::Duration;
 
+use axiom::{Form, Function};
 use bevy::{prelude::*, render::camera::ScalingMode, window::WindowMode, input::common_conditions::input_toggle_active};
 use bevy_inspector_egui::quick::WorldInspectorPlugin;
 use bevy_mouse_tracking_plugin::{mouse_pos::{MousePosPlugin, InitMouseTracking}, MainCamera, MousePos};
@@ -50,9 +51,9 @@ fn main() {
         .add_plugins(UIPlugin)
         .add_plugins(TurnPlugin)
         .add_plugins(SoulPlugin)
-        .add_plugins(
-            WorldInspectorPlugin::default().run_if(input_toggle_active(true, KeyCode::Escape)),
-        )
+        //.add_plugins(
+        //    WorldInspectorPlugin::default().run_if(input_toggle_active(true, KeyCode::Escape)),
+        //)
         .add_state::<TurnState>()
         .insert_resource(ClearColor(Color::rgb(0., 0., 0.)))
         .insert_resource(Msaa::Off) // This fixes weird black lines on the tiles.
@@ -231,6 +232,12 @@ fn spawn_players(
         RealityAnchor { player_id: 0},
     )).id();
     commands.insert_resource(CurrentEntityInUI{entity});
+    commands.entity(entity).insert(AxiomEffects{ axioms: vec![
+        (Form::MomentumBeam, Function::StealSouls { dam: 10, culprit: entity }),
+        (Form::Ego, Function::LinearDash { dist: 5 }),
+        (Form::Empty, Function::Empty),
+        (Form::Empty, Function::Empty),
+    ] });
 }
 
 fn summon_walls(

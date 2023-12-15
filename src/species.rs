@@ -1,6 +1,6 @@
 use std::time::Duration;
 
-use crate::{components::{Position, QueuedAction, SoulBreath}, SpriteSheetHandle, input::ActionType, axiom::{Form, Function}};
+use crate::{components::{Position, QueuedAction, SoulBreath, AxiomEffects}, SpriteSheetHandle, input::ActionType, axiom::{Form, Function}};
 use bevy::prelude::*;
 use bevy_tweening::{*, lens::TransformPositionLens};
 use std::f32::consts::PI;
@@ -33,6 +33,7 @@ pub struct CreatureBundle {
     position: Position,
     action: QueuedAction,
     breath: SoulBreath,
+    axioms: AxiomEffects,
 }
 
 impl CreatureBundle { // Creatures displayed on screen.
@@ -71,12 +72,13 @@ impl CreatureBundle { // Creatures displayed on screen.
             species: Species::BuggedSpecies,
             position: Position { x: 0, y: 0, momentum: (-1, 0)},
             action: QueuedAction { action: ActionType::Nothing},
-            breath: SoulBreath { pile: lots_of_vec.clone(), discard: lots_of_vec.clone(), held: Vec::new(), axioms: vec![
-                (Form::MomentumBeam, Function::LinearDash { dist: 5 }),
+            breath: SoulBreath { pile: lots_of_vec.clone(), discard: lots_of_vec.clone(), held: Vec::new(), },
+            axioms: AxiomEffects { axioms: vec![
                 (Form::Empty, Function::Empty),
                 (Form::Empty, Function::Empty),
                 (Form::Empty, Function::Empty),
-            ]},
+                (Form::Empty, Function::Empty),
+            ] }
         }
     }
     pub fn with_data(
