@@ -2,6 +2,7 @@ use std::time::Duration;
 
 use bevy::{prelude::*, render::camera::ScalingMode, window::WindowMode, input::common_conditions::input_toggle_active};
 use bevy_inspector_egui::quick::WorldInspectorPlugin;
+use bevy_mouse_tracking_plugin::{mouse_pos::{MousePosPlugin, InitMouseTracking}, MainCamera, MousePos};
 use bevy_tweening::TweeningPlugin;
 use components::*;
 use input::*;
@@ -34,16 +35,16 @@ fn main() {
                     // fill the entire browser window
                     fit_canvas_to_parent: true,
                     focused: true,
-                    resizable: false,
-                    resolution: (1920.0, 1080.0).into(),
+                    resizable: true,
+                    //resolution: (1920.0, 1080.0).into(),
                     title: "The Games Foxes Play".into(),
-                    //mode: WindowMode::Fullscreen,
+                    mode: WindowMode::Fullscreen,
                     position: WindowPosition::Centered(MonitorSelection::Current),
                     ..default()
                 }),
                 ..default()
             }))
-        .add_plugins(MapPlugin)
+        .add_plugins((MapPlugin, MousePosPlugin))
         .add_plugins(InputPlugin)
         .add_plugins(TweeningPlugin)
         .add_plugins(UIPlugin)
@@ -83,7 +84,7 @@ fn setup(
     };
     camera_bundle.projection.scaling_mode = ScalingMode::WindowSize(64.);
     //camera_bundle.projection.scale = 0.99;
-    commands.spawn(camera_bundle);
+    commands.spawn(camera_bundle).add(InitMouseTracking).insert(MainCamera);
     commands.insert_resource(InputDelay{time: Timer::new(Duration::from_millis(1), TimerMode::Once)});
     commands.insert_resource(BuildDelay{time: Timer::new(Duration::from_millis(200), TimerMode::Repeating)});
     zoom.timer.pause();
@@ -178,22 +179,24 @@ fn toggle_resolution(
     keys: Res<Input<KeyCode>>,
     mut query_camera: Query<&mut OrthographicProjection, With<Camera2d>>,
     resolution: Res<ResolutionSettings>,
+
+    mouse: Res<MousePos>,
 ) {
     let mut projection = query_camera.single_mut();
 
-    if keys.just_pressed(KeyCode::Numpad1) {
+    if keys.just_pressed(KeyCode::Y) {
         projection.scaling_mode = ScalingMode::WindowSize(resolution.tiny);
     }
-    if keys.just_pressed(KeyCode::Numpad2) {
+    if keys.just_pressed(KeyCode::U) {
         projection.scaling_mode = ScalingMode::WindowSize(resolution.small);
     }
-    if keys.just_pressed(KeyCode::Numpad3) {
+    if keys.just_pressed(KeyCode::I) {
         projection.scaling_mode = ScalingMode::WindowSize(resolution.medium);
     }
-    if keys.just_pressed(KeyCode::Numpad4) {
+    if keys.just_pressed(KeyCode::O) {
         projection.scaling_mode = ScalingMode::WindowSize(resolution.large);
     }
-    if keys.just_pressed(KeyCode::Numpad5) {
+    if keys.just_pressed(KeyCode::P) {
         projection.scaling_mode = ScalingMode::WindowSize(resolution.giga);
     }
 }
@@ -204,7 +207,7 @@ fn load_spritesheet(
     mut texture_atlases: ResMut<Assets<TextureAtlas>>,
     mut commands: Commands,
 ){
-    let img_path = "spritesheet.png".to_owned();
+    let img_path = "spritesheet16.png".to_owned();
     let texture_handle = asset_server.load(img_path);
     let texture_atlas = TextureAtlas::from_grid(
         texture_handle,

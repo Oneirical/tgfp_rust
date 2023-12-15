@@ -16,7 +16,7 @@ impl Plugin for SoulPlugin {
     }
 }
 
-#[derive(Component, Clone)]
+#[derive(Component, Clone, Debug, PartialEq)]
 pub enum Soul {
     Feral,
     Ordered,
@@ -64,14 +64,16 @@ fn soul_rotation(
         }
     }
     for j in draw.iter() {
-        for i in j{
+        for (caste, i) in j.iter().enumerate(){
             if let Ok((mut trans, anim, soul_type)) = soul.get_mut(*i) {
                 let index = draw[match_soul_with_display_index(soul_type)].iter().position(|&ent| ent == *i);
                 let index = match index {
                     Some(ind) => ind,
                     None => {
-                        dbg!(draw);
-                        panic!("waa");
+                        dbg!(caste);
+                        dbg!(&soul_type);
+                        dbg!(match_soul_with_display_index(&soul_type));
+                        panic!("The desired soul in the draw pile was not found.");
                     }
                 };
                 if anim.tweenable().progress() != 1.0 { continue; }
@@ -91,7 +93,7 @@ fn soul_rotation(
         if let Ok((mut trans, anim, _soul_type)) = soul.get_mut(*i.1) { 
             if anim.tweenable().progress() != 1.0 { continue; }
             (trans.translation.x, trans.translation.y) = slot_coords_ui[i.0];
-            trans.scale = Vec3{ x: 3., y: 3., z: 0.};
+            trans.scale = Vec3{ x: 2., y: 2., z: 0.};
         }
         else{ panic!("A soul in the draw pile has no UIElement component!")};
     }
@@ -137,7 +139,7 @@ fn distribute_some_souls(
     texture_atlas_handle: Res<SpriteSheetHandle>,
     mut player: Query<&mut SoulBreath, With<RealityAnchor>>,
 ){  
-    for i in 0..200{
+    for i in 0..12{
         let soul = vec![Soul::Serene, Soul::Feral, Soul::Ordered, Soul::Saintly, Soul::Vile];
         let tween = Tween::new(
             EaseFunction::QuadraticInOut,
@@ -187,7 +189,7 @@ fn distribute_some_souls(
     }
 }
 
-fn match_soul_with_sprite(
+pub fn match_soul_with_sprite(
     soul: &Soul,
 ) -> usize{
     match soul{

@@ -4,7 +4,7 @@ use bevy::prelude::*;
 use bevy_tweening::{*, lens::{TransformPositionLens, TransformScaleLens}};
 use rand::seq::SliceRandom;
 
-use crate::{components::{QueuedAction, RealityAnchor, Position, SoulBreath}, input::ActionType, TurnState, map::{xy_idx, WorldMap, is_in_bounds, bresenham_line, get_neighbouring_entities}, soul::{Soul, get_soul_rot_position, SoulRotationTimer, match_soul_with_display_index}, ui::CenterOfWheel, axiom::{grab_coords_from_form, CasterInfo, match_soul_with_axiom, Function}, species::Species, ZoomInEffect};
+use crate::{components::{QueuedAction, RealityAnchor, Position, SoulBreath}, input::ActionType, TurnState, map::{xy_idx, WorldMap, is_in_bounds, bresenham_line, get_neighbouring_entities}, soul::{Soul, get_soul_rot_position, SoulRotationTimer, match_soul_with_display_index, match_soul_with_sprite}, ui::CenterOfWheel, axiom::{grab_coords_from_form, CasterInfo, match_soul_with_axiom, Function}, species::Species, ZoomInEffect};
 
 pub struct TurnPlugin;
 
@@ -133,7 +133,7 @@ fn dispense_functions(
     mut creatures: Query<(&Transform, &Species, &mut SoulBreath, &mut Animator<Transform>, &mut Position, Has<RealityAnchor>)>,
     mut next_state: ResMut<NextState<TurnState>>,
     mut world_map: ResMut<WorldMap>,
-    mut souls: Query<(&mut Animator<Transform>, &Transform, &Soul), Without<Position>>,
+    mut souls: Query<(&mut Animator<Transform>, &Transform, &mut TextureAtlasSprite, &mut Soul), Without<Position>>,
     ui_center: Res<CenterOfWheel>,
     time: Res<SoulRotationTimer>,
     mut zoom: ResMut<ZoomInEffect>,
@@ -230,11 +230,11 @@ fn dispense_functions(
                     next_axioms.push((*entity, Function::Dash { dx: dest.0, dy: dest.1 }, info.clone()));
                 }
                 Function::DiscardSoul { soul, slot } => {
-                    if let Ok((mut anim, transform, soul_id), ) = souls.get_mut(soul) { 
+                    if let Ok((mut anim, transform, _sprite, soul_id), ) = souls.get_mut(soul) { 
                         // Move the soul to the discard.
-                        breath.discard[match_soul_with_display_index(soul_id)].push(soul);
-                        let index = breath.discard[match_soul_with_display_index(soul_id)].iter().position(|&ent| ent == soul);
-                        let final_pos = get_soul_rot_position(soul_id, (ui_center.x, ui_center.y), true, time.timer.elapsed_secs()+0.5, index.unwrap());
+                        breath.discard[match_soul_with_display_index(&soul_id)].push(soul);
+                        let index = breath.discard[match_soul_with_display_index(&soul_id)].iter().position(|&ent| ent == soul);
+                        let final_pos = get_soul_rot_position(&soul_id, (ui_center.x, ui_center.y), true, time.timer.elapsed_secs()+0.5, index.unwrap());
                         let tween_tr = Tween::new(
                             EaseFunction::QuadraticInOut,
                             Duration::from_millis(500),
@@ -258,11 +258,20 @@ fn dispense_functions(
                     let mut possible_indices = Vec::new();
                     for (i, vec) in breath.pile.iter().enumerate() { if !vec.is_empty() {possible_indices.push(i)}}
                     if possible_indices.is_empty() {
+                        let mut found_convert = None;
+                        let mut harmonized = Some([Soul::Vile,Soul::Feral,Soul::Saintly,Soul::Ordered].choose(&mut rng).unwrap()); // TODO it should target slots with remaining souls only?
+                        if breath.discard[0].is_empty() {harmonized = None;}
                         for j in breath.discard.iter() { // Reshuffle if no souls are left!
                             for i in j.iter(){
-                                if let Ok((mut anim, transform, soul_id), ) = souls.get_mut(*i) { 
-                                    let index = breath.discard[match_soul_with_display_index(soul_id)].iter().position(|&ent| ent == *i);
-                                    let final_pos = get_soul_rot_position(soul_id, (ui_center.x, ui_center.y), false, time.timer.elapsed_secs()+0.5, index.unwrap());
+                                if let Ok((mut anim, transform, mut sprite, mut soul_id), ) = souls.get_mut(*i) {
+                                    let index = breath.discard[match_soul_with_display_index(&soul_id)].iter().position(|&ent| ent == *i);
+                                    if harmonized.is_some_and(|har| har.clone() == soul_id.clone()) {
+                                        found_convert = Some((i,soul_id.clone()));
+                                        *soul_id = Soul::Serene;
+                                        sprite.index = match_soul_with_sprite(&soul_id);
+                                        harmonized = None;
+                                    }
+                                    let final_pos = get_soul_rot_position(&soul_id, (ui_center.x, ui_center.y), false, time.timer.elapsed_secs()+0.5, index.unwrap());
                                     let tween_tr = Tween::new(
                                         EaseFunction::QuadraticInOut,
                                         Duration::from_millis(500),
@@ -285,7 +294,15 @@ fn dispense_functions(
                                 else{ panic!("A soul in the draw pile has no UIElement component!")};
                             }
                         }
-                        breath.pile = breath.discard.clone();
+                        let mut harmony_deck = breath.discard.clone();
+                        if found_convert.is_some(){
+                            let found_convert = found_convert.unwrap();
+                            if let Some(index) = harmony_deck[match_soul_with_display_index(&found_convert.1)].iter().position(|entity| *entity == *found_convert.0) {
+                                harmony_deck[match_soul_with_display_index(&found_convert.1)].remove(index);
+                            }
+                            harmony_deck[0].push(*found_convert.0);
+                        }
+                        breath.pile = harmony_deck;
                         for vec in breath.discard.iter_mut() {
                             vec.clear();
                         }
@@ -303,7 +320,7 @@ fn dispense_functions(
                                 ((5.*PI/4.).cos() * 1.5 +ui_center.x, (5.*PI/4.).sin() * 1.5 +ui_center.y),
                                 ((7.*PI/4.).cos() * 1.5 +ui_center.x, (7.*PI/4.).sin() * 1.5 +ui_center.y)
                             ];
-                            if let Ok((mut anim, transform, _soul_id), ) = souls.get_mut(new_soul) { 
+                            if let Ok((mut anim, transform, _sprite, _soul_id), ) = souls.get_mut(new_soul) { 
                                 let tween_tr = Tween::new(
                                     EaseFunction::QuadraticInOut,
                                     Duration::from_millis(500),
@@ -317,7 +334,7 @@ fn dispense_functions(
                                     Duration::from_millis(500),
                                     TransformScaleLens {
                                         start: transform.scale,
-                                        end: Vec3{ x: 3., y: 3., z: 0.},
+                                        end: Vec3{ x: 2., y: 2., z: 0.},
                                     },
                                 );
                                 let track = Tracks::new([tween_tr, tween_sc]);

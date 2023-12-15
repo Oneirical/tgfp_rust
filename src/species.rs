@@ -55,11 +55,12 @@ impl CreatureBundle { // Creatures displayed on screen.
                 texture_atlas: texture_atlas_handle.clone(),
                 sprite: TextureAtlasSprite{
                     index : 0_usize,
-                    custom_size: Some(Vec2::new(0.5, 0.5)),
+                    custom_size: Some(Vec2::new(1., 1.)),
                     ..default()
                 },
                 transform: Transform {
                     translation: Vec3{ x: 0., y: 0., z: 0.0},
+                    scale: Vec3{x: 0.5, y: 0.5, z:1.},
                     
                     ..default()
                 },
