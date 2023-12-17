@@ -11,6 +11,8 @@ pub struct RealityAnchor {
 pub struct Position {
     pub x: usize,
     pub y: usize,
+    pub ox: usize, //old positions (last turn)
+    pub oy: usize,
     pub momentum: (i32, i32),
 }
 
@@ -30,6 +32,9 @@ pub struct RightFaith;
 // Add this component to a creature to have it not interact with the world and be pass-through.
 #[derive(Component)]
 pub struct Intangible;
+
+#[derive(Component)]
+pub struct EffectMarker;
 
 #[derive(Component)]
 pub struct MomentumMarker{

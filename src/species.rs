@@ -70,7 +70,7 @@ impl CreatureBundle { // Creatures displayed on screen.
             animation: Animator::new(tween),
             name: Name::new("Bugged Creature"),
             species: Species::BuggedSpecies,
-            position: Position { x: 0, y: 0, momentum: (-1, 0)},
+            position: Position { x: 0, y: 0, ox: 0, oy: 0, momentum: (-1, 0)},
             action: QueuedAction { action: ActionType::Nothing},
             breath: SoulBreath { pile: lots_of_vec.clone(), discard: lots_of_vec.clone(), held: Vec::new(), },
             axioms: AxiomEffects { axioms: vec![
