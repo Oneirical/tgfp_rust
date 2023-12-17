@@ -74,11 +74,11 @@ impl CreatureBundle { // Creatures displayed on screen.
             action: QueuedAction { action: ActionType::Nothing},
             breath: SoulBreath { pile: lots_of_vec.clone(), discard: lots_of_vec.clone(), held: Vec::new(), },
             axioms: AxiomEffects { axioms: vec![
-                (Form::Empty, Function::Empty),
-                (Form::Empty, Function::Empty),
-                (Form::Empty, Function::Empty),
-                (Form::Empty, Function::Empty),
-            ] }
+                (Form::MomentumBeam, Function::StealSouls { dam: 10 }),
+                (Form::MomentumBeam, Function::StealSouls { dam: 10 }),
+                (Form::MomentumBeam, Function::StealSouls { dam: 10 }),
+                (Form::MomentumBeam, Function::StealSouls { dam: 10 }),
+            ], polarity: vec![-1,-1,-1,-1] }
         }
     }
     pub fn with_data(

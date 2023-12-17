@@ -1,10 +1,10 @@
 use std::{time::Duration, f32::consts::PI, cmp::Ordering};
 
 use bevy::prelude::*;
-use bevy_tweening::{*, lens::{TransformPositionLens, TransformScaleLens, SpriteColorLens}};
+use bevy_tweening::{*, lens::{TransformPositionLens, TransformScaleLens}};
 use rand::seq::SliceRandom;
 
-use crate::{components::{QueuedAction, RealityAnchor, Position, SoulBreath, AxiomEffects, EffectMarker}, input::ActionType, TurnState, map::{xy_idx, WorldMap, is_in_bounds, bresenham_line, get_neighbouring_entities}, soul::{Soul, get_soul_rot_position, SoulRotationTimer, match_soul_with_display_index, match_soul_with_sprite, select_random_entities}, ui::CenterOfWheel, axiom::{grab_coords_from_form, CasterInfo, match_soul_with_axiom, Function}, species::Species, ZoomInEffect, SpriteSheetHandle};
+use crate::{components::{QueuedAction, RealityAnchor, Position, SoulBreath, AxiomEffects, EffectMarker}, input::ActionType, TurnState, map::{xy_idx, WorldMap, is_in_bounds, bresenham_line, get_neighbouring_entities}, soul::{Soul, get_soul_rot_position, SoulRotationTimer, match_soul_with_display_index, match_soul_with_sprite, select_random_entities}, ui::CenterOfWheel, axiom::{grab_coords_from_form, CasterInfo, match_soul_with_axiom, Function, Form, match_axiom_with_soul}, species::Species, ZoomInEffect, SpriteSheetHandle};
 
 pub struct TurnPlugin;
 
@@ -25,15 +25,44 @@ impl Plugin for TurnPlugin {
     }
 }
 
+fn choose_action (
+    foes: Vec<Entity>,
+    allies: Vec<Entity>,
+    axioms: Vec<(Form, Function)>,
+    polarity: Vec<i32>,
+    available_souls: Vec<Soul>,
+    info: CasterInfo,
+    world_map: &[Option<Entity>],
+) -> ActionType {
+    let mut scores = vec![0,0,0,0];
+    for (i, (form, function)) in axioms.iter().enumerate() {
+        let results = grab_coords_from_form(&world_map, form.clone(), info.clone());
+        for target in results.entities {
+            if foes.contains(&target) {scores[i] -= polarity[i]} else if allies.contains(&target) { scores[i] += polarity[i] };
+        }
+    }
+    for (i, score) in scores.iter().enumerate() {
+        let desired_soul = match_axiom_with_soul(i);
+        if  score > &0  {//&& available_souls.contains(&desired_soul) {
+            return ActionType::SoulCast { slot: 0}//available_souls.iter().position(|s| *s == desired_soul).unwrap() }
+        }
+    }
+    let mut rng = rand::thread_rng();
+    let mom = [(0,1),(0,-1),(1,0),(-1,0)].choose(&mut rng).unwrap();
+    ActionType::Walk { momentum: *mom }
+}
+
 fn calculate_actions (
-    mut creatures: Query<(&mut QueuedAction, &Position, &Species), Without<RealityAnchor>>,
+    mut creatures: Query<(Entity, &mut QueuedAction, &AxiomEffects, &Position, &Species,), Without<RealityAnchor>>,
     read_species: Query<&Species>,
     read_position: Query<&Position>,
     mut next_state: ResMut<NextState<TurnState>>,
+    player: Query<Entity, With<RealityAnchor>>,
     world_map: Res<WorldMap>,
     mut commands: Commands,
 ){
-    for (mut queue, pos, species) in creatures.iter_mut(){
+    let play_ent = if let Ok(play_ent) = player.get_single() { play_ent } else { panic!("0 or 2+ players!")};
+    for (entity, mut queue, ax, pos, species) in creatures.iter_mut(){
         queue.action = match species {
             Species::EpsilonHead => {
                 let neigh = get_neighbouring_entities(&world_map.entities, pos.x, pos.y);
@@ -54,9 +83,8 @@ fn calculate_actions (
                         None => continue,
                     };
                 }
-                let mut rng = rand::thread_rng();
-                let mom = [(0,1),(0,-1),(1,0),(-1,0)].choose(&mut rng).unwrap();
-                ActionType::Walk { momentum: *mom }
+                let info = CasterInfo{entity, pos: (pos.x, pos.y), species: species.clone(), momentum: pos.momentum, is_player: false};
+                choose_action(vec![play_ent], vec![entity], ax.axioms.clone(), ax.polarity.clone(), vec![], info, &world_map.entities)
             },
             Species::EpsilonTail { order } => {
                 let neigh = get_neighbouring_entities(&world_map.entities, pos.x, pos.y);

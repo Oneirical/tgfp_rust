@@ -68,4 +68,5 @@ pub struct SoulBreath{
 #[derive(Component)]
 pub struct AxiomEffects{
     pub axioms: Vec<(Form, Function)>,
+    pub polarity: Vec<i32>,
 }

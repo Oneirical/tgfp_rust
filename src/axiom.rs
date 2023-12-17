@@ -39,6 +39,18 @@ pub fn match_soul_with_axiom(
     }
 }
 
+pub fn match_axiom_with_soul(
+    axiom: usize
+) -> Soul {
+    match axiom {
+        2 => Soul::Feral,
+        1 => Soul::Ordered,
+        0 => Soul::Saintly,
+        3 => Soul::Vile,
+        _ => Soul::Serene
+    }
+}
+
 pub struct ReturnedForm{
     pub entities: Vec<Entity>,
     pub coords: Vec<(usize,usize)>,

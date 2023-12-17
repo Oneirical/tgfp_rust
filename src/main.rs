@@ -237,7 +237,7 @@ fn spawn_players(
         (Form::Ego, Function::MomentumDash { dist: 5 }),
         (Form::MomentumBeam, Function::MomentumAntiDash { dist: 5 }),
         (Form::Empty, Function::Empty),
-    ] });
+    ], polarity: vec![0,0,0,0]});
 }
 
 fn summon_walls(
