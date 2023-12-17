@@ -2,7 +2,7 @@ use std::time::Duration;
 
 use bevy::prelude::*;
 
-use crate::{components::{Position, Intangible}, axiom::{Function, CasterInfo}, world::{Plane, match_plane_with_vaults}, species::{Species, match_species_with_sprite, match_species_with_rotation, is_invisible}, vaults::{extract_square, match_vault_with_spawn_loc}, SpriteSheetHandle, turn::Animation};
+use crate::{components::{Position, Intangible}, axiom::{Function, CasterInfo, tup_usize_to_i32}, world::{Plane, match_plane_with_vaults}, species::{Species, match_species_with_sprite, match_species_with_rotation, is_invisible}, vaults::{extract_square, match_vault_with_spawn_loc}, SpriteSheetHandle, turn::Animation};
 
 pub struct MapPlugin;
 
@@ -141,4 +141,29 @@ pub fn bresenham_line(x0: i32, y0: i32, x1: i32, y1: i32) -> Vec<(i32, i32)> {
         }
     }
     points
+ }
+
+ fn manhattan_distance(a: (i32, i32), b: (i32, i32)) -> i32 {
+    (a.0 - b.0).abs() + (a.1 - b.1).abs()
+ }
+ 
+ pub fn get_best_move(
+    start: (usize, usize),
+    destination: (usize, usize),
+    movements: Vec<(i32, i32)>,
+ ) -> Option<(i32, i32)> { 
+    let mut min_distance = manhattan_distance(tup_usize_to_i32(start), tup_usize_to_i32(destination));
+    if movements.is_empty() { return None };
+    let mut best_movement = movements[0];
+ 
+    for movement in movements {
+        let new_start = (start.0 as i32 + movement.0, start.1 as i32+ movement.1);
+        let distance = manhattan_distance(new_start, tup_usize_to_i32(destination));
+        if distance < min_distance {
+            min_distance = distance;
+            best_movement = movement;
+        }
+    }
+ 
+    Some(best_movement)
  }

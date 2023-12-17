@@ -76,8 +76,8 @@ impl CreatureBundle { // Creatures displayed on screen.
             axioms: AxiomEffects { axioms: vec![
                 (Form::MomentumBeam, Function::StealSouls { dam: 10 }),
                 (Form::MomentumBeam, Function::StealSouls { dam: 10 }),
-                (Form::MomentumBeam, Function::StealSouls { dam: 10 }),
-                (Form::MomentumBeam, Function::StealSouls { dam: 10 }),
+                (Form::MomentumBeam, Function::Empty),
+                (Form::MomentumBeam, Function::Empty),
             ], polarity: vec![-1,-1,-1,-1] }
         }
     }
