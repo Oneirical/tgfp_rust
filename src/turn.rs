@@ -10,7 +10,8 @@ pub struct TurnPlugin;
 
 #[derive(Debug)]
 pub enum Animation{
-    Passage
+    Passage,
+    SoulDrain {source: Vec3, destination: Vec3, drained: Vec<Entity>}
 }
 
 impl Plugin for TurnPlugin {
@@ -141,7 +142,8 @@ fn dispense_functions(
 ){
     let mut next_axioms = Vec::new();
     for (entity, function, info) in world_map.targeted_axioms.clone().iter(){
-        if let Ok((_transform, _species, mut breath, _anim, mut pos, is_player)) = creatures.get_mut(entity.to_owned()) {
+        if let Ok((transform_source, _species, mut breath, _anim, mut pos, is_player)) = creatures.get_mut(entity.to_owned()) {
+            let transform_source_trans = transform_source.translation;
             let function = function.to_owned();
             match function {
                 Function::Teleport { x, y } => {
@@ -193,10 +195,14 @@ fn dispense_functions(
                         payload.append(&mut select_random_entities(&mut breath.pile, dam, &mut rng));
                     }
                     
-                    if let Ok((_transform, _species, mut breath_culprit, _anim, _pos, is_player)) = creatures.get_mut(culprit.to_owned()) {
-                        for (soul, slot) in payload{
+                    if let Ok((transform_culprit, _species, mut breath_culprit, _anim, _pos, _is_player)) = creatures.get_mut(culprit.to_owned()) {
+                        let mut anim_output = Vec::new();
+                        for soul in payload{
+                            let slot = if let Ok((_anim, _transform, _sprite, soul_id), ) = souls.get(soul) { match_soul_with_display_index(soul_id) } else { panic!("A stolen soul does not exist!")};
                             breath_culprit.discard[slot].push(soul);
+                            anim_output.push(soul);
                         }
+                        world_map.anim_queue.push((*entity, Animation::SoulDrain { source: transform_source_trans, destination: transform_culprit.translation, drained: anim_output }));
                     }
 
                 }
@@ -351,6 +357,7 @@ fn dispense_functions(
 
 fn unpack_animations(
     mut creatures: Query<(&mut Transform, &mut Animator<Transform>, &Position, Has<RealityAnchor>), With<Position>>,
+    mut souls: Query<(&mut Animator<Transform>, &mut Visibility), (With<Soul>,Without<Position>)>,
     player: Query<&Position, With<RealityAnchor>>,
     mut next_state: ResMut<NextState<TurnState>>,
     mut world_map: ResMut<WorldMap>,
@@ -409,6 +416,24 @@ fn unpack_animations(
                     anim.set_tweenable(track);
                 }
                 world_map.animation_timer.set_duration(Duration::from_millis(500));
+            },
+            Animation::SoulDrain { source, destination, mut drained } => {
+                let soul = drained.pop();
+                let soul = if soul.is_some() { soul.unwrap() } else { return; };
+                if let Ok((mut anim, mut vis) ) = souls.get_mut(soul) { 
+                    *vis = Visibility::Visible;
+                    let tween = Tween::new(
+                        EaseFunction::QuadraticInOut,
+                        Duration::from_millis(500),
+                        TransformPositionLens {
+                            start: source,
+                            end: destination,
+                        },
+                    );
+                    anim.set_tweenable(tween);
+                }
+                world_map.anim_queue.push((entity, Animation::SoulDrain { source, destination, drained }));
+                world_map.animation_timer.set_duration(Duration::from_millis(50));
             }
         }
     }

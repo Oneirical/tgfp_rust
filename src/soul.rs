@@ -100,12 +100,22 @@ fn soul_rotation(
         else{ panic!("A soul in the draw pile has no UIElement component!")};
     }
     for j in disc.iter() {
-        for i in j.iter(){
+        for (caste, i) in j.iter().enumerate(){
             if let Ok((mut trans, mut vis, anim, soul_type)) = soul.get_mut(*i) { 
                 *vis = Visibility::Visible;
                 let index = disc[match_soul_with_display_index(soul_type)].iter().position(|&ent| ent == *i);
+                let index = match index {
+                    Some(ind) => ind,
+                    None => {
+                        dbg!(caste);
+                        dbg!(&soul_type);
+                        dbg!(current.entity);
+                        dbg!(match_soul_with_display_index(&soul_type));
+                        panic!("The desired soul in the discard pile was not found.");
+                    }
+                };
                 if anim.tweenable().progress() != 1.0 { continue; }
-                (trans.translation.x, trans.translation.y) = get_soul_rot_position(soul_type, (ui_center.x, ui_center.y), true, time.timer.elapsed_secs(), index.unwrap());
+                (trans.translation.x, trans.translation.y) = get_soul_rot_position(soul_type, (ui_center.x, ui_center.y), true, time.timer.elapsed_secs(), index);
                 trans.scale = Vec3{ x: 1., y: 1., z: 0.};
             }
             else{ panic!("A soul in the draw pile has no UIElement component!")};
@@ -142,7 +152,7 @@ fn distribute_some_souls(
     texture_atlas_handle: Res<SpriteSheetHandle>,
     mut creatures: Query<&mut SoulBreath>,
 ){  for mut breath in creatures.iter_mut(){
-    for i in 0..100{
+    for i in 0..10{
         let soul = vec![Soul::Serene, Soul::Feral, Soul::Ordered, Soul::Saintly, Soul::Vile];
         let tween = Tween::new(
             EaseFunction::QuadraticInOut,
@@ -215,19 +225,14 @@ pub fn match_soul_with_display_index(
     }
 }
 
-fn select_random_entity<R: Rng>(entities: &mut Vec<Entity>, rng: &mut R) -> Option<Entity> {
-    let index = rng.gen_range(0..entities.len());
-    Some(entities.swap_remove(index))
- }
-
-pub fn select_random_entities<R: Rng>(pools: &mut Vec<Vec<Entity>>, dam: usize, rng: &mut R) -> Vec<(Entity,usize)> {
+pub fn select_random_entities<R: Rng>(pools: &mut Vec<Vec<Entity>>, dam: usize, rng: &mut R) -> Vec<Entity> {
     let mut selected_entities = Vec::new();
-    let mut pool_indices: Vec<usize> = (0..pools.len()).collect();
+    let mut pool_indices: Vec<usize> = (0..pools.len()).collect(); // Get the list of potential slots to take from.
     while selected_entities.len() < dam && !pool_indices.is_empty() {
         let pool_index = rng.gen_range(0..pool_indices.len());
         let pool = &mut pools[pool_indices[pool_index]];
-        if let Some(entity) = select_random_entity(pool, rng) {
-            selected_entities.push((entity,pool_index));
+        if let Some(entity) = pool.pop() {
+            selected_entities.push(entity);
         } else {
             pool_indices.remove(pool_index);
         }
