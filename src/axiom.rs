@@ -13,15 +13,18 @@ pub enum Form {
     Empty,
     Ego,
     MomentumBeam,
+    MomentumTail,
+    MomentumTouch,
 }
 #[derive(Clone, Debug)]
 pub enum Function {
     Empty,
     Dash { dx: i32, dy: i32 }, // Position is incremented by dx and dy, but stops when it hits an edge or a creature.
     Teleport { x: usize, y: usize }, // 
-    LinearDash { dist: usize },
+    MomentumDash { dist: usize },
+    MomentumAntiDash { dist: usize },
     DiscardSoul { soul: Entity, slot: usize },
-    StealSouls { dam: usize, culprit: Entity },
+    StealSouls { dam: usize },
 }
 
 pub fn match_soul_with_axiom(
@@ -43,6 +46,7 @@ pub struct ReturnedForm{
 
 #[derive(Clone, Debug)]
 pub struct CasterInfo{
+    pub entity: Entity,
     pub pos: (usize,usize),
     pub species: Species,
     pub momentum: (i32,i32),
@@ -57,7 +61,9 @@ pub fn grab_coords_from_form( // vec in vec for better, synchronized animations?
     let coords = match form {
         Form::Empty => Vec::new(),
         Form::Ego => vec![caster.pos],
-        Form::MomentumBeam => blocked_beam(tup_usize_to_i32(caster.pos), (caster.pos.0 as i32+ caster.momentum.0*45, caster.pos.1 as i32+ caster.momentum.1*45), map)
+        Form::MomentumBeam => blocked_beam(tup_usize_to_i32(caster.pos), (caster.pos.0 as i32+ caster.momentum.0*45, caster.pos.1 as i32+ caster.momentum.1*45), map),
+        Form::MomentumTail => vec![tup_i32_to_usize((tup_usize_to_i32(caster.pos).0-caster.momentum.0, tup_usize_to_i32(caster.pos).1-caster.momentum.1))],
+        Form::MomentumTouch => vec![tup_i32_to_usize((tup_usize_to_i32(caster.pos).0+caster.momentum.0, tup_usize_to_i32(caster.pos).1+caster.momentum.1))],
     };
     let mut entities = Vec::with_capacity(coords.len());
     for (x,y) in &coords {

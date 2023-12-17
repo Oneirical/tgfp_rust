@@ -100,7 +100,7 @@ fn execute_turn (
                     Some(soul) => soul,
                     None => continue
                 };
-                let info = CasterInfo{ pos: (pos.x,pos.y), species: species.clone(), momentum: pos.momentum, is_player};
+                let info = CasterInfo{ entity, pos: (pos.x,pos.y), species: species.clone(), momentum: pos.momentum, is_player};
                 if let Ok((_anim, _transform, soul_id), ) = souls.get(soul) {
                     let axioms = effects.axioms.clone();
                     let (form, function) = axioms[match_soul_with_axiom(soul_id)].clone();
@@ -118,7 +118,7 @@ fn execute_turn (
                 world_map.targeted_axioms.push((entity, Function::DiscardSoul { soul, slot }, info.clone()));
             }
             ActionType::Walk { momentum } => {
-                world_map.targeted_axioms.push((entity, Function::LinearDash { dist: 1 }, CasterInfo{pos: (pos.x, pos.y), species: species.clone(), momentum, is_player}));
+                world_map.targeted_axioms.push((entity, Function::Teleport { x: (pos.x as i32 + momentum.0) as usize, y: (pos.y as i32 + momentum.1) as usize }, CasterInfo{entity, pos: (pos.x, pos.y), species: species.clone(), momentum, is_player}));
             },
             ActionType::Nothing => ()
         };
@@ -153,6 +153,7 @@ fn dispense_functions(
             match function {
                 Function::Teleport { x, y } => {
                     if world_map.entities[xy_idx(x, y)].is_some() { // Cancel teleport if target is occupied
+                        // Raise an interact event here?
                         continue;
                     }
                     let old_pos = (pos.x, pos.y);
@@ -194,14 +195,14 @@ fn dispense_functions(
                         }
                     }
                 },
-                Function::StealSouls { dam, culprit } => {
+                Function::StealSouls { dam } => {
                     let mut rng = rand::thread_rng();
                     let mut payload = select_random_entities(&mut breath.discard, dam, &mut rng);
                     if payload.len() < dam {
                         payload.append(&mut select_random_entities(&mut breath.pile, dam, &mut rng));
                     }
                     
-                    if let Ok((transform_culprit, _species, mut breath_culprit, _anim, _pos, _is_player)) = creatures.get_mut(culprit.to_owned()) {
+                    if let Ok((transform_culprit, _species, mut breath_culprit, _anim, _pos, _is_player)) = creatures.get_mut(info.entity.to_owned()) {
                         let mut anim_output = Vec::new();
                         for soul in payload{
                             let slot = if let Ok((_anim, _transform, _sprite, soul_id), ) = souls.get(soul) { match_soul_with_display_index(soul_id) } else { panic!("A stolen soul does not exist!")};
@@ -219,7 +220,7 @@ fn dispense_functions(
                     let (mut fx, mut fy) = (pos.x, pos.y);
                     for (nx, ny) in line {
                         if is_in_bounds(nx, ny){
-                            if false && world_map.entities[xy_idx(nx as usize, ny as usize)].is_some() {
+                            if world_map.entities[xy_idx(nx as usize, ny as usize)].is_some() {
                                 // TODO Raise a collision event here
                                 break;
                             }
@@ -230,10 +231,14 @@ fn dispense_functions(
                     }
                     next_axioms.push((*entity, Function::Teleport { x: fx, y: fy }, info.clone()));
                 },
-                Function::LinearDash { dist } => {
+                Function::MomentumDash { dist } => {
                     let dest = (dist as i32 * info.momentum.0, dist as i32 * info.momentum.1);
                     next_axioms.push((*entity, Function::Dash { dx: dest.0, dy: dest.1 }, info.clone()));
-                }
+                },
+                Function::MomentumAntiDash { dist } => {
+                    let dest = (dist as i32 * -info.momentum.0, dist as i32 * -info.momentum.1);
+                    next_axioms.push((*entity, Function::Dash { dx: dest.0, dy: dest.1 }, info.clone()));
+                },
                 Function::DiscardSoul { soul, slot } => {
                     if let Ok((mut anim, transform, _sprite, soul_id), ) = souls.get_mut(soul) { 
                         // Move the soul to the discard.

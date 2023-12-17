@@ -8,18 +8,11 @@ Keep the flame burning!
 "Momentum Exhilaration"
 - Moving around restors Inspiration.
 
-Return to the basics. You have a deck of Souls. No need to draw, they constantly get replenished.
-Each caste has its own effect. These effects are dictated in the classic way - Form, Function, Mutator.
-When your deck is reshuffled, if you have a Serene, it contaminates another in the deck.
-
-Lose in one of the dungeons, and you get to learn new Axioms from the boss (and you physically copy their form, giving a new passive).
-Win in one of the dungeons, and you get a fresh batch of Souls, which helps push back the Harmonic taint.
-
-Going full harmonic simply means that from now on, winning harmonizes the level, while losing actually ends your run.
-
 A challenge that is always oneshot or be oneshotted, each attempt = 1 damage to actual hp.
 Senet, like MI minigame.
 "gunslinger" - pick a target, then every turn a status effect has slow moving creatures getting summoned towards it in a straight line.
+
+Make Epsilon seek out to reattach its lost tail segments.
 
 INTRO STUFF
 
