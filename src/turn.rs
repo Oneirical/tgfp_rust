@@ -42,6 +42,7 @@ fn choose_action (
             if foes.contains(&target) {scores[i] -= polarity[i]} else if allies.contains(&target) { scores[i] += polarity[i] };
         }
     }
+    scores.sort_by(|a, b| b.cmp(a)); // Highest scores go first
     for (i, score) in scores.iter().enumerate() {
         let desired_soul = match_axiom_with_soul(i);
         if  score > &0  && available_souls.contains(&&desired_soul) {
@@ -70,7 +71,15 @@ fn calculate_actions (
 ){
     let (play_ent, play_pos) = if let Ok(play_ent) = player.get_single() { (play_ent.0, play_ent.1) } else { panic!("0 or 2+ players!")};
     for (entity, mut queue, ax, brea, pos, species) in creatures.iter_mut(){
+        let info = CasterInfo{entity, pos: (pos.x, pos.y), species: species.clone(), momentum: pos.momentum, is_player: false};
+        let mut available_souls = Vec::with_capacity(4);
+        for av in &brea.held {
+            if let Ok(soul_type) = souls.get(*av) { available_souls.push(soul_type) };
+        }
         queue.action = match species {
+            Species::LunaMoth => {
+                choose_action((play_pos.x, play_pos.y), vec![play_ent], vec![entity], ax.axioms.clone(), ax.polarity.clone(), available_souls, info, &world_map.entities)
+            }
             Species::EpsilonHead => {
                 let neigh = get_neighbouring_entities(&world_map.entities, pos.x, pos.y);
                 for detected in neigh{
@@ -89,11 +98,6 @@ fn calculate_actions (
                         }
                         None => continue,
                     };
-                }
-                let info = CasterInfo{entity, pos: (pos.x, pos.y), species: species.clone(), momentum: pos.momentum, is_player: false};
-                let mut available_souls = Vec::with_capacity(4);
-                for av in &brea.held {
-                    if let Ok(soul_type) = souls.get(*av) { available_souls.push(soul_type) };
                 }
                 choose_action((play_pos.x, play_pos.y), vec![play_ent], vec![entity], ax.axioms.clone(), ax.polarity.clone(), available_souls, info, &world_map.entities)
             },
@@ -191,7 +195,8 @@ fn dispense_functions(
             let function = function.to_owned();
             match function {
                 Function::Teleport { x, y } => {
-                    if world_map.entities[xy_idx(x, y)].is_some() { // Cancel teleport if target is occupied
+                    if !is_in_bounds(x as i32, y as i32) {continue;}
+                    else if world_map.entities[xy_idx(x, y)].is_some() { // Cancel teleport if target is occupied
                         // Raise an interact event here?
                         continue;
                     }
@@ -251,7 +256,13 @@ fn dispense_functions(
                         world_map.anim_queue.push((*entity, Animation::SoulDrain { source: transform_source_trans, destination: transform_culprit.translation, drained: anim_output }));
                     }
 
-                }
+                },
+                Function::RedirectSouls { dam, dest } => {
+                    let new_info = if let Ok((_transform_source, species, _breath, _anim, pos, is_player)) = creatures.get(dest) {
+                        CasterInfo{entity: dest, pos: (pos.x, pos.y), species: species.clone(), momentum: pos.momentum, is_player}
+                    } else { panic!("The RedirectSouls's destination entity does not exist!")};
+                    next_axioms.push((*entity, Function::StealSouls { dam }, new_info));
+                },
                 Function::Dash { dx, dy } => {
                     let dest = (dx, dy);
                     let mut line = bresenham_line(pos.x as i32, pos.y as i32, pos.x as i32 + dest.0, pos.y as i32 + dest.1);
@@ -274,7 +285,7 @@ fn dispense_functions(
                     let dest = (dist as i32 * info.momentum.0, dist as i32 * info.momentum.1);
                     next_axioms.push((*entity, Function::Dash { dx: dest.0, dy: dest.1 }, info.clone()));
                 },
-                Function::MomentumAntiDash { dist } => {
+                Function::MomentumReverseDash { dist } => {
                     let dest = (dist as i32 * -info.momentum.0, dist as i32 * -info.momentum.1);
                     next_axioms.push((*entity, Function::Dash { dx: dest.0, dy: dest.1 }, info.clone()));
                 },

@@ -22,9 +22,10 @@ pub enum Function {
     Dash { dx: i32, dy: i32 }, // Position is incremented by dx and dy, but stops when it hits an edge or a creature.
     Teleport { x: usize, y: usize }, // 
     MomentumDash { dist: usize },
-    MomentumAntiDash { dist: usize },
+    MomentumReverseDash { dist: usize },
     DiscardSoul { soul: Entity, slot: usize },
     StealSouls { dam: usize },
+    RedirectSouls { dam: usize, dest: Entity},
 }
 
 pub fn match_soul_with_axiom(

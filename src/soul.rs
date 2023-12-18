@@ -152,7 +152,7 @@ fn distribute_some_souls(
     texture_atlas_handle: Res<SpriteSheetHandle>,
     mut creatures: Query<&mut SoulBreath>,
 ){  for mut breath in creatures.iter_mut(){
-    for i in 0..10{
+    for i in 0..50{
         let soul = vec![Soul::Serene, Soul::Feral, Soul::Ordered, Soul::Saintly, Soul::Vile];
         let tween = Tween::new(
             EaseFunction::QuadraticInOut,

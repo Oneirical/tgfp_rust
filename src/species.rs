@@ -5,20 +5,6 @@ use bevy::prelude::*;
 use bevy_tweening::{*, lens::TransformPositionLens};
 use std::f32::consts::PI;
 
-#[derive(Component, PartialEq, Clone, Debug)]
-pub enum Species {
-    Wall,
-    Terminal,
-    BuggedSpecies,
-    Void,
-    Projector,
-    Felidol,
-    TermiWall,
-    RiftBorder{dir: usize},
-    EpsilonHead,
-    EpsilonTail {order: usize},
-}
-
 pub enum MapColour {
     White,
     Plum,
@@ -117,6 +103,7 @@ impl CreatureBundle { // Creatures displayed on screen.
         if is_invisible(&species){
             self.sprite_bundle.visibility = Visibility::Hidden;
         }
+        (self.axioms.axioms, self.axioms.polarity) = match_species_with_axioms(&species);
         self.species = species;
         self
     }
@@ -135,6 +122,21 @@ impl CreatureBundle { // Creatures displayed on screen.
     }
 }
 
+#[derive(Component, PartialEq, Clone, Debug)]
+pub enum Species {
+    Wall,
+    Terminal,
+    BuggedSpecies,
+    Void,
+    Projector,
+    Felidol,
+    TermiWall,
+    RiftBorder{dir: usize},
+    EpsilonHead,
+    EpsilonTail {order: usize},
+    LunaMoth,
+}
+
 pub fn match_species_with_sprite(
     species: &Species
 )-> usize{
@@ -149,6 +151,7 @@ pub fn match_species_with_sprite(
         Species::Projector => 2,
         Species::EpsilonHead => 67,
         Species::EpsilonTail { order: _ } => 68,
+        Species::LunaMoth => 44,
     }
 }
 
@@ -158,14 +161,40 @@ pub fn match_species_with_name(
     match species{
         Species::Wall => "Rampart of Nacre",
         Species::BuggedSpecies => "Bugged, Please Report",
-        Species::Terminal => "Terminal",
+        Species::Terminal => "Terminal, the Reality Anchor",
         Species::Felidol => "Greedswept Felidol",
-        Species::Void => "A Bugged Void",
+        Species::Void => "Bugged, Please Report",
         Species::TermiWall => "Tangled Circuits",
         Species::RiftBorder { dir: _ } => "Thought-Matter Rift",
         Species::Projector => "Hypnotic Well",
         Species::EpsilonHead => "Epsilon, Adorned in Jade",
         Species::EpsilonTail { order: _ } => "Rubberized Mecha-Segment",
+        Species::LunaMoth => "Cosmos Worn as Robes",
+    }
+}
+
+pub fn match_species_with_axioms(
+    species: &Species
+) -> (Vec<(Form, Function)>,Vec<i32>) {
+    match species{
+        Species::LunaMoth => (vec![
+            (Form::Ego, Function::MomentumDash { dist: 5 }),
+            (Form::MomentumTouch, Function::StealSouls { dam: 4 }),
+            (Form::MomentumBeam, Function::MomentumReverseDash { dist: 5 }),
+            (Form::Ego, Function::MomentumDash { dist: 5 }), // Circlet slash, pull closer?
+        ], vec![1,-2,-1,0] ),
+        Species::EpsilonHead => (vec![
+            (Form::MomentumBeam, Function::StealSouls { dam: 4 }),
+            (Form::MomentumBeam, Function::StealSouls { dam: 4 }),
+            (Form::MomentumBeam, Function::Empty),
+            (Form::MomentumBeam, Function::Empty), // Circlet slash, pull closer?
+        ], vec![-1,-1,-1,-1] ),
+        _ => (vec![
+            (Form::Empty, Function::Empty),
+            (Form::Empty, Function::Empty),
+            (Form::Empty, Function::Empty),
+            (Form::Empty, Function::Empty),
+        ], vec![0,0,0,0] ),
     }
 }
 

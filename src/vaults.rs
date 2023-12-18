@@ -50,7 +50,7 @@ T.....T$TT........w.....e........TT$T.....T
 T.....TT....TTT...w.....e...TTT....TT.....T
 T......TTTTTT....T.sssss.T....TTTTTT......T
 T................TT.....TT................T
-T....................F....................T
+T....................m....................T
 T.........................................T
 T..................T...T..................T
 T..........TT......T...T......TT..........T
@@ -177,6 +177,7 @@ fn get_species_from_char(
         's' => Species::RiftBorder { dir: 2 },
         'w' => Species::RiftBorder { dir: 1 },
         'E' => Species::EpsilonHead,
+        'm' => Species::LunaMoth,
         '1' => Species::EpsilonTail { order: 0 },
         '2' => Species::EpsilonTail { order: 1 },
         '3' => Species::EpsilonTail { order: 2 },
