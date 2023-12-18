@@ -53,6 +53,10 @@ fn soul_rotation(
     epoch: Res<Time>,
 ){
     time.timer.tick(epoch.delta());
+    for (_t, mut vis, anim, _s) in soul.iter_mut(){
+        if anim.tweenable().progress() != 1.0 { continue; }
+        *vis = Visibility::Hidden;
+    }
     let (draw, held, disc, momentum) = if let Ok((breath, pos)) = query.get(current.entity) { (&breath.pile, &breath.held, &breath.discard, pos.momentum) } 
     else{ panic!("The entity meant to be represented in the UI doesn't have a SoulBreath component!")};
     for (mut sprite, mom) in momentum_mark.iter_mut(){

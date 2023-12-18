@@ -495,8 +495,9 @@ fn unpack_animations(
                     );
                     anim.set_tweenable(tween);
                 }
-                world_map.anim_queue.push((entity, Animation::SoulDrain { source, destination, drained }));
-                world_map.animation_timer.set_duration(Duration::from_millis(25));
+                world_map.anim_queue.push((entity, Animation::SoulDrain { source, destination, drained: drained.clone() }));
+                let delay = if drained.is_empty() { Duration::from_millis(500)} else {Duration::from_millis(25)};
+                world_map.animation_timer.set_duration(delay);
             },
             Animation::FormMark { coords } => {
                 let diff = if player_opos == player_pos {player_pos} else {player_opos};
