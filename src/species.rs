@@ -182,7 +182,7 @@ pub fn match_species_with_axioms(
             (Form::MomentumTouch, Function::StealSouls { dam: 4 }),
             (Form::MomentumBeam, Function::MomentumReverseDash { dist: 5 }),
             (Form::Ego, Function::MomentumDash { dist: 5 }), // Circlet slash, pull closer?
-        ], vec![1,-2,-1,0] ),
+        ], vec![1,-1,-1,0] ),
         Species::EpsilonHead => (vec![
             (Form::MomentumBeam, Function::StealSouls { dam: 4 }),
             (Form::MomentumBeam, Function::StealSouls { dam: 4 }),

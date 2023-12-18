@@ -166,7 +166,7 @@ fn distribute_some_souls(
             Vec3::new(3., 3., 0.)
         } else { Vec3::new(1., 1., 0.) };
         let mut rng = rand::thread_rng();
-        let index = rng.gen_range(0..5);
+        let index = rng.gen_range(1..5);
         let entity = commands.spawn(SoulBundle{
             sprite_bundle: SpriteSheetBundle {
                 texture_atlas: texture_atlas_handle.handle.clone(),

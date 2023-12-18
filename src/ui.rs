@@ -87,17 +87,22 @@ fn draw_soul_deck(
 }
 
 fn update_minimap(
-    mut minimap: Query<(&mut TextureAtlasSprite, &MinimapTile)>,
+    mut minimap: Query<(&mut TextureAtlasSprite, &mut Visibility, &MinimapTile)>,
     query: Query<&Species>,
     map: Res<WorldMap>,
 ){
-    for (mut sprite, tile) in minimap.iter_mut(){
+    for (mut sprite, mut vis, tile) in minimap.iter_mut(){
         let tex = match map.entities[xy_idx(tile.x, tile.y)]{
             Some(entity) => if let Ok(species) = query.get(entity) { match_species_with_pixel(species) } else{ panic!("There is an entity in the map that doesn't have a species!")},
             None => 107,
         };
         if sprite.index != tex{
             sprite.index = tex;
+        }
+        if sprite.index == 107 {
+            *vis = Visibility::Hidden;
+        } else {
+            *vis = Visibility::Visible;
         }
     }
 }
@@ -121,6 +126,7 @@ fn draw_minimap(
                         translation: Vec3{  x: -6.9+x as f32/size_factor+7.25, y: 3.4+y as f32/size_factor +5., z: 0.2},
                         ..default()
                     },
+                    visibility: Visibility::Hidden,
                     ..default()
                 },
                 name: Name::new("Minimap Tile")
