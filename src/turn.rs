@@ -37,17 +37,23 @@ fn choose_action (
 ) -> ActionType {
     let mut scores = vec![0,0,0,0];
     for (i, (form, _function)) in axioms.iter().enumerate() {
+        if !available_souls.contains(&&match_axiom_with_soul(i)) {
+            scores[i] = -99;
+            continue;
+        }
         let results = grab_coords_from_form(&world_map, form.clone(), info.clone()); // It is checking all its combos even though not all of them might be available. Potential optimization?
         for target in results.entities {
             if foes.contains(&target) {scores[i] -= polarity[i]} else if allies.contains(&target) { scores[i] += polarity[i] };
         }
     }
-    scores.sort_by(|a, b| b.cmp(a)); // Highest scores go first
-    for (i, score) in scores.iter().enumerate() {
-        let desired_soul = match_axiom_with_soul(i);
-        if  score > &0  && available_souls.contains(&&desired_soul) {
-            return ActionType::SoulCast { slot: available_souls.iter().position(|s| **s == desired_soul).unwrap()}// }
-        }
+    if info.species == Species::LunaMoth {
+        dbg!(&available_souls);
+        dbg!(&scores);
+    }
+    let (score_index, score) = scores.iter().enumerate().max_by_key(|&(_, x)| x).unwrap();
+    let desired_soul = match_axiom_with_soul(score_index);
+    if  score > &0  && available_souls.contains(&&desired_soul) {
+        return ActionType::SoulCast { slot: available_souls.iter().position(|s| **s == desired_soul).unwrap()}
     }
     let possible_movements = get_neighbouring_entities(world_map, info.pos.0, info.pos.1);
     let momentum_pool = [(-1,0),(1,0),(0,1),(0,-1)];
