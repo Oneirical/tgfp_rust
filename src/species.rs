@@ -58,7 +58,7 @@ impl CreatureBundle { // Creatures displayed on screen.
             species: Species::BuggedSpecies,
             position: Position { x: 0, y: 0, ox: 0, oy: 0, momentum: (-1, 0)},
             action: QueuedAction { action: ActionType::Nothing},
-            breath: SoulBreath { pile: lots_of_vec.clone(), discard: lots_of_vec.clone(), held: Vec::new(), },
+            breath: SoulBreath { pile: lots_of_vec.clone(), discard: lots_of_vec.clone(), held: Vec::new(), soulless: false},
             axioms: AxiomEffects { axioms: vec![
                 (Form::MomentumBeam, Function::StealSouls { dam: 10 }),
                 (Form::MomentumBeam, Function::StealSouls { dam: 10 }),

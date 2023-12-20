@@ -1,7 +1,7 @@
 use std::{time::Duration, f32::consts::PI, cmp::Ordering};
 
 use bevy::prelude::*;
-use bevy_tweening::{*, lens::{TransformPositionLens, TransformScaleLens}};
+use bevy_tweening::{*, lens::{TransformPositionLens, TransformScaleLens, TransformRotationLens}};
 use rand::seq::SliceRandom;
 
 use crate::{components::{QueuedAction, RealityAnchor, Position, SoulBreath, AxiomEffects, EffectMarker}, input::ActionType, TurnState, map::{xy_idx, WorldMap, is_in_bounds, bresenham_line, get_neighbouring_entities, get_best_move}, soul::{Soul, get_soul_rot_position, SoulRotationTimer, match_soul_with_display_index, match_soul_with_sprite, select_random_entities}, ui::CenterOfWheel, axiom::{grab_coords_from_form, CasterInfo, match_soul_with_axiom, Function, Form, match_axiom_with_soul}, species::Species, ZoomInEffect, SpriteSheetHandle};
@@ -13,6 +13,7 @@ pub enum Animation{
     Passage,
     SoulDrain {source: Vec3, destination: Vec3, drained: Vec<Entity>},
     FormMark {coords: (usize, usize)},
+    Soulless
 }
 
 impl Plugin for TurnPlugin {
@@ -46,10 +47,6 @@ fn choose_action (
             if foes.contains(&target) {scores[i] -= polarity[i]} else if allies.contains(&target) { scores[i] += polarity[i] };
         }
     }
-    if info.species == Species::LunaMoth {
-        dbg!(&available_souls);
-        dbg!(&scores);
-    }
     let (score_index, score) = scores.iter().enumerate().max_by_key(|&(_, x)| x).unwrap();
     let desired_soul = match_axiom_with_soul(score_index);
     if  score > &0  && available_souls.contains(&&desired_soul) {
@@ -77,6 +74,10 @@ fn calculate_actions (
 ){
     let (play_ent, play_pos) = if let Ok(play_ent) = player.get_single() { (play_ent.0, play_ent.1) } else { panic!("0 or 2+ players!")};
     for (entity, mut queue, ax, brea, pos, species) in creatures.iter_mut(){
+        if brea.soulless {
+            queue.action = ActionType::Nothing;
+            continue;
+        }
         let info = CasterInfo{entity, pos: (pos.x, pos.y), species: species.clone(), momentum: pos.momentum, is_player: false};
         let mut available_souls = Vec::with_capacity(4);
         for av in &brea.held {
@@ -136,13 +137,14 @@ fn calculate_actions (
 }
 
 fn execute_turn (
-    mut creatures: Query<(Entity, &QueuedAction, &Species, &AxiomEffects, &mut SoulBreath, &mut Position, Has<RealityAnchor>)>,
+    mut creatures: Query<(Entity, &mut QueuedAction, &Species, &AxiomEffects, &mut SoulBreath, &mut Position, Has<RealityAnchor>)>,
     mut next_state: ResMut<NextState<TurnState>>,
     mut world_map: ResMut<WorldMap>,
     souls: Query<(&mut Animator<Transform>, &Transform, &Soul), Without<Position>>,
 ){
-    for (entity, queue, species, effects, breath, mut pos, is_player) in creatures.iter_mut(){
+    for (entity, mut queue, species, effects, breath, mut pos, is_player) in creatures.iter_mut(){
         (pos.ox, pos.oy) = (pos.x, pos.y); // To reset for the form mark animations
+        if breath.soulless {queue.action = ActionType::Nothing;}
         match queue.action{
             ActionType::SoulCast { slot } => {
                 let soul = match breath.held.get(slot).cloned(){ // Check that we aren't picking an empty slot.
@@ -251,12 +253,22 @@ fn dispense_functions(
                     if payload.len() < dam {
                         payload.append(&mut select_random_entities(&mut breath.pile, dam, &mut rng));
                     }
+                    if payload.len() < dam {
+                        while payload.len() < dam && !breath.held.is_empty(){
+                            payload.push(breath.held.pop().unwrap());
+                            if breath.held.is_empty() {
+                                breath.soulless = true;
+                                world_map.anim_queue.push((*entity, Animation::Soulless));
+                            }
+                        }
+                    }
                     
                     if let Ok((transform_culprit, _species, mut breath_culprit, _anim, _pos, _is_player)) = creatures.get_mut(info.entity.to_owned()) {
                         let mut anim_output = Vec::new();
                         for soul in payload{
                             let slot = if let Ok((_anim, _transform, _sprite, soul_id), ) = souls.get(soul) { match_soul_with_display_index(soul_id) } else { panic!("A stolen soul does not exist!")};
                             breath_culprit.discard[slot].push(soul);
+                            breath_culprit.soulless = false;
                             anim_output.push(soul);
                         }
                         world_map.anim_queue.push((*entity, Animation::SoulDrain { source: transform_source_trans, destination: transform_culprit.translation, drained: anim_output }));
@@ -423,7 +435,7 @@ fn dispense_functions(
 }
 
 fn unpack_animations(
-    mut creatures: Query<(&mut Transform, &mut Animator<Transform>, &Position, Has<RealityAnchor>), With<Position>>,
+    mut creatures: Query<(&SoulBreath, &mut Transform, &mut Animator<Transform>, &Position, Has<RealityAnchor>), With<Position>>,
     mut souls: Query<(&mut Animator<Transform>, &mut Visibility), (With<Soul>,Without<Position>)>,
     player: Query<&Position, With<RealityAnchor>>,
     mut next_state: ResMut<NextState<TurnState>>,
@@ -442,7 +454,7 @@ fn unpack_animations(
     let (entity, anim_choice) = match world_map.anim_queue.pop() { // The fact that this is pop and not a loop might cause "fake" lag with a lot of queued animations
         Some(element) => element,
         None => {
-            for (trans_crea, mut anim_crea, fini, is_player) in creatures.iter_mut(){
+            for (_breath, trans_crea, mut anim_crea, fini, is_player) in creatures.iter_mut(){
                 let end = Vec3::new(player_trans.x + (fini.x as f32 -player_pos.0 as f32)/2., player_trans.y + (fini.y as f32 -player_pos.1 as f32)/2., 0.);
                 if is_player {continue;}
                 let tween = Tween::new(
@@ -460,10 +472,23 @@ fn unpack_animations(
             return;
         }
     };
-    if let Ok((transform, mut anim, fin, _is_player)) = creatures.get_mut(entity.to_owned()) {
+    if let Ok((breath, transform, mut anim, _fin, _is_player)) = creatures.get_mut(entity.to_owned()) {
         match anim_choice {
+            Animation::Soulless => {
+                if !breath.soulless {return;}
+                let tween_rot = Tween::new(
+                    EaseFunction::QuadraticInOut,
+                    Duration::from_millis(500),
+                    TransformRotationLens {
+                        start: transform.rotation,
+                        end: Quat::from_rotation_z(PI),
+                    },
+                );
+                anim.set_tweenable(tween_rot);
+                world_map.animation_timer.set_duration(Duration::from_millis(500));
+            },
             Animation::Passage => {
-                for (transform, mut anim, posi, is_player) in creatures.iter_mut(){
+                for (_breath, transform, mut anim, posi, is_player) in creatures.iter_mut(){
                     if is_player {continue;}
                     let tween_sc = Tween::new(
                         EaseFunction::QuadraticInOut,

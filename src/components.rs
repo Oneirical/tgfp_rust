@@ -63,6 +63,7 @@ pub struct SoulBreath{
     pub pile: Vec<Vec<Entity>>,
     pub held: Vec<Entity>,
     pub discard: Vec<Vec<Entity>>,
+    pub soulless: bool,
 }
 
 #[derive(Component)]
