@@ -39,7 +39,7 @@ fn main() {
                     resizable: true,
                     //resolution: (1920.0, 1080.0).into(),
                     title: "The Games Foxes Play".into(),
-                    //mode: WindowMode::Fullscreen,
+                    mode: WindowMode::Fullscreen,
                     position: WindowPosition::Centered(MonitorSelection::Current),
                     ..default()
                 }),
