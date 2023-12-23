@@ -1,6 +1,6 @@
 use std::time::Duration;
 
-use crate::{components::{Position, QueuedAction, SoulBreath, AxiomEffects}, SpriteSheetHandle, input::ActionType, axiom::{Form, Function}};
+use crate::{components::{Position, QueuedAction, SoulBreath, AxiomEffects, Faction}, SpriteSheetHandle, input::ActionType, axiom::{Form, Function}};
 use bevy::prelude::*;
 use bevy_tweening::{*, lens::TransformPositionLens};
 use std::f32::consts::PI;
@@ -20,6 +20,7 @@ pub struct CreatureBundle {
     action: QueuedAction,
     breath: SoulBreath,
     axioms: AxiomEffects,
+    faction: Faction,
 }
 
 impl CreatureBundle { // Creatures displayed on screen.
@@ -59,6 +60,7 @@ impl CreatureBundle { // Creatures displayed on screen.
             position: Position { x: 0, y: 0, ox: 0, oy: 0, momentum: (-1, 0)},
             action: QueuedAction { action: ActionType::Nothing},
             breath: SoulBreath { pile: lots_of_vec.clone(), discard: lots_of_vec.clone(), held: Vec::new(), soulless: false},
+            faction: Faction::Unaligned,
             axioms: AxiomEffects { axioms: vec![
                 (Form::MomentumBeam, Function::StealSouls { dam: 10 }),
                 (Form::MomentumBeam, Function::StealSouls { dam: 10 }),
@@ -104,6 +106,7 @@ impl CreatureBundle { // Creatures displayed on screen.
             self.sprite_bundle.visibility = Visibility::Hidden;
         }
         (self.axioms.axioms, self.axioms.polarity) = match_species_with_axioms(&species);
+        self.faction = match_species_with_faction(&species);
         self.species = species;
         self
     }
@@ -152,6 +155,17 @@ pub fn match_species_with_sprite(
         Species::EpsilonHead => 67,
         Species::EpsilonTail { order: _ } => 68,
         Species::LunaMoth => 44,
+    }
+}
+
+pub fn match_species_with_faction(
+    species: &Species
+) -> Faction {
+    match species {
+        Species::LunaMoth => Faction::Feral,
+        Species::EpsilonHead => Faction::Ordered,
+        Species::EpsilonTail { order: _ } => Faction::Ordered,
+        _ => Faction::Unaligned,
     }
 }
 
@@ -248,5 +262,18 @@ pub fn is_invisible(
         Species::Void => true,
         Species::Projector => true,
         _ => false,
+    }
+}
+
+pub fn match_faction_with_index(
+    faction: &Faction
+) -> Option<usize> {
+    match faction {
+        Faction::Saintly => Some(0),
+        Faction::Ordered => Some(1),
+        Faction::Feral => Some(2),
+        Faction::Vile => Some(3),
+        Faction::Serene => Some(4),
+        Faction::Unaligned => None,
     }
 }

@@ -1,6 +1,6 @@
 use bevy::prelude::*;
 
-use crate::{species::Species, input::ActionType, axiom::{Form, Function}};
+use crate::{species::Species, input::ActionType, axiom::{Form, Function}, soul::Soul};
 
 #[derive(Component)]
 pub struct RealityAnchor {
@@ -46,6 +46,15 @@ pub struct LogIndex{
     pub index: usize,
 }
 
+#[derive(Component, PartialEq)]
+pub enum Faction{
+    Saintly,
+    Feral,
+    Vile,
+    Serene,
+    Ordered,
+    Unaligned,
+}
 
 #[derive(Component)]
 pub struct MinimapTile{

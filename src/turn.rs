@@ -1,10 +1,10 @@
 use std::{time::Duration, f32::consts::PI, cmp::Ordering};
 
-use bevy::prelude::*;
+use bevy::{prelude::*, utils::petgraph::visit::EdgeRef};
 use bevy_tweening::{*, lens::{TransformPositionLens, TransformScaleLens, TransformRotationLens}};
 use rand::seq::SliceRandom;
 
-use crate::{components::{QueuedAction, RealityAnchor, Position, SoulBreath, AxiomEffects, EffectMarker}, input::ActionType, TurnState, map::{xy_idx, WorldMap, is_in_bounds, bresenham_line, get_neighbouring_entities, get_best_move}, soul::{Soul, get_soul_rot_position, SoulRotationTimer, match_soul_with_display_index, match_soul_with_sprite, select_random_entities}, ui::CenterOfWheel, axiom::{grab_coords_from_form, CasterInfo, match_soul_with_axiom, Function, Form, match_axiom_with_soul}, species::Species, ZoomInEffect, SpriteSheetHandle};
+use crate::{components::{QueuedAction, RealityAnchor, Position, SoulBreath, AxiomEffects, EffectMarker, Faction}, input::ActionType, TurnState, map::{xy_idx, WorldMap, is_in_bounds, bresenham_line, get_neighbouring_entities, get_best_move, get_all_factions_except_one}, soul::{Soul, get_soul_rot_position, SoulRotationTimer, match_soul_with_display_index, match_soul_with_sprite, select_random_entities}, ui::CenterOfWheel, axiom::{grab_coords_from_form, CasterInfo, match_soul_with_axiom, Function, Form, match_axiom_with_soul}, species::{Species, match_faction_with_index}, ZoomInEffect, SpriteSheetHandle};
 
 pub struct TurnPlugin;
 
@@ -63,7 +63,7 @@ fn choose_action (
 }
 
 fn calculate_actions (
-    mut creatures: Query<(Entity, &mut QueuedAction, &AxiomEffects, &SoulBreath, &Position, &Species,), Without<RealityAnchor>>,
+    mut creatures: Query<(Entity, &mut QueuedAction, &AxiomEffects, &SoulBreath, &Position, &Species, &Faction), Without<RealityAnchor>>,
     souls: Query<&Soul>,
     read_species: Query<&Species>,
     read_position: Query<&Position>,
@@ -72,12 +72,37 @@ fn calculate_actions (
     world_map: Res<WorldMap>,
     mut commands: Commands,
 ){
-    let (play_ent, play_pos) = if let Ok(play_ent) = player.get_single() { (play_ent.0, play_ent.1) } else { panic!("0 or 2+ players!")};
-    for (entity, mut queue, ax, brea, pos, species) in creatures.iter_mut(){
+    let (_play_ent, play_pos) = if let Ok(play_ent) = player.get_single() { (play_ent.0, play_ent.1) } else { panic!("0 or 2+ players!")};
+    let mut contestants = Vec::new();
+    for _i in 0..5 {
+        contestants.push(Vec::new());
+    }
+    for (entity, _queue, _ax, brea, _pos, _species, faction) in creatures.iter_mut(){
+        let index = match_faction_with_index(faction);
+        if index.is_some() && !brea.soulless { contestants[index.unwrap()].push(entity); } else { continue;} // Gather the pool of fighters by faction.
+    }
+    for (entity, mut queue, ax, brea, pos, species, faction) in creatures.iter_mut(){
         if brea.soulless {
             queue.action = ActionType::Nothing;
             continue;
         }
+        let mut foes = Vec::new();
+        let mut allies = Vec::new();
+        let fac_index = match_faction_with_index(faction);
+        if fac_index.is_some() {
+            allies = contestants[fac_index.unwrap()].clone(); // Gather foes and allies of this creature's faction.
+            foes = get_all_factions_except_one(&mut contestants.clone(), fac_index.unwrap());
+        }
+        let destination = {
+            let target = foes.get(0); // Get the first foe available as a walking destination.
+            if target.is_none() {
+                (pos.x, pos.y)
+            } else {
+                let tar_pos = read_position.get(*target.unwrap());
+                let tar_pos = tar_pos.unwrap();
+                (tar_pos.x, tar_pos.y)
+            }
+        };
         let info = CasterInfo{entity, pos: (pos.x, pos.y), species: species.clone(), momentum: pos.momentum, is_player: false};
         let mut available_souls = Vec::with_capacity(4);
         for av in &brea.held {
@@ -85,7 +110,7 @@ fn calculate_actions (
         }
         queue.action = match species {
             Species::LunaMoth => {
-                choose_action((play_pos.x, play_pos.y), vec![play_ent], vec![entity], ax.axioms.clone(), ax.polarity.clone(), available_souls, info, &world_map.entities)
+                choose_action(destination, foes, allies, ax.axioms.clone(), ax.polarity.clone(), available_souls, info, &world_map.entities)
             }
             Species::EpsilonHead => {
                 let neigh = get_neighbouring_entities(&world_map.entities, pos.x, pos.y);
@@ -106,7 +131,7 @@ fn calculate_actions (
                         None => continue,
                     };
                 }
-                choose_action((play_pos.x, play_pos.y), vec![play_ent], vec![entity], ax.axioms.clone(), ax.polarity.clone(), available_souls, info, &world_map.entities)
+                choose_action(destination, foes, allies, ax.axioms.clone(), ax.polarity.clone(), available_souls, info, &world_map.entities)
             },
             Species::EpsilonTail { order } => {
                 let neigh = get_neighbouring_entities(&world_map.entities, pos.x, pos.y);

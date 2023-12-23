@@ -167,3 +167,15 @@ pub fn bresenham_line(x0: i32, y0: i32, x1: i32, y1: i32) -> Vec<(i32, i32)> {
  
     Some(best_movement)
  }
+
+ pub fn get_all_factions_except_one(
+    vec_vecs: &mut Vec<Vec<Entity>>,
+    exclude: usize,
+ ) -> Vec<Entity> {
+    vec_vecs.swap_remove(exclude);
+    let mut output = Vec::new();
+    for mut i in vec_vecs {
+        output.append(&mut i);
+    }
+    output
+ }
