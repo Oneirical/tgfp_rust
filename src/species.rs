@@ -138,6 +138,7 @@ pub enum Species {
     EpsilonHead,
     EpsilonTail {order: usize},
     LunaMoth,
+    AxiomCrate,
 }
 
 pub fn match_species_with_sprite(
@@ -155,6 +156,7 @@ pub fn match_species_with_sprite(
         Species::EpsilonHead => 67,
         Species::EpsilonTail { order: _ } => 68,
         Species::LunaMoth => 44,
+        Species::AxiomCrate => 19,
     }
 }
 
@@ -165,6 +167,7 @@ pub fn match_species_with_faction(
         Species::LunaMoth => Faction::Feral,
         Species::EpsilonHead => Faction::Ordered,
         Species::EpsilonTail { order: _ } => Faction::Ordered,
+        Species::Terminal => Faction::Saintly,
         _ => Faction::Unaligned,
     }
 }
@@ -184,6 +187,7 @@ pub fn match_species_with_name(
         Species::EpsilonHead => "Epsilon, Adorned in Jade",
         Species::EpsilonTail { order: _ } => "Rubberized Mecha-Segment",
         Species::LunaMoth => "Cosmos Worn as Robes",
+        Species::AxiomCrate => "Axiomatic Crate"
     }
 }
 

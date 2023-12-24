@@ -26,6 +26,7 @@ pub enum Function {
     DiscardSoul { soul: Entity, slot: usize },
     StealSouls { dam: usize },
     RedirectSouls { dam: usize, dest: Entity},
+    Collide {with: Entity},
 }
 
 pub fn match_soul_with_axiom(

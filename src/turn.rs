@@ -8,7 +8,7 @@ use crate::{components::{QueuedAction, RealityAnchor, Position, SoulBreath, Axio
 
 pub struct TurnPlugin;
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq, Clone)]
 pub enum Animation{
     Passage,
     SoulDrain {source: Vec3, destination: Vec3, drained: Vec<Entity>},
@@ -206,14 +206,17 @@ fn execute_turn (
             (false, true) => Ordering::Greater,
         }
     });
-    world_map.targeted_axioms.reverse();
     next_state.set(TurnState::DispensingFunctions);
 }
 
 
 
 fn dispense_functions(
-    mut creatures: Query<(&Transform, &Species, &mut SoulBreath, &mut Animator<Transform>, &mut Position, Has<RealityAnchor>)>,
+    mut creatures: ParamSet<(
+        Query<(&Transform, &Species, &mut SoulBreath, &mut Animator<Transform>, &mut Position, Has<RealityAnchor>)>,
+        Query<&Position>,
+        Query<&Species>,
+    )>,
     mut next_state: ResMut<NextState<TurnState>>,
     mut world_map: ResMut<WorldMap>,
     mut souls: Query<(&mut Animator<Transform>, &Transform, &mut TextureAtlasSprite, &mut Soul), Without<Position>>,
@@ -221,16 +224,20 @@ fn dispense_functions(
     time: Res<SoulRotationTimer>,
     mut zoom: ResMut<ZoomInEffect>,
 ){
-    let mut next_axioms = Vec::new();
-    for (entity, function, info) in world_map.targeted_axioms.clone().iter(){
-        if let Ok((transform_source, _species, mut breath, _anim, mut pos, is_player)) = creatures.get_mut(entity.to_owned()) {
+    let mut anti_infinite_loop = 0;
+    while !world_map.targeted_axioms.is_empty() {
+        anti_infinite_loop += 1;
+        if anti_infinite_loop > 500 { panic!("Infinite loop detected in axiom queue!") }
+        let (entity, function, info) = world_map.targeted_axioms.pop().unwrap();
+        if let Ok((transform_source, _species, mut breath, _anim, mut pos, is_player)) = creatures.p0().get_mut(entity.to_owned()) {
             let transform_source_trans = transform_source.translation;
             let function = function.to_owned();
             match function {
                 Function::Teleport { x, y } => {
                     if !is_in_bounds(x as i32, y as i32) {continue;}
                     else if world_map.entities[xy_idx(x, y)].is_some() { // Cancel teleport if target is occupied
-                        // Raise an interact event here?
+                        let collider = world_map.entities[xy_idx(x, y)].unwrap();
+                        world_map.targeted_axioms.push((entity, Function::Collide { with: collider }, info.clone()));
                         continue;
                     }
                     let old_pos = (pos.x, pos.y);
@@ -255,7 +262,7 @@ fn dispense_functions(
                     }
                     else {
                         let mut passage_detected = false;
-                        for (transform, _species, _breath, mut anim, posi, is_player) in creatures.iter_mut(){
+                        for (transform, _species, _breath, mut anim, posi, is_player) in creatures.p0().iter_mut(){
                             if is_player {
                                 for (passage_coords, destination) in &world_map.warp_zones{
                                     if new_pos == *passage_coords {
@@ -267,9 +274,25 @@ fn dispense_functions(
                             }
                         }
                         if passage_detected{
-                            world_map.anim_queue.push((*entity, Animation::Passage));
+                            world_map.anim_queue.push((entity, Animation::Passage));
                             zoom.timer.unpause();
                         }
+                    }
+                },
+                Function::Collide { with } => {
+                    let coll_species = creatures.p2().get(with).unwrap().clone();
+                    let coll_pos = match creatures.p1().get(with) {
+                        Ok(coll_pos_full) => (coll_pos_full.x, coll_pos_full.y),
+                        Err(_) => panic!("Impossible.")
+                    };
+                    match coll_species {
+                        Species::AxiomCrate => {
+                            
+                            if world_map.entities[xy_idx((coll_pos.0 as i32 + info.momentum.0) as usize, (coll_pos.1 as i32 + info.momentum.1) as usize)].is_some() {continue;}
+                            world_map.targeted_axioms.push((entity, Function::MomentumDash { dist: 1 }, info.clone()));
+                            world_map.targeted_axioms.push((with, Function::MomentumDash { dist: 1 }, info.clone()));
+                        }
+                        _ => ()
                     }
                 },
                 Function::StealSouls { dam } => {
@@ -283,12 +306,12 @@ fn dispense_functions(
                             payload.push(breath.held.pop().unwrap());
                             if breath.held.is_empty() {
                                 breath.soulless = true;
-                                world_map.anim_queue.push((*entity, Animation::Soulless));
+                                world_map.anim_queue.push((entity, Animation::Soulless));
                             }
                         }
                     }
                     
-                    if let Ok((transform_culprit, _species, mut breath_culprit, _anim, _pos, _is_player)) = creatures.get_mut(info.entity.to_owned()) {
+                    if let Ok((transform_culprit, _species, mut breath_culprit, _anim, _pos, _is_player)) = creatures.p0().get_mut(info.entity.to_owned()) {
                         let mut anim_output = Vec::new();
                         for soul in payload{
                             let slot = if let Ok((_anim, _transform, _sprite, soul_id), ) = souls.get(soul) { match_soul_with_display_index(soul_id) } else { panic!("A stolen soul does not exist!")};
@@ -296,15 +319,15 @@ fn dispense_functions(
                             breath_culprit.soulless = false;
                             anim_output.push(soul);
                         }
-                        world_map.anim_queue.push((*entity, Animation::SoulDrain { source: transform_source_trans, destination: transform_culprit.translation, drained: anim_output }));
+                        world_map.anim_queue.push((entity, Animation::SoulDrain { source: transform_source_trans, destination: transform_culprit.translation, drained: anim_output }));
                     }
 
                 },
                 Function::RedirectSouls { dam, dest } => {
-                    let new_info = if let Ok((_transform_source, species, _breath, _anim, pos, is_player)) = creatures.get(dest) {
+                    let new_info = if let Ok((_transform_source, species, _breath, _anim, pos, is_player)) = creatures.p0().get(dest) {
                         CasterInfo{entity: dest, pos: (pos.x, pos.y), species: species.clone(), momentum: pos.momentum, is_player}
                     } else { panic!("The RedirectSouls's destination entity does not exist!")};
-                    next_axioms.push((*entity, Function::StealSouls { dam }, new_info));
+                    world_map.targeted_axioms.push((entity, Function::StealSouls { dam }, new_info));
                 },
                 Function::Dash { dx, dy } => {
                     let dest = (dx, dy);
@@ -322,15 +345,15 @@ fn dispense_functions(
                             break;
                         }
                     }
-                    next_axioms.push((*entity, Function::Teleport { x: fx, y: fy }, info.clone()));
+                    world_map.targeted_axioms.push((entity, Function::Teleport { x: fx, y: fy }, info.clone()));
                 },
                 Function::MomentumDash { dist } => {
                     let dest = (dist as i32 * info.momentum.0, dist as i32 * info.momentum.1);
-                    next_axioms.push((*entity, Function::Dash { dx: dest.0, dy: dest.1 }, info.clone()));
+                    world_map.targeted_axioms.push((entity, Function::Dash { dx: dest.0, dy: dest.1 }, info.clone()));
                 },
                 Function::MomentumReverseDash { dist } => {
                     let dest = (dist as i32 * -info.momentum.0, dist as i32 * -info.momentum.1);
-                    next_axioms.push((*entity, Function::Dash { dx: dest.0, dy: dest.1 }, info.clone()));
+                    world_map.targeted_axioms.push((entity, Function::Dash { dx: dest.0, dy: dest.1 }, info.clone()));
                 },
                 Function::DiscardSoul { soul, slot } => {
                     if let Ok((mut anim, transform, _sprite, soul_id), ) = souls.get_mut(soul) { 
@@ -415,7 +438,10 @@ fn dispense_functions(
                     let replacement = breath.pile[index.unwrap().to_owned()].pop();
                     match replacement { // Replace the used soul.
                         Some(new_soul) => {
-                            breath.held[slot] = new_soul;
+                            if breath.held.len() < 4 {
+                                breath.held.push(new_soul);
+                            }
+                            else { breath.held[slot] = new_soul; }
     
                             let slot_coords_ui = [
                                 ((3.*PI/4.).cos() * 1.5 +ui_center.x, (3.*PI/4.).sin() * 1.5 +ui_center.y),
@@ -451,12 +477,8 @@ fn dispense_functions(
             };
         }
     }
-    world_map.targeted_axioms.clear();
-    world_map.targeted_axioms.append(&mut next_axioms);
-    if world_map.targeted_axioms.is_empty() {
-        world_map.anim_queue.reverse(); // I will probably forget about this and rage later
-        next_state.set(TurnState::UnpackingAnimation);
-    }
+    world_map.anim_queue.reverse(); // I will probably forget about this and rage later
+    next_state.set(TurnState::UnpackingAnimation);
 }
 
 fn unpack_animations(
@@ -552,8 +574,7 @@ fn unpack_animations(
                     anim.set_tweenable(tween);
                 }
                 world_map.anim_queue.push((entity, Animation::SoulDrain { source, destination, drained: drained.clone() }));
-                let delay = if drained.is_empty() { Duration::from_millis(500)} else {Duration::from_millis(25)};
-                world_map.animation_timer.set_duration(delay);
+                world_map.animation_timer.set_duration(Duration::from_millis(25));
             },
             Animation::FormMark { coords } => {
                 let diff = if player_opos == player_pos {player_pos} else {player_opos};
