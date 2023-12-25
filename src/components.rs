@@ -44,6 +44,7 @@ pub struct MomentumMarker{
 #[derive(Component)]
 pub struct LogIndex{
     pub index: usize,
+    pub going_to: f32,
 }
 
 #[derive(Component, PartialEq)]

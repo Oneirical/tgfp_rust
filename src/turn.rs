@@ -63,25 +63,24 @@ fn choose_action (
 }
 
 fn calculate_actions (
-    mut creatures: Query<(Entity, &mut QueuedAction, &AxiomEffects, &SoulBreath, &Position, &Species, &Faction), Without<RealityAnchor>>,
+    mut creatures: Query<(Entity, &mut QueuedAction, &AxiomEffects, &SoulBreath, &Position, &Species, &Faction, Has<RealityAnchor>)>,
     souls: Query<&Soul>,
     read_species: Query<&Species>,
     read_position: Query<&Position>,
     mut next_state: ResMut<NextState<TurnState>>,
-    player: Query<(Entity,&Position), With<RealityAnchor>>,
     world_map: Res<WorldMap>,
     mut commands: Commands,
 ){
-    let (_play_ent, play_pos) = if let Ok(play_ent) = player.get_single() { (play_ent.0, play_ent.1) } else { panic!("0 or 2+ players!")};
     let mut contestants = Vec::new();
     for _i in 0..5 {
         contestants.push(Vec::new());
     }
-    for (entity, _queue, _ax, brea, _pos, _species, faction) in creatures.iter_mut(){
+    for (entity, _queue, _ax, brea, _pos, _species, faction, _is_player) in creatures.iter_mut(){
         let index = match_faction_with_index(faction);
         if index.is_some() && !brea.soulless { contestants[index.unwrap()].push(entity); } else { continue;} // Gather the pool of fighters by faction.
     }
-    for (entity, mut queue, ax, brea, pos, species, faction) in creatures.iter_mut(){
+    for (entity, mut queue, ax, brea, pos, species, faction, is_player) in creatures.iter_mut(){
+        if is_player {continue;}
         if brea.soulless {
             queue.action = ActionType::Nothing;
             continue;

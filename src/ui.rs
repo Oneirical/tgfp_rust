@@ -177,7 +177,7 @@ fn place_down_text(
                 text_2d_bounds: Text2dBounds { size: Vec2 { x: 550., y: 600. }},
                 ..default()
             },
-            LogIndex { index: 0 },
+            LogIndex { index: 0, going_to: -99. },
             Name::new("Log Message"),
             Animator::new(tween)
         ));
@@ -187,7 +187,7 @@ fn place_down_text(
 }
 
 fn push_log(
-    mut new_text: Query<(Entity, &TextLayoutInfo, &mut Animator<Transform>, &Transform, &mut LogIndex)>,
+    mut new_text: Query<(Entity, &TextLayoutInfo, &mut Animator<Transform>, &mut Transform, &mut LogIndex)>,
     mut commands: Commands
 ){
     let mut newcomer = None;
@@ -209,11 +209,13 @@ fn push_log(
             break;
         }
     }
-    for (entity, _entry, mut anim, transform, mut num) in new_text.iter_mut(){
+    for (entity, _entry, mut anim, mut transform, mut num) in new_text.iter_mut(){
         if newcomer.is_some(){
             if newcomer.unwrap().0 == entity {continue;}
-            let final_pos = (12.1+7.25, transform.translation.y + 0.2 + newcomer.unwrap().1.y);
-            if final_pos.1 > 4. {
+            if anim.tweenable().progress() != 1.0 {transform.translation.y = num.going_to;}
+            let initial_pos = Vec3::new(transform.translation.x, transform.translation.y, 0.07);
+            let final_pos = Vec3::new(12.1+7.25, transform.translation.y + 0.2 + newcomer.unwrap().1.y, 0.07);
+            if final_pos.y > 4. {
                 commands.entity(entity).despawn();
                 continue;
             }
@@ -221,12 +223,13 @@ fn push_log(
                 EaseFunction::QuadraticInOut,
                 Duration::from_millis(300),
                 TransformPositionLens {
-                    start: transform.translation,
-                    end: Vec3{ x: final_pos.0, y: final_pos.1, z: 0.07},
+                    start: initial_pos,
+                    end: final_pos
                 },
             );
             anim.set_tweenable(tween_tr);
             num.index += 1;
+            num.going_to = final_pos.y;
         }
     }
 }
