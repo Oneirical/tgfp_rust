@@ -25,6 +25,7 @@ pub enum Function {
     MomentumReverseDash { dist: usize },
     DiscardSoul { soul: Entity, slot: usize },
     StealSouls { dam: usize },
+    SwapAnchor,
     RedirectSouls { dam: usize, dest: Entity},
     Collide {with: Entity},
     MessageLog {message_id: usize},

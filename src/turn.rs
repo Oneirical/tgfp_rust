@@ -4,7 +4,7 @@ use bevy::prelude::*;
 use bevy_tweening::{*, lens::{TransformPositionLens, TransformScaleLens, TransformRotationLens}};
 use rand::seq::SliceRandom;
 
-use crate::{components::{QueuedAction, RealityAnchor, Position, SoulBreath, AxiomEffects, EffectMarker, Faction}, input::ActionType, TurnState, map::{xy_idx, WorldMap, is_in_bounds, bresenham_line, get_neighbouring_entities, get_best_move, get_all_factions_except_one}, soul::{Soul, get_soul_rot_position, SoulRotationTimer, match_soul_with_display_index, match_soul_with_sprite, select_random_entities}, ui::{CenterOfWheel, LogMessage}, axiom::{grab_coords_from_form, CasterInfo, match_soul_with_axiom, Function, Form, match_axiom_with_soul}, species::{Species, match_faction_with_index}, ZoomInEffect, SpriteSheetHandle};
+use crate::{components::{QueuedAction, RealityAnchor, Position, SoulBreath, AxiomEffects, EffectMarker, Faction}, input::ActionType, TurnState, map::{xy_idx, WorldMap, is_in_bounds, bresenham_line, get_neighbouring_entities, get_best_move, get_all_factions_except_one}, soul::{Soul, get_soul_rot_position, SoulRotationTimer, match_soul_with_display_index, match_soul_with_sprite, select_random_entities, CurrentEntityInUI}, ui::{CenterOfWheel, LogMessage}, axiom::{grab_coords_from_form, CasterInfo, match_soul_with_axiom, Function, Form, match_axiom_with_soul}, species::{Species, match_faction_with_index}, ZoomInEffect, SpriteSheetHandle};
 
 pub struct TurnPlugin;
 
@@ -15,6 +15,7 @@ pub enum Animation{
     FormMark {coords: (usize, usize)},
     Soulless,
     MessagePrint,
+    SoulSwap
 }
 
 impl Plugin for TurnPlugin {
@@ -89,7 +90,6 @@ fn calculate_actions (
         if index.is_some() && !brea.soulless { contestants[index.unwrap()].push(entity); } else { continue;} // Gather the pool of fighters by faction.
     }
     for (entity, mut queue, ax, brea, pos, species, faction, is_player) in creatures.iter_mut(){
-        if is_player {continue;}
         if brea.soulless {
             queue.action = ActionType::Nothing;
             continue;
@@ -111,11 +111,12 @@ fn calculate_actions (
                 (tar_pos.x, tar_pos.y)
             }
         };
-        let info = CasterInfo{entity, pos: (pos.x, pos.y), species: species.clone(), momentum: pos.momentum, is_player: false};
+        let info = CasterInfo{entity, pos: (pos.x, pos.y), species: species.clone(), momentum: pos.momentum, is_player};
         let mut available_souls = Vec::with_capacity(4);
         for av in &brea.held {
             if let Ok(soul_type) = souls.get(*av) { available_souls.push(soul_type) };
         }
+        let saved_play_action = if is_player { queue.action.clone() } else { ActionType::Nothing };
         queue.action = match species {
             Species::LunaMoth => {
                 choose_action(destination, foes, allies, ax.axioms.clone(), ax.polarity.clone(), available_souls, info, &world_map.entities)
@@ -161,11 +162,13 @@ fn calculate_actions (
                         None => continue,
                     };
                 }
-                ActionType::Nothing
+                queue.action.clone()
             },
             _ => ActionType::Nothing,
         };
+        if is_player { queue.action = saved_play_action; }
     }
+
     next_state.set(TurnState::ExecutingTurn);
 }
 
@@ -178,8 +181,8 @@ fn execute_turn (
     turn_count: Res<TurnCount>,
 ){
     let play_ent = if let Ok(ent) = player.get_single() { ent } else { panic!("0 or 2+ players")};
-    if turn_count.turns%10 == 0 {
-        world_map.targeted_axioms.push((play_ent, Function::MessageLog { message_id: 0 }, CasterInfo::placeholder()));
+    if turn_count.turns%10 == 1 {
+        world_map.targeted_axioms.push((play_ent, Function::MessageLog { message_id: turn_count.turns/10 }, CasterInfo::placeholder()));
     }
     for (entity, mut queue, species, effects, breath, mut pos, is_player) in creatures.iter_mut(){
         (pos.ox, pos.oy) = (pos.x, pos.y); // To reset for the form mark animations
@@ -238,6 +241,8 @@ fn dispense_functions(
     time: Res<SoulRotationTimer>,
     mut events: EventWriter<LogMessage>,
     mut zoom: ResMut<ZoomInEffect>,
+    mut commands: Commands,
+    mut current_crea_display: ResMut<CurrentEntityInUI>,
 ){
     let mut anti_infinite_loop = 0;
     while !world_map.targeted_axioms.is_empty() {
@@ -313,6 +318,23 @@ fn dispense_functions(
                 Function::MessageLog { message_id } => {
                     events.send(LogMessage(message_id));
                     world_map.anim_queue.push((entity, Animation::MessagePrint));
+                }
+                Function::SwapAnchor => {
+                    if !is_player {
+                        if let Ok((_transform_culprit, _species, _breath_culprit, _anim, _pos, is_player_cul)) = creatures.p0().get_mut(info.entity.to_owned()) {
+                            if is_player_cul{
+                                commands.entity(info.entity).remove::<RealityAnchor>();
+                                commands.entity(entity).insert(RealityAnchor{player_id: 0});
+                                world_map.anim_queue.push((entity, Animation::SoulSwap));
+                                current_crea_display.entity = entity;
+                            }
+                        }
+                    } else {
+                        commands.entity(entity).remove::<RealityAnchor>();
+                        commands.entity(info.entity).insert(RealityAnchor{player_id: 0});
+                        world_map.anim_queue.push((entity, Animation::SoulSwap));
+                        current_crea_display.entity = info.entity;
+                    }
                 }
                 Function::StealSouls { dam } => {
                     let mut rng = rand::thread_rng();
@@ -520,9 +542,9 @@ fn unpack_animations(
     let (entity, anim_choice) = match world_map.anim_queue.pop() { // The fact that this is pop and not a loop might cause "fake" lag with a lot of queued animations
         Some(element) => element,
         None => {
-            for (_breath, trans_crea, mut anim_crea, fini, is_player) in creatures.iter_mut(){
+            for (_breath, mut trans_crea, mut anim_crea, fini, is_player) in creatures.iter_mut(){
                 let end = Vec3::new(player_trans.x + (fini.x as f32 -player_pos.0 as f32)/2., player_trans.y + (fini.y as f32 -player_pos.1 as f32)/2., 0.);
-                if is_player {continue;}
+                if is_player {trans_crea.translation = Vec3::new(11., 4., 0.); continue;}
                 let tween = Tween::new(
                     EaseFunction::QuadraticInOut,
                     Duration::from_millis(150), // must be the same as input delay to avoid offset
@@ -553,6 +575,10 @@ fn unpack_animations(
                 anim.set_tweenable(tween_rot);
                 world_map.animation_timer.set_duration(Duration::from_millis(500));
             },
+            Animation::SoulSwap => {
+                //TODO?
+                world_map.animation_timer.set_duration(Duration::from_millis(1));
+            }
             Animation::Passage => {
                 for (_breath, transform, mut anim, posi, is_player) in creatures.iter_mut(){
                     if is_player {continue;}
