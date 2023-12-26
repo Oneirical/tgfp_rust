@@ -1,10 +1,10 @@
 use std::{time::Duration, f32::consts::PI, cmp::Ordering};
 
-use bevy::{prelude::*, utils::petgraph::visit::EdgeRef};
+use bevy::prelude::*;
 use bevy_tweening::{*, lens::{TransformPositionLens, TransformScaleLens, TransformRotationLens}};
 use rand::seq::SliceRandom;
 
-use crate::{components::{QueuedAction, RealityAnchor, Position, SoulBreath, AxiomEffects, EffectMarker, Faction}, input::ActionType, TurnState, map::{xy_idx, WorldMap, is_in_bounds, bresenham_line, get_neighbouring_entities, get_best_move, get_all_factions_except_one}, soul::{Soul, get_soul_rot_position, SoulRotationTimer, match_soul_with_display_index, match_soul_with_sprite, select_random_entities}, ui::CenterOfWheel, axiom::{grab_coords_from_form, CasterInfo, match_soul_with_axiom, Function, Form, match_axiom_with_soul}, species::{Species, match_faction_with_index}, ZoomInEffect, SpriteSheetHandle};
+use crate::{components::{QueuedAction, RealityAnchor, Position, SoulBreath, AxiomEffects, EffectMarker, Faction}, input::ActionType, TurnState, map::{xy_idx, WorldMap, is_in_bounds, bresenham_line, get_neighbouring_entities, get_best_move, get_all_factions_except_one}, soul::{Soul, get_soul_rot_position, SoulRotationTimer, match_soul_with_display_index, match_soul_with_sprite, select_random_entities}, ui::{CenterOfWheel, LogMessage}, axiom::{grab_coords_from_form, CasterInfo, match_soul_with_axiom, Function, Form, match_axiom_with_soul}, species::{Species, match_faction_with_index}, ZoomInEffect, SpriteSheetHandle};
 
 pub struct TurnPlugin;
 
@@ -13,7 +13,8 @@ pub enum Animation{
     Passage,
     SoulDrain {source: Vec3, destination: Vec3, drained: Vec<Entity>},
     FormMark {coords: (usize, usize)},
-    Soulless
+    Soulless,
+    MessagePrint,
 }
 
 impl Plugin for TurnPlugin {
@@ -23,7 +24,13 @@ impl Plugin for TurnPlugin {
         app.add_systems(Update, dispense_functions.run_if(in_state(TurnState::DispensingFunctions)));
         app.add_systems(Update, unpack_animations.run_if(in_state(TurnState::UnpackingAnimation)));
         app.add_systems(Update, fade_effects);
+        app.insert_resource(TurnCount{turns: 0});
     }
+}
+
+#[derive(Resource)]
+pub struct TurnCount {
+    pub turns: usize,
 }
 
 fn choose_action (
@@ -70,7 +77,9 @@ fn calculate_actions (
     mut next_state: ResMut<NextState<TurnState>>,
     world_map: Res<WorldMap>,
     mut commands: Commands,
+    mut turn_count: ResMut<TurnCount>,
 ){
+    turn_count.turns += 1;
     let mut contestants = Vec::new();
     for _i in 0..5 {
         contestants.push(Vec::new());
@@ -162,20 +171,26 @@ fn calculate_actions (
 
 fn execute_turn (
     mut creatures: Query<(Entity, &mut QueuedAction, &Species, &AxiomEffects, &mut SoulBreath, &mut Position, Has<RealityAnchor>)>,
+    player: Query<Entity, With<RealityAnchor>>,
     mut next_state: ResMut<NextState<TurnState>>,
     mut world_map: ResMut<WorldMap>,
     souls: Query<(&mut Animator<Transform>, &Transform, &Soul), Without<Position>>,
+    turn_count: Res<TurnCount>,
 ){
+    let play_ent = if let Ok(ent) = player.get_single() { ent } else { panic!("0 or 2+ players")};
+    if turn_count.turns%10 == 0 {
+        world_map.targeted_axioms.push((play_ent, Function::MessageLog { message_id: 0 }, CasterInfo::placeholder()));
+    }
     for (entity, mut queue, species, effects, breath, mut pos, is_player) in creatures.iter_mut(){
         (pos.ox, pos.oy) = (pos.x, pos.y); // To reset for the form mark animations
         if breath.soulless {queue.action = ActionType::Nothing;}
+        let info = CasterInfo{ entity, pos: (pos.x,pos.y), species: species.clone(), momentum: pos.momentum, is_player};
         match queue.action{
             ActionType::SoulCast { slot } => {
                 let soul = match breath.held.get(slot).cloned(){ // Check that we aren't picking an empty slot.
                     Some(soul) => soul,
                     None => continue
                 };
-                let info = CasterInfo{ entity, pos: (pos.x,pos.y), species: species.clone(), momentum: pos.momentum, is_player};
                 if let Ok((_anim, _transform, soul_id), ) = souls.get(soul) {
                     let axioms = effects.axioms.clone();
                     let (form, function) = axioms[match_soul_with_axiom(soul_id)].clone();
@@ -221,6 +236,7 @@ fn dispense_functions(
     mut souls: Query<(&mut Animator<Transform>, &Transform, &mut TextureAtlasSprite, &mut Soul), Without<Position>>,
     ui_center: Res<CenterOfWheel>,
     time: Res<SoulRotationTimer>,
+    mut events: EventWriter<LogMessage>,
     mut zoom: ResMut<ZoomInEffect>,
 ){
     let mut anti_infinite_loop = 0;
@@ -294,6 +310,10 @@ fn dispense_functions(
                         _ => ()
                     }
                 },
+                Function::MessageLog { message_id } => {
+                    events.send(LogMessage(message_id));
+                    world_map.anim_queue.push((entity, Animation::MessagePrint));
+                }
                 Function::StealSouls { dam } => {
                     let mut rng = rand::thread_rng();
                     let mut payload = select_random_entities(&mut breath.discard, dam, &mut rng);
@@ -593,6 +613,9 @@ fn unpack_animations(
                     ..default()
                 }, EffectMarker));
                 world_map.animation_timer.set_duration(Duration::from_millis(25));
+            },
+            Animation::MessagePrint => {
+                world_map.animation_timer.set_duration(Duration::from_millis(300));
             }
         }
     }

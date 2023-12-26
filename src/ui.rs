@@ -194,6 +194,7 @@ fn push_log(
     for (entity, entry, mut anim, transform, mut num) in new_text.iter_mut(){
         if num.index == 0 && transform.translation.x != 0.{ // needs transform to be modified by the main update before operating otherwise it is just 000
             let size = Vec2::new(entry.logical_size.x/64., entry.logical_size.y/64.);
+            assert!(newcomer.is_none());
             newcomer = Some((entity, size));
             let final_pos = (12.1+7.25, -3.7 + (size.y)/20.);
             let tween_tr = Tween::new(
@@ -206,7 +207,7 @@ fn push_log(
             );
             anim.set_tweenable(tween_tr);
             num.index = 1;
-            break;
+            //break;
         }
     }
     for (entity, _entry, mut anim, mut transform, mut num) in new_text.iter_mut(){

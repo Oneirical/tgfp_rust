@@ -27,6 +27,7 @@ pub enum Function {
     StealSouls { dam: usize },
     RedirectSouls { dam: usize, dest: Entity},
     Collide {with: Entity},
+    MessageLog {message_id: usize},
 }
 
 pub fn match_soul_with_axiom(
@@ -65,6 +66,13 @@ pub struct CasterInfo{
     pub species: Species,
     pub momentum: (i32,i32),
     pub is_player: bool,
+}
+
+impl CasterInfo{
+    pub fn placeholder(
+    ) -> CasterInfo {
+        CasterInfo { entity: Entity::PLACEHOLDER, pos: (0,0), species: Species::BuggedSpecies, momentum: (0,1), is_player: false }
+    }
 }
 
 pub fn grab_coords_from_form( // vec in vec for better, synchronized animations?
