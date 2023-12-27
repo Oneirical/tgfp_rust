@@ -66,7 +66,7 @@ impl CreatureBundle { // Creatures displayed on screen.
                 (Form::MomentumBeam, Function::StealSouls { dam: 10 }),
                 (Form::MomentumBeam, Function::Empty),
                 (Form::MomentumBeam, Function::Empty),
-            ], polarity: vec![-1,-1,-1,-1] }
+            ], polarity: vec![-1,-1,-1,-1], status: Vec::new() }
         }
     }
     pub fn with_data(
@@ -214,8 +214,8 @@ pub fn match_species_with_axioms(
         Species::EpsilonHead => (vec![
             (Form::MomentumBeam, Function::StealSouls { dam: 4 }),
             (Form::MomentumBeam, Function::StealSouls { dam: 4 }),
-            (Form::MomentumBeam, Function::SwapAnchor),
-            (Form::MomentumBeam, Function::SwapAnchor), // Circlet slash, pull closer?
+            (Form::MomentumBeam, Function::PossessCreature { duration: 15 }),
+            (Form::MomentumBeam, Function::PossessCreature { duration: 15 }), // Circlet slash, pull closer?
         ], vec![-1,-1,-1,-1] ),
         _ => (vec![
             (Form::Empty, Function::Empty),

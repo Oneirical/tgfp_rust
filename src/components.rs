@@ -1,6 +1,6 @@
 use bevy::prelude::*;
 
-use crate::{species::Species, input::ActionType, axiom::{Form, Function}, soul::Soul};
+use crate::{species::Species, input::ActionType, axiom::{Form, Function, Effect}, soul::Soul};
 
 #[derive(Component)]
 pub struct RealityAnchor {
@@ -80,4 +80,5 @@ pub struct SoulBreath{
 pub struct AxiomEffects{
     pub axioms: Vec<(Form, Function)>,
     pub polarity: Vec<i32>,
+    pub status: Vec<Effect>,
 }

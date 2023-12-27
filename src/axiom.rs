@@ -2,12 +2,21 @@ use bevy::ecs::entity::Entity;
 
 use crate::{soul::Soul, species::Species, map::{get_entity_at_coords, bresenham_line, is_in_bounds, xy_idx}};
 
-pub enum Effect {
-    Glamour {stacks : usize},
-    Pride {stacks : usize},
-    Discipline {stacks : usize},
-    Grace {stacks: usize},
+#[derive(Clone, Debug)]
+pub struct Effect {
+    pub stacks: usize,
+    pub effect_type: EffectType,
 }
+
+#[derive(Clone, Debug)]
+pub enum EffectType {
+    Glamour, // ++ casting, -- deal dmg // Your soul, a droplet, drowning in an ocean of endless lives.
+    Pride, // ++ deal dmg, -- take dmg // Us, standing on towers of gold so high and bright they burn away all doubt. You, so, so below, in a pit of submission so hidden one wonders how we even noticed your existence.
+    Discipline, // ++ take dmg, -- move // Maximize pleasure. Minimize pain. Maximize reproduction. Minimize solitude. Your flesh is one of carbon, yet your soul mimicks silicon.
+    Grace, // ++ move, -- casting // You ran without thought or reason, pursued in a meadow where each blade of grass had been turned to a steel knife, until none was left but blood.
+    Possession {link: Entity},
+}
+
 #[derive(Clone)]
 pub enum Form {
     Empty,
@@ -29,6 +38,8 @@ pub enum Function {
     RedirectSouls { dam: usize, dest: Entity},
     Collide {with: Entity},
     MessageLog {message_id: usize},
+    ApplyEffect { effect: Effect },
+    PossessCreature {duration: usize},
 }
 
 pub fn match_soul_with_axiom(

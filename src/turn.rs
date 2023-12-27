@@ -4,7 +4,7 @@ use bevy::prelude::*;
 use bevy_tweening::{*, lens::{TransformPositionLens, TransformScaleLens, TransformRotationLens}};
 use rand::seq::SliceRandom;
 
-use crate::{components::{QueuedAction, RealityAnchor, Position, SoulBreath, AxiomEffects, EffectMarker, Faction}, input::ActionType, TurnState, map::{xy_idx, WorldMap, is_in_bounds, bresenham_line, get_neighbouring_entities, get_best_move, get_all_factions_except_one}, soul::{Soul, get_soul_rot_position, SoulRotationTimer, match_soul_with_display_index, match_soul_with_sprite, select_random_entities, CurrentEntityInUI}, ui::{CenterOfWheel, LogMessage}, axiom::{grab_coords_from_form, CasterInfo, match_soul_with_axiom, Function, Form, match_axiom_with_soul}, species::{Species, match_faction_with_index, match_species_with_priority}, ZoomInEffect, SpriteSheetHandle};
+use crate::{components::{QueuedAction, RealityAnchor, Position, SoulBreath, AxiomEffects, EffectMarker, Faction}, input::ActionType, TurnState, map::{xy_idx, WorldMap, is_in_bounds, bresenham_line, get_neighbouring_entities, get_best_move, get_all_factions_except_one}, soul::{Soul, get_soul_rot_position, SoulRotationTimer, match_soul_with_display_index, match_soul_with_sprite, select_random_entities, CurrentEntityInUI}, ui::{CenterOfWheel, LogMessage}, axiom::{grab_coords_from_form, CasterInfo, match_soul_with_axiom, Function, Form, match_axiom_with_soul, Effect, EffectType}, species::{Species, match_faction_with_index, match_species_with_priority}, ZoomInEffect, SpriteSheetHandle};
 
 pub struct TurnPlugin;
 
@@ -173,7 +173,7 @@ fn calculate_actions (
 }
 
 fn execute_turn (
-    mut creatures: Query<(Entity, &mut QueuedAction, &Species, &AxiomEffects, &mut SoulBreath, &mut Position, Has<RealityAnchor>)>,
+    mut creatures: Query<(Entity, &mut QueuedAction, &Species, &mut AxiomEffects, &mut SoulBreath, &mut Position, Has<RealityAnchor>)>,
     player: Query<Entity, With<RealityAnchor>>,
     mut next_state: ResMut<NextState<TurnState>>,
     mut world_map: ResMut<WorldMap>,
@@ -184,7 +184,7 @@ fn execute_turn (
     if turn_count.turns%10 == 1 {
         world_map.targeted_axioms.push((play_ent, Function::MessageLog { message_id: turn_count.turns/10 }, CasterInfo::placeholder()));
     }
-    for (entity, mut queue, species, effects, breath, mut pos, is_player) in creatures.iter_mut(){
+    for (entity, mut queue, species, mut effects, breath, mut pos, is_player) in creatures.iter_mut(){
         if is_player {
             world_map.anim_reality_anchor = entity;
         }
@@ -218,6 +218,22 @@ fn execute_turn (
             },
             ActionType::Nothing => ()
         };
+        let mut remove_these_effects = Vec::new();
+        for (i, eff) in effects.status.iter_mut().enumerate() {
+            eff.stacks -= 1;
+            if eff.stacks == 0 {
+                match eff.effect_type {
+                    EffectType::Possession { link } => {
+                        world_map.targeted_axioms.push((link, Function::SwapAnchor, info.clone()));
+                    },
+                    _ => (),
+                }
+                remove_these_effects.push(i);
+            }
+        }
+        for i in remove_these_effects{
+            effects.status.remove(i);
+        }
     }
     world_map.targeted_axioms.sort_by(|a, b| { // 
         match (a.2.is_player, b.2.is_player) {
@@ -233,7 +249,7 @@ fn execute_turn (
 
 fn dispense_functions(
     mut creatures: ParamSet<(
-        Query<(&Transform, &Species, &mut SoulBreath, &mut Animator<Transform>, &mut Position, Has<RealityAnchor>)>,
+        Query<(&Transform, &Species, &mut SoulBreath, &mut AxiomEffects, &mut Animator<Transform>, &mut Position, Has<RealityAnchor>)>,
         Query<&Position>,
         Query<&Species>,
     )>,
@@ -253,7 +269,7 @@ fn dispense_functions(
         anti_infinite_loop += 1;
         if anti_infinite_loop > 500 { panic!("Infinite loop detected in axiom queue!") }
         let (entity, function, info) = world_map.targeted_axioms.pop().unwrap();
-        if let Ok((transform_source, _species, mut breath, _anim, mut pos, is_player)) = creatures.p0().get_mut(entity.to_owned()) {
+        if let Ok((transform_source, _species, mut breath, mut effects, _anim, mut pos, is_player)) = creatures.p0().get_mut(entity.to_owned()) {
             let transform_source_trans = transform_source.translation;
             let function = function.to_owned();
             match function {
@@ -285,24 +301,28 @@ fn dispense_functions(
                         continue;
                     }
                     else {
-                        let mut passage_detected = false;
-                        for (transform, _species, _breath, mut anim, posi, is_player) in creatures.p0().iter_mut(){
-                            if is_player {
-                                for (passage_coords, destination) in &world_map.warp_zones{
-                                    if new_pos == *passage_coords {
-                                        passage_detected = true;
-                                        zoom.destination = destination.clone();
-                                    }
+                        let mut triggered = false;
+                        if is_player {
+                            for (passage_coords, destination) in &world_map.warp_zones{
+                                if new_pos == *passage_coords {
+                                    zoom.timer.unpause();
+                                    zoom.destination = destination.clone();
+                                    triggered = true;
+                                    break;
                                 }
-                                continue;
                             }
                         }
-                        if passage_detected{
-                            world_map.anim_queue.push((entity, Animation::Passage));
-                            zoom.timer.unpause();
-                        }
+                        if triggered {world_map.anim_queue.push((entity, Animation::Passage))};
+
                     }
                 },
+                Function::ApplyEffect { effect } => {
+                    effects.status.push(effect);
+                },
+                Function::PossessCreature { duration } => {
+                    world_map.targeted_axioms.push((entity, Function::SwapAnchor, info.clone()));
+                    world_map.targeted_axioms.push((entity, Function::ApplyEffect { effect: Effect {stacks: duration, effect_type: EffectType::Possession { link: info.entity }}}, info.clone()));
+                }
                 Function::Collide { with } => {
                     let coll_species = creatures.p2().get(with).unwrap().clone();
                     let coll_pos = match creatures.p1().get(with) {
@@ -325,7 +345,7 @@ fn dispense_functions(
                 }
                 Function::SwapAnchor => {
                     if !is_player {
-                        if let Ok((_transform_culprit, _species, _breath_culprit, _anim, _pos, is_player_cul)) = creatures.p0().get_mut(info.entity.to_owned()) {
+                        if let Ok((_transform_culprit, _species, _breath_culprit, _ax,  _anim, _pos, is_player_cul)) = creatures.p0().get_mut(info.entity.to_owned()) {
                             if is_player_cul{
                                 commands.entity(info.entity).remove::<RealityAnchor>();
                                 commands.entity(entity).insert(RealityAnchor{player_id: 0});
@@ -356,7 +376,7 @@ fn dispense_functions(
                         }
                     }
                     
-                    if let Ok((transform_culprit, _species, mut breath_culprit, _anim, _pos, _is_player)) = creatures.p0().get_mut(info.entity.to_owned()) {
+                    if let Ok((transform_culprit, _species, mut breath_culprit, _ax, _anim, _pos, _is_player)) = creatures.p0().get_mut(info.entity.to_owned()) {
                         let mut anim_output = Vec::new();
                         for soul in payload{
                             let slot = if let Ok((_anim, _transform, _sprite, soul_id), ) = souls.get(soul) { match_soul_with_display_index(soul_id) } else { panic!("A stolen soul does not exist!")};
@@ -369,7 +389,7 @@ fn dispense_functions(
 
                 },
                 Function::RedirectSouls { dam, dest } => {
-                    let new_info = if let Ok((_transform_source, species, _breath, _anim, pos, is_player)) = creatures.p0().get(dest) {
+                    let new_info = if let Ok((_transform_source, species, _breath, _ax, _anim, pos, is_player)) = creatures.p0().get(dest) {
                         CasterInfo{entity: dest, pos: (pos.x, pos.y), species: species.clone(), momentum: pos.momentum, is_player}
                     } else { panic!("The RedirectSouls's destination entity does not exist!")};
                     world_map.targeted_axioms.push((entity, Function::StealSouls { dam }, new_info));
