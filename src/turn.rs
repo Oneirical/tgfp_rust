@@ -268,7 +268,7 @@ fn dispense_functions(
     while !world_map.targeted_axioms.is_empty() {
         anti_infinite_loop += 1;
         if anti_infinite_loop > 500 { panic!("Infinite loop detected in axiom queue!") }
-        let (entity, function, info) = world_map.targeted_axioms.pop().unwrap();
+        let (entity, function, mut info) = world_map.targeted_axioms.pop().unwrap();
         if let Ok((transform_source, _species, mut breath, mut effects, _anim, mut pos, is_player)) = creatures.p0().get_mut(entity.to_owned()) {
             let transform_source_trans = transform_source.translation;
             let function = function.to_owned();
@@ -416,6 +416,21 @@ fn dispense_functions(
                     let dest = (dist as i32 * info.momentum.0, dist as i32 * info.momentum.1);
                     world_map.targeted_axioms.push((entity, Function::Dash { dx: dest.0, dy: dest.1 }, info.clone()));
                 },
+                Function::MomentumSlamDash { dist } => {
+                    world_map.targeted_axioms.push((entity, Function::MeleeSlam { dist }, info.clone()));
+                    world_map.targeted_axioms.push((entity, Function::MomentumDash { dist }, info.clone()));
+                },
+                Function::MeleeSlam { dist } => {
+                    let coll_pos = match creatures.p1().get(info.entity) {
+                        Ok(coll_pos_full) => (coll_pos_full.x, coll_pos_full.y),
+                        Err(_) => panic!("Impossible.")
+                    };
+                    info.pos = coll_pos;
+                    let targets = grab_coords_from_form(&world_map.entities, Form::MomentumTouch, info.clone());
+                    for target in targets.entities {
+                        world_map.targeted_axioms.push((target, Function::MomentumDash { dist }, info.clone()));
+                    }
+                }
                 Function::MomentumReverseDash { dist } => {
                     let dest = (dist as i32 * -info.momentum.0, dist as i32 * -info.momentum.1);
                     world_map.targeted_axioms.push((entity, Function::Dash { dx: dest.0, dy: dest.1 }, info.clone()));

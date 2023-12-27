@@ -40,6 +40,8 @@ pub enum Function {
     MessageLog {message_id: usize},
     ApplyEffect { effect: Effect },
     PossessCreature {duration: usize},
+    MomentumSlamDash {dist: usize},
+    MeleeSlam {dist: usize},
 }
 
 pub fn match_soul_with_axiom(

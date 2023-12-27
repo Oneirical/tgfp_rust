@@ -234,7 +234,7 @@ fn spawn_players(
     commands.insert_resource(CurrentEntityInUI{entity});
     commands.entity(entity).insert(AxiomEffects{ axioms: vec![
         (Form::MomentumBeam, Function::StealSouls { dam: 10 }),
-        (Form::Ego, Function::MomentumDash { dist: 5 }),
+        (Form::Ego, Function::MomentumSlamDash { dist: 5 }),
         (Form::MomentumBeam, Function::MomentumReverseDash { dist: 5 }),
         (Form::Empty, Function::Empty),
     ], polarity: vec![0,0,0,0], status: Vec::new()});

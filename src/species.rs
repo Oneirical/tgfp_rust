@@ -215,7 +215,7 @@ pub fn match_species_with_axioms(
             (Form::MomentumBeam, Function::StealSouls { dam: 4 }),
             (Form::MomentumBeam, Function::StealSouls { dam: 4 }),
             (Form::MomentumBeam, Function::PossessCreature { duration: 15 }),
-            (Form::MomentumBeam, Function::PossessCreature { duration: 15 }), // Circlet slash, pull closer?
+            (Form::MomentumBeam, Function::PossessCreature { duration: 15 }),
         ], vec![-1,-1,-1,-1] ),
         _ => (vec![
             (Form::Empty, Function::Empty),
