@@ -4,7 +4,7 @@ use bevy::prelude::*;
 use bevy_tweening::{*, lens::{TransformPositionLens, TransformScaleLens, TransformRotationLens}};
 use rand::seq::SliceRandom;
 
-use crate::{components::{QueuedAction, RealityAnchor, Position, SoulBreath, AxiomEffects, EffectMarker, Faction}, input::ActionType, TurnState, map::{xy_idx, WorldMap, is_in_bounds, bresenham_line, get_neighbouring_entities, get_best_move, get_all_factions_except_one}, soul::{Soul, get_soul_rot_position, SoulRotationTimer, match_soul_with_display_index, match_soul_with_sprite, select_random_entities, CurrentEntityInUI}, ui::{CenterOfWheel, LogMessage}, axiom::{grab_coords_from_form, CasterInfo, match_soul_with_axiom, Function, Form, match_axiom_with_soul, Effect, EffectType}, species::{Species, match_faction_with_index, match_species_with_priority}, ZoomInEffect, SpriteSheetHandle};
+use crate::{components::{QueuedAction, RealityAnchor, Position, SoulBreath, AxiomEffects, EffectMarker, Faction}, input::ActionType, TurnState, map::{xy_idx, WorldMap, is_in_bounds, bresenham_line, get_neighbouring_entities, get_best_move, get_all_factions_except_one}, soul::{Soul, get_soul_rot_position, SoulRotationTimer, match_soul_with_display_index, match_soul_with_sprite, select_random_entities, CurrentEntityInUI}, ui::{CenterOfWheel, LogMessage}, axiom::{grab_coords_from_form, CasterInfo, match_soul_with_axiom, Function, Form, match_axiom_with_soul, Effect, EffectType, match_effect_with_decay, DecayType}, species::{Species, match_faction_with_index, match_species_with_priority}, ZoomInEffect, SpriteSheetHandle};
 
 pub struct TurnPlugin;
 
@@ -220,7 +220,9 @@ fn execute_turn (
         };
         let mut remove_these_effects = Vec::new();
         for (i, eff) in effects.status.iter_mut().enumerate() {
-            eff.stacks -= 1;
+            if match_effect_with_decay(&eff.effect_type) == DecayType::EachTurn {
+                eff.stacks.saturating_sub(1);
+            }
             if eff.stacks == 0 {
                 match eff.effect_type {
                     EffectType::Possession { link } => {

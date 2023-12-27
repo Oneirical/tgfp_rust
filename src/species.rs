@@ -1,6 +1,6 @@
 use std::time::Duration;
 
-use crate::{components::{Position, QueuedAction, SoulBreath, AxiomEffects, Faction}, SpriteSheetHandle, input::ActionType, axiom::{Form, Function}};
+use crate::{components::{Position, QueuedAction, SoulBreath, AxiomEffects, Faction}, SpriteSheetHandle, input::ActionType, axiom::{Form, Function, Effect, EffectType}};
 use bevy::prelude::*;
 use bevy_tweening::{*, lens::TransformPositionLens};
 use std::f32::consts::PI;
@@ -66,7 +66,12 @@ impl CreatureBundle { // Creatures displayed on screen.
                 (Form::MomentumBeam, Function::StealSouls { dam: 10 }),
                 (Form::MomentumBeam, Function::Empty),
                 (Form::MomentumBeam, Function::Empty),
-            ], polarity: vec![-1,-1,-1,-1], status: Vec::new() }
+            ], polarity: vec![-1,-1,-1,-1], status: vec![
+                Effect{stacks: 1, effect_type: EffectType::Glamour},
+                Effect{stacks: 1, effect_type: EffectType::Discipline},
+                Effect{stacks: 1, effect_type: EffectType::Grace},
+                Effect{stacks: 1, effect_type: EffectType::Pride},
+            ]}
         }
     }
     pub fn with_data(

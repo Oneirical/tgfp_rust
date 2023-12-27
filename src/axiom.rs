@@ -17,6 +17,39 @@ pub enum EffectType {
     Possession {link: Entity},
 }
 
+pub fn match_effect_with_decay(
+    effect: &EffectType
+) -> DecayType {
+    match effect {
+        EffectType::Discipline => DecayType::Move,
+        EffectType::Glamour => DecayType::DealDamage,
+        EffectType::Grace => DecayType::CastSoul,
+        EffectType::Pride => DecayType::TakeDamage,
+        _ => DecayType::EachTurn
+    }
+}
+
+#[derive(Clone, Debug, PartialEq)]
+pub enum DecayType {
+    EachTurn,
+    DealDamage,
+    TakeDamage,
+    Move,
+    CastSoul,
+}
+
+pub fn match_effect_with_sprite(
+    effect: &EffectType
+) -> usize {
+    match effect {
+        EffectType::Glamour => 160,
+        EffectType::Discipline => 161,
+        EffectType::Grace => 164,
+        EffectType::Pride => 165,
+        _ => 1,
+    }
+}
+
 #[derive(Clone)]
 pub enum Form {
     Empty,

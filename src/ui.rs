@@ -9,7 +9,7 @@ pub struct UIPlugin;
 
 impl Plugin for UIPlugin {
     fn build(&self, app: &mut App) {
-        app.add_systems(Startup, (draw_chain_borders, draw_soul_deck));
+        app.add_systems(Startup, (draw_chain_borders, draw_soul_deck, draw_sidebar));
         app.add_systems(PostStartup, draw_minimap);
         app.add_systems(OnEnter(TurnState::AwaitingInput), update_minimap);
         app.add_systems(Update, (place_down_text, push_log));
@@ -83,6 +83,54 @@ fn draw_soul_deck(
             },
             Name::new("Wheel Label"),
         ));
+    }
+}
+
+fn draw_sidebar(
+    asset_server: Res<AssetServer>,
+    mut commands: Commands, 
+    texture_atlas_handle: Res<SpriteSheetHandle>,
+){
+    let font = asset_server.load("Play-Regular.ttf");
+    let text_style = TextStyle {
+        font: font.clone(),
+        font_size: 30.,
+        color: Color::VIOLET,
+    };
+    commands.spawn((
+        Text2dBundle {
+            text: Text { sections: vec![TextSection {value: "Terminal".to_owned(), style: text_style.clone()}], alignment: TextAlignment::Center, linebreak_behavior: BreakLineOn::WordBoundary },
+            transform: Transform {
+                translation: Vec3{ x:1.2 ,y: 8.2,z: 0.2},
+                scale: Vec3{x: 1./64., y: 1./64., z: 0.}, // Set to the camera scaling mode fixed size
+                
+                ..default()
+            },
+            text_anchor: Anchor::TopCenter,
+            text_2d_bounds: Text2dBounds {size: Vec2 { x: 200., y: 300. }},
+            ..default()
+        },
+        Name::new("Species Name"),
+    ));
+    let chain_line = get_chain_line(4, (3.5, 14.4));
+    for chain in chain_line {
+        commands.spawn(UIBundle{
+            sprite_bundle: SpriteSheetBundle {
+                texture_atlas: texture_atlas_handle.handle.clone(),
+                sprite: TextureAtlasSprite{
+                    index : chain.sprite,
+                    custom_size: Some(Vec2::new(1., 1.)),
+                    ..default()
+                },
+                transform: Transform {
+                    translation: Vec3{ x: chain.position.0, y: chain.position.1, z: 1.0},
+                    rotation: Quat::from_rotation_z(chain.rotation),
+                    ..default()
+                },
+                ..default()
+            },
+            name: Name::new("Small Chain Line")
+        });
     }
 }
 
@@ -397,6 +445,7 @@ fn get_chain_border(
                     ChainType::Right => PI,
                     ChainType::Top => PI/2.,
                     ChainType::Bot => 3.*PI/2.,
+                    _ => panic!("Wrong chain type!")
                 };
                 output.push(ChainIcon { sprite, rotation, position: ((x as f32 - width as f32/2. + offset.0)/2.,(y as f32 - height as f32/2. + offset.1)/2.) });
             }
@@ -404,6 +453,38 @@ fn get_chain_border(
     }
     output
 }
+
+fn get_chain_line(
+    width: usize,
+    offset: (f32, f32),
+) -> Vec<ChainIcon>{
+    let mut output = Vec::new();
+    for x in 0..width{
+        let chain = match x{
+            0 => ChainType::EndLeft,
+            x if x == width-1 => ChainType::EndRight,
+            _ => ChainType::Bot,
+        };
+        let sprite = if chain == ChainType::Bot{
+            139
+        } else {
+            141
+        };
+        let rotation = match chain{
+            ChainType::EndRight => 3.*PI/2.,
+            ChainType::EndLeft => PI/2.,
+            ChainType::Bot => 3.*PI/2.,
+            _ => panic!("Wrong chain type!"),
+        };
+        let connect = match chain {
+            ChainType::EndLeft => (-1.,0.69),
+            _ => (0.,0.)
+        };
+        output.push(ChainIcon { sprite, rotation, position: ((x as f32 - width as f32/2. +connect.0 + offset.0)/2.,offset.1/2. + connect.1) });
+    }
+    output
+}
+
 #[derive(PartialEq)]
 enum ChainType{
     TopLeft,
@@ -413,7 +494,9 @@ enum ChainType{
     Top,
     Right,
     Left,
-    Bot
+    Bot,
+    EndLeft,
+    EndRight,
 }
 
 struct ChainIcon{

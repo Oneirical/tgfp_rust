@@ -39,7 +39,7 @@ fn main() {
                     resizable: true,
                     //resolution: (1920.0, 1080.0).into(),
                     title: "The Games Foxes Play".into(),
-                    //mode: WindowMode::Fullscreen,
+                    mode: WindowMode::Fullscreen,
                     position: WindowPosition::Centered(MonitorSelection::Current),
                     ..default()
                 }),
@@ -51,9 +51,9 @@ fn main() {
         .add_plugins(UIPlugin)
         .add_plugins(TurnPlugin)
         .add_plugins(SoulPlugin)
-        //.add_plugins(
-        //    WorldInspectorPlugin::default().run_if(input_toggle_active(true, KeyCode::Escape)),
-        //)
+        .add_plugins(
+            WorldInspectorPlugin::default().run_if(input_toggle_active(true, KeyCode::Escape)),
+        )
         .add_state::<TurnState>()
         .insert_resource(ClearColor(Color::rgb(0., 0., 0.)))
         .insert_resource(Msaa::Off) // This fixes weird black lines on the tiles.
