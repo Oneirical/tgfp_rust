@@ -8,7 +8,7 @@ pub struct MapPlugin;
 
 impl Plugin for MapPlugin {
     fn build(&self, app: &mut App) {
-        app.insert_resource(WorldMap{ entities: vec![None; WORLD_HEIGHT*WORLD_WIDTH], targeted_axioms: Vec::new(), warp_zones: Vec::new(), anim_queue: Vec::new(), animation_timer: Timer::new(Duration::from_millis(1),TimerMode::Repeating)});
+        app.insert_resource(WorldMap{ entities: vec![None; WORLD_HEIGHT*WORLD_WIDTH], targeted_axioms: Vec::new(), warp_zones: Vec::new(), anim_queue: Vec::new(), animation_timer: Timer::new(Duration::from_millis(1),TimerMode::Repeating), anim_reality_anchor: Entity::PLACEHOLDER});
         app.add_systems(Update, place_down_new_entities);
     }
 }
@@ -23,6 +23,7 @@ pub struct WorldMap {
     pub warp_zones: Vec<((usize, usize), Plane)>,
     pub anim_queue: Vec<(Entity, Animation)>,
     pub animation_timer: Timer,
+    pub anim_reality_anchor: Entity,
 }
 
 pub fn generate_world_vector() -> Vec<Option<Entity>>{

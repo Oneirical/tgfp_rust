@@ -185,6 +185,9 @@ fn execute_turn (
         world_map.targeted_axioms.push((play_ent, Function::MessageLog { message_id: turn_count.turns/10 }, CasterInfo::placeholder()));
     }
     for (entity, mut queue, species, effects, breath, mut pos, is_player) in creatures.iter_mut(){
+        if is_player {
+            world_map.anim_reality_anchor = entity;
+        }
         (pos.ox, pos.oy) = (pos.x, pos.y); // To reset for the form mark animations
         if breath.soulless {queue.action = ActionType::Nothing;}
         let info = CasterInfo{ entity, pos: (pos.x,pos.y), species: species.clone(), momentum: pos.momentum, is_player};
@@ -526,7 +529,8 @@ fn dispense_functions(
 fn unpack_animations(
     mut creatures: Query<(&SoulBreath, &mut Transform, &mut Animator<Transform>, &Position, Has<RealityAnchor>), With<Position>>,
     mut souls: Query<(&mut Animator<Transform>, &mut Visibility), (With<Soul>,Without<Position>)>,
-    player: Query<&Position, With<RealityAnchor>>,
+    player: Query<&Position>,
+    new_player: Query<Entity, With<RealityAnchor>>,
     mut next_state: ResMut<NextState<TurnState>>,
     mut world_map: ResMut<WorldMap>,
     time: Res<Time>,
@@ -537,15 +541,14 @@ fn unpack_animations(
     if !world_map.animation_timer.just_finished() {
         return;
     }
-    let (player_pos, player_opos, player_trans) = if let Ok(pos) = player.get_single() {
+    let (player_pos, player_opos, player_trans) = if let Ok(pos) = player.get(world_map.anim_reality_anchor) {
         ((pos.x,pos.y),(pos.ox, pos.oy),Vec2::new(11., 4.)) // These hardcoded values might be dangerous
     } else {panic!("0 or 2 players!")};
     let (entity, anim_choice) = match world_map.anim_queue.pop() { // The fact that this is pop and not a loop might cause "fake" lag with a lot of queued animations
         Some(element) => element,
         None => {
-            for (_breath, mut trans_crea, mut anim_crea, fini, is_player) in creatures.iter_mut(){
+            for (_breath, trans_crea, mut anim_crea, fini, _is_player) in creatures.iter_mut(){
                 let end = Vec3::new(player_trans.x + (fini.x as f32 -player_pos.0 as f32)/2., player_trans.y + (fini.y as f32 -player_pos.1 as f32)/2., 0.);
-                if is_player {trans_crea.translation = Vec3::new(11., 4., 0.); continue;}
                 let tween = Tween::new(
                     EaseFunction::QuadraticInOut,
                     Duration::from_millis(150), // must be the same as input delay to avoid offset
@@ -577,7 +580,7 @@ fn unpack_animations(
                 world_map.animation_timer.set_duration(Duration::from_millis(500));
             },
             Animation::SoulSwap => {
-                //TODO?
+                world_map.anim_reality_anchor = if let Ok(ent) =  new_player.get_single() { ent } else { panic!("0 or 2+ players!")};
                 world_map.animation_timer.set_duration(Duration::from_millis(1));
             }
             Animation::Passage => {
