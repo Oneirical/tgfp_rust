@@ -191,6 +191,16 @@ pub fn match_species_with_name(
     }
 }
 
+pub fn match_species_with_priority(
+    species: &Species
+) -> i32 {
+    match species{
+        Species::EpsilonHead => -1,
+        Species::EpsilonTail { order } => *order as i32,
+        _ => 0,
+    }
+}
+
 pub fn match_species_with_axioms(
     species: &Species
 ) -> (Vec<(Form, Function)>,Vec<i32>) {
