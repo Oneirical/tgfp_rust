@@ -217,10 +217,10 @@ pub fn match_species_with_axioms(
             (Form::MomentumBeam, Function::MomentumReverseDash { dist: 5 }), // Circlet slash, pull closer?
         ], vec![1,-2,-1,-1] ),
         Species::EpsilonHead { len: _ } => (vec![
+            (Form::MomentumBeam, Function::MomentumReverseDash { dist: 5 }),
+            (Form::MomentumLateral, Function::Coil { mult: 1 }),
             (Form::MomentumBeam, Function::StealSouls { dam: 4 }),
             (Form::MomentumBeam, Function::StealSouls { dam: 4 }),
-            (Form::MomentumBeam, Function::PossessCreature { duration: 150 }),
-            (Form::MomentumBeam, Function::PossessCreature { duration: 150 }),
         ], vec![-1,-1,-1,-1] ),
         _ => (vec![
             (Form::Empty, Function::Empty),

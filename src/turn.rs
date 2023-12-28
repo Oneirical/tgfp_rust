@@ -352,7 +352,7 @@ fn dispense_functions(
                         Err(_) => panic!("Impossible.")
                     };
                     match coll_species {
-                        Species::EpsilonTail { order: _ } => {
+                        Species::AxiomCrate => {
                             
                             if world_map.entities[xy_idx((coll_pos.0 as i32 + info.momentum.0) as usize, (coll_pos.1 as i32 + info.momentum.1) as usize)].is_some() {continue;}
                             world_map.targeted_axioms.push((entity, Function::MomentumDash { dist: 1 }, info.clone()));
@@ -410,6 +410,16 @@ fn dispense_functions(
                     }
 
                 },
+                Function::Coil { mult } => {
+                    let atk_pos = match creatures.p1().get(info.entity) {
+                        Ok(atk_pos) => (atk_pos.x, atk_pos.y),
+                        Err(_) => panic!("Impossible.")
+                    };
+                    let adj = get_neighbouring_entities(&world_map.entities, atk_pos.0, atk_pos.1);
+                    let count = adj.iter().filter(|&x| x.is_some()).count();
+                    world_map.targeted_axioms.push((entity, Function::StealSouls { dam: mult*count }, info.clone()));
+
+                }
                 Function::RedirectSouls { dam, dest } => {
                     let new_info = if let Ok((_transform_source, species, _breath, _ax, _anim, pos, is_player)) = creatures.p0().get(dest) {
                         CasterInfo{entity: dest, pos: (pos.x, pos.y), species: species.clone(), momentum: pos.momentum, is_player}

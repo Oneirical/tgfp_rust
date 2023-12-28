@@ -56,6 +56,7 @@ pub enum Form {
     Ego,
     MomentumBeam,
     MomentumTail,
+    MomentumLateral,
     MomentumTouch,
 }
 #[derive(Clone, Debug)]
@@ -63,17 +64,18 @@ pub enum Function {
     Empty,
     Dash { dx: i32, dy: i32 }, // Position is incremented by dx and dy, but stops when it hits an edge or a creature.
     Teleport { x: usize, y: usize }, // 
-    MomentumDash { dist: usize },
-    MomentumReverseDash { dist: usize },
+    MomentumDash { dist: usize }, // Grace
+    MomentumReverseDash { dist: usize }, // Grace
     DiscardSoul { soul: Entity, slot: usize },
-    StealSouls { dam: usize },
+    StealSouls { dam: usize }, // Pride
     SwapAnchor,
-    RedirectSouls { dam: usize, dest: Entity},
+    RedirectSouls { dam: usize, dest: Entity}, // Pride
     Collide {with: Entity},
     MessageLog {message_id: usize},
     ApplyEffect { effect: Effect },
-    PossessCreature {duration: usize},
-    MomentumSlamDash {dist: usize},
+    PossessCreature {duration: usize}, // Glamour
+    MomentumSlamDash {dist: usize}, // Discipline
+    Coil {mult: usize},
     MeleeSlam {dist: usize},
 }
 
@@ -133,6 +135,8 @@ pub fn grab_coords_from_form( // vec in vec for better, synchronized animations?
         Form::MomentumBeam => blocked_beam(tup_usize_to_i32(caster.pos), (caster.pos.0 as i32+ caster.momentum.0*45, caster.pos.1 as i32+ caster.momentum.1*45), map),
         Form::MomentumTail => vec![tup_i32_to_usize((tup_usize_to_i32(caster.pos).0-caster.momentum.0, tup_usize_to_i32(caster.pos).1-caster.momentum.1))],
         Form::MomentumTouch => vec![tup_i32_to_usize((tup_usize_to_i32(caster.pos).0+caster.momentum.0, tup_usize_to_i32(caster.pos).1+caster.momentum.1))],
+        Form::MomentumLateral => vec![tup_i32_to_usize((tup_usize_to_i32(caster.pos).0+caster.momentum.1, tup_usize_to_i32(caster.pos).1+caster.momentum.0)), 
+            tup_i32_to_usize((tup_usize_to_i32(caster.pos).0-caster.momentum.1, tup_usize_to_i32(caster.pos).1-caster.momentum.0))],
     };
     let mut entities = Vec::with_capacity(coords.len());
     for (x,y) in &coords {
