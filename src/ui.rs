@@ -195,7 +195,10 @@ fn place_down_text(
 ){
     for event in events.read(){
         let mut text_sections = Vec::new();
-        let chosen_text = LORE[event.0];
+        let chosen_text = match LORE.get(event.0) {
+            Some(lore) => *lore,
+            None => "\"Hi, Onei here. That text index doesn't exist, so here I am instead. Please report this bug.\"",
+        };
         let split_text = split_text(chosen_text, &asset_server);
         for (snippet, style) in split_text {
             text_sections.push(TextSection::new(snippet, style));

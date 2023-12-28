@@ -352,7 +352,7 @@ fn dispense_functions(
                         Err(_) => panic!("Impossible.")
                     };
                     match coll_species {
-                        Species::AxiomCrate => {
+                        Species::EpsilonTail { order: _ } => {
                             
                             if world_map.entities[xy_idx((coll_pos.0 as i32 + info.momentum.0) as usize, (coll_pos.1 as i32 + info.momentum.1) as usize)].is_some() {continue;}
                             world_map.targeted_axioms.push((entity, Function::MomentumDash { dist: 1 }, info.clone()));
