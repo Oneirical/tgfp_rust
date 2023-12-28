@@ -140,8 +140,8 @@ pub enum Species {
     Felidol,
     TermiWall,
     RiftBorder{dir: usize},
-    EpsilonHead,
-    EpsilonTail {order: usize},
+    EpsilonHead {len: usize},
+    EpsilonTail{order: usize},
     LunaMoth,
     AxiomCrate,
 }
@@ -158,8 +158,8 @@ pub fn match_species_with_sprite(
         Species::TermiWall => 37,
         Species::RiftBorder { dir: _ } => 108,
         Species::Projector => 2,
-        Species::EpsilonHead => 67,
-        Species::EpsilonTail { order: _ } => 68,
+        Species::EpsilonHead {len: _} => 67,
+        Species::EpsilonTail {order: _} => 68,
         Species::LunaMoth => 44,
         Species::AxiomCrate => 19,
     }
@@ -170,8 +170,8 @@ pub fn match_species_with_faction(
 ) -> Faction {
     match species {
         Species::LunaMoth => Faction::Feral,
-        Species::EpsilonHead => Faction::Ordered,
-        Species::EpsilonTail { order: _ } => Faction::Ordered,
+        Species::EpsilonHead { len: _ }=> Faction::Ordered,
+        Species::EpsilonTail {order: _}=> Faction::Ordered,
         Species::Terminal => Faction::Saintly,
         _ => Faction::Unaligned,
     }
@@ -189,8 +189,8 @@ pub fn match_species_with_name(
         Species::TermiWall => "Tangled Circuits",
         Species::RiftBorder { dir: _ } => "Thought-Matter Rift",
         Species::Projector => "Hypnotic Well",
-        Species::EpsilonHead => "Epsilon, Adorned in Jade",
-        Species::EpsilonTail { order: _ } => "Rubberized Mecha-Segment",
+        Species::EpsilonHead{ len: _ } => "Epsilon, Adorned in Jade",
+        Species::EpsilonTail {order: _}=> "Rubberized Mecha-Segment",
         Species::LunaMoth => "Cosmos Worn as Robes",
         Species::AxiomCrate => "Axiomatic Crate"
     }
@@ -200,7 +200,7 @@ pub fn match_species_with_priority(
     species: &Species
 ) -> i32 {
     match species{
-        Species::EpsilonHead => -1,
+        Species::EpsilonHead { len: _ } => -1,
         Species::EpsilonTail { order } => *order as i32,
         _ => 0,
     }
@@ -216,11 +216,11 @@ pub fn match_species_with_axioms(
             (Form::MomentumBeam, Function::MomentumReverseDash { dist: 5 }),
             (Form::MomentumBeam, Function::MomentumReverseDash { dist: 5 }), // Circlet slash, pull closer?
         ], vec![1,-2,-1,-1] ),
-        Species::EpsilonHead => (vec![
+        Species::EpsilonHead { len: _ } => (vec![
             (Form::MomentumBeam, Function::StealSouls { dam: 4 }),
             (Form::MomentumBeam, Function::StealSouls { dam: 4 }),
-            (Form::MomentumBeam, Function::PossessCreature { duration: 15 }),
-            (Form::MomentumBeam, Function::PossessCreature { duration: 15 }),
+            (Form::MomentumBeam, Function::PossessCreature { duration: 150 }),
+            (Form::MomentumBeam, Function::PossessCreature { duration: 150 }),
         ], vec![-1,-1,-1,-1] ),
         _ => (vec![
             (Form::Empty, Function::Empty),

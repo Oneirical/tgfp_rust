@@ -72,9 +72,9 @@ fn choose_action (
 
 fn calculate_actions (
     mut creatures: Query<(Entity, &mut QueuedAction, &AxiomEffects, &SoulBreath, &Position, &Species, &Faction, Has<RealityAnchor>)>,
-    souls: Query<&Soul>,
     read_species: Query<&Species>,
     read_position: Query<&Position>,
+    souls: Query<&Soul>,
     mut next_state: ResMut<NextState<TurnState>>,
     world_map: Res<WorldMap>,
     mut commands: Commands,
@@ -121,28 +121,47 @@ fn calculate_actions (
             Species::LunaMoth => {
                 choose_action(destination, foes, allies, ax.axioms.clone(), ax.polarity.clone(), available_souls, info, &world_map.entities)
             }
-            Species::EpsilonHead => {
-                let neigh = get_neighbouring_entities(&world_map.entities, pos.x, pos.y);
-                for detected in neigh{
-                    match detected {
-                        Some(creature) => {
-                            match read_species.get(creature).unwrap() {
-                                Species::EpsilonTail { order } => {
-                                    if order.eq(&0) {
+            Species::EpsilonHead { len } => {
+                let mut current_order = 0;
+                let mut self_pos = (pos.x, pos.y);
+                let mut self_mom = pos.momentum;
+                let mut detected_tails = Vec::new();
+                loop {
+                    let neigh = get_neighbouring_entities(&world_map.entities, self_pos.0, self_pos.1);
+                    let mut found_segment = false;
+                    for detected in neigh{
+                        match detected {
+                            Some(creature) => {
+                                match read_species.get(creature).unwrap() {
+                                    Species::EpsilonTail {order: _} => {
                                         let crea_pos = read_position.get(creature).unwrap();
-                                        let momentum = (pos.x as i32-crea_pos.x as i32, pos.y as i32-crea_pos.y as i32);
-                                        commands.entity(creature).insert(QueuedAction{action: ActionType::Walk { momentum }});
-                                    } else {continue;}
-                                },
-                                _ => continue,
-                            };
-                        }
-                        None => continue,
-                    };
+                                        let momentum = (self_pos.0 as i32-crea_pos.x as i32, self_pos.1 as i32-crea_pos.y as i32);
+
+                                        if (momentum == self_mom || current_order >= *len ) && !detected_tails.contains(&creature){
+                                            self_pos = (crea_pos.x, crea_pos.y);
+                                            self_mom = crea_pos.momentum;
+                                            commands.entity(creature).insert(QueuedAction{action: ActionType::Walk { momentum }});
+                                            found_segment = true;
+                                            detected_tails.push(creature);
+                                            commands.entity(creature).insert(Species::EpsilonTail { order: current_order });
+                                            current_order += 1;
+                                            break;
+                                        } else {continue;}
+                                    },
+                                    _ => continue,
+                                };
+                            }
+                            None => continue,
+                        };
+                    }
+                    if !found_segment {break;}
                 }
+                commands.entity(entity).insert(Species::EpsilonHead { len: current_order });
                 choose_action(destination, foes, allies, ax.axioms.clone(), ax.polarity.clone(), available_souls, info, &world_map.entities)
             },
-            Species::EpsilonTail { order } => {
+            Species::EpsilonTail {order: _} => {
+                /*
+
                 let neigh = get_neighbouring_entities(&world_map.entities, pos.x, pos.y);
                 let target_order = order+1;
                 for detected in neigh{
@@ -161,7 +180,7 @@ fn calculate_actions (
                         }
                         None => continue,
                     };
-                }
+                } */
                 queue.action.clone()
             },
             _ => ActionType::Nothing,
@@ -221,7 +240,7 @@ fn execute_turn (
         let mut remove_these_effects = Vec::new();
         for (i, eff) in effects.status.iter_mut().enumerate() {
             if match_effect_with_decay(&eff.effect_type) == DecayType::EachTurn {
-                eff.stacks.saturating_sub(1);
+                eff.stacks = eff.stacks.saturating_sub(1);
             }
             if eff.stacks == 0 {
                 match eff.effect_type {
@@ -237,13 +256,6 @@ fn execute_turn (
             effects.status.remove(i);
         }
     }
-    world_map.targeted_axioms.sort_by(|a, b| { // 
-        match (a.2.is_player, b.2.is_player) {
-            (true, true) | (false, false) => Ordering::Equal,
-            (true, false) => Ordering::Less,
-            (false, true) => Ordering::Greater,
-        }
-    });
     next_state.set(TurnState::DispensingFunctions);
 }
 
@@ -266,7 +278,15 @@ fn dispense_functions(
     mut current_crea_display: ResMut<CurrentEntityInUI>,
 ){
     let mut anti_infinite_loop = 0;
+    /*world_map.targeted_axioms.sort_by(|a, b| { // 
+        match (a.2.is_player, b.2.is_player) {
+            (true, true) | (false, false) => Ordering::Equal,
+            (true, false) => Ordering::Less,
+            (false, true) => Ordering::Greater,
+        }
+    }); // The player acts first */
     world_map.targeted_axioms.sort_unstable_by(|a, b| match_species_with_priority(&b.2.species).cmp(&match_species_with_priority(&a.2.species)));
+    // Then we grant special priorities
     while !world_map.targeted_axioms.is_empty() {
         anti_infinite_loop += 1;
         if anti_infinite_loop > 500 { panic!("Infinite loop detected in axiom queue!") }
@@ -682,7 +702,7 @@ fn unpack_animations(
                 world_map.animation_timer.set_duration(Duration::from_millis(25));
             },
             Animation::MessagePrint => {
-                world_map.animation_timer.set_duration(Duration::from_millis(300));
+                world_map.animation_timer.set_duration(Duration::from_millis(1));
             }
         }
     }
