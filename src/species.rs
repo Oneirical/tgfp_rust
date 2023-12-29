@@ -62,8 +62,8 @@ impl CreatureBundle { // Creatures displayed on screen.
             breath: SoulBreath { pile: lots_of_vec.clone(), discard: lots_of_vec.clone(), held: Vec::new(), soulless: false},
             faction: Faction::Unaligned,
             axioms: AxiomEffects { axioms: vec![
-                (Form::MomentumBeam, Function::StealSouls { dam: 10 }),
-                (Form::MomentumBeam, Function::StealSouls { dam: 10 }),
+                (Form::MomentumBeam, Function::FlatStealSouls { dam: 10 }),
+                (Form::MomentumBeam, Function::FlatStealSouls { dam: 10 }),
                 (Form::MomentumBeam, Function::Empty),
                 (Form::MomentumBeam, Function::Empty),
             ], polarity: vec![-1,-1,-1,-1], status: vec![
@@ -211,17 +211,23 @@ pub fn match_species_with_axioms(
 ) -> (Vec<(Form, Function)>,Vec<i32>) {
     match species{
         Species::LunaMoth => (vec![
-            (Form::Ego, Function::MomentumDash { dist: 5 }),
-            (Form::MomentumTouch, Function::StealSouls { dam: 4 }),
-            (Form::MomentumBeam, Function::MomentumReverseDash { dist: 5 }),
-            (Form::MomentumBeam, Function::MomentumReverseDash { dist: 5 }), // Circlet slash, pull closer?
+            (Form::Ego, Function::MomentumDash),
+            (Form::MomentumTouch, Function::StealSouls),
+            (Form::MomentumBeam, Function::MomentumReverseDash),
+            (Form::MomentumBeam, Function::MomentumReverseDash), // Circlet slash, pull closer?
         ], vec![1,-2,-1,-1] ),
         Species::EpsilonHead { len: _ } => (vec![
-            (Form::MomentumBeam, Function::MomentumReverseDash { dist: 5 }),
-            (Form::MomentumLateral, Function::Coil { mult: 1 }),
-            (Form::MomentumBeam, Function::StealSouls { dam: 4 }),
-            (Form::MomentumBeam, Function::StealSouls { dam: 4 }),
+            (Form::MomentumBeam, Function::MomentumReverseDash),
+            (Form::MomentumLateral, Function::Coil),
+            (Form::MomentumBeam, Function::StealSouls),
+            (Form::MomentumBeam, Function::StealSouls),
         ], vec![-1,-1,-1,-1] ),
+        Species::Terminal => (vec![
+            (Form::MomentumBeam, Function::StealSouls),
+            (Form::Ego, Function::MomentumSlamDash { dist: 5 }),
+            (Form::MomentumBeam, Function::MomentumReverseDash),
+            (Form::Empty, Function::Empty),
+        ], vec![0,0,0,0]),
         _ => (vec![
             (Form::Empty, Function::Empty),
             (Form::Empty, Function::Empty),

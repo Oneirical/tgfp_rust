@@ -4,7 +4,7 @@ use bevy::prelude::*;
 use bevy_tweening::{*, lens::{TransformPositionLens, TransformScaleLens, TransformRotationLens}};
 use rand::seq::SliceRandom;
 
-use crate::{components::{QueuedAction, RealityAnchor, Position, SoulBreath, AxiomEffects, EffectMarker, Faction}, input::ActionType, TurnState, map::{xy_idx, WorldMap, is_in_bounds, bresenham_line, get_neighbouring_entities, get_best_move, get_all_factions_except_one}, soul::{Soul, get_soul_rot_position, SoulRotationTimer, match_soul_with_display_index, match_soul_with_sprite, select_random_entities, CurrentEntityInUI}, ui::{CenterOfWheel, LogMessage}, axiom::{grab_coords_from_form, CasterInfo, match_soul_with_axiom, Function, Form, match_axiom_with_soul, Effect, EffectType, match_effect_with_decay, DecayType}, species::{Species, match_faction_with_index, match_species_with_priority}, ZoomInEffect, SpriteSheetHandle};
+use crate::{components::{QueuedAction, RealityAnchor, Position, SoulBreath, AxiomEffects, EffectMarker, Faction}, input::ActionType, TurnState, map::{xy_idx, WorldMap, is_in_bounds, bresenham_line, get_neighbouring_entities, get_best_move, get_all_factions_except_one}, soul::{Soul, get_soul_rot_position, SoulRotationTimer, match_soul_with_display_index, match_soul_with_sprite, select_random_entities, CurrentEntityInUI}, ui::{CenterOfWheel, LogMessage}, axiom::{grab_coords_from_form, CasterInfo, match_soul_with_axiom, Function, Form, match_axiom_with_soul, Effect, EffectType, match_effect_with_decay, TriggerType, reduce_down_to, match_effect_with_minimum, match_effect_with_gain}, species::{Species, match_faction_with_index, match_species_with_priority}, ZoomInEffect, SpriteSheetHandle};
 
 pub struct TurnPlugin;
 
@@ -85,7 +85,7 @@ fn calculate_actions (
     for _i in 0..5 {
         contestants.push(Vec::new());
     }
-    for (entity, _queue, _ax, brea, _pos, _species, faction, _is_player) in creatures.iter_mut(){
+    for (entity, _queue, ax, brea, _pos, _species, faction, _is_player) in creatures.iter_mut(){
         let index = match_faction_with_index(faction);
         if index.is_some() && !brea.soulless { contestants[index.unwrap()].push(entity); } else { continue;} // Gather the pool of fighters by faction.
     }
@@ -111,7 +111,8 @@ fn calculate_actions (
                 (tar_pos.x, tar_pos.y)
             }
         };
-        let info = CasterInfo{entity, pos: (pos.x, pos.y), species: species.clone(), momentum: pos.momentum, is_player};
+        let (glamour, discipline, grace, pride) = (ax.status[0].stacks, ax.status[1].stacks,ax.status[2].stacks,ax.status[3].stacks);
+        let info = CasterInfo{entity, pos: (pos.x, pos.y), species: species.clone(), momentum: pos.momentum, is_player, glamour, grace, discipline, pride };
         let mut available_souls = Vec::with_capacity(4);
         for av in &brea.held {
             if let Ok(soul_type) = souls.get(*av) { available_souls.push(soul_type) };
@@ -209,7 +210,8 @@ fn execute_turn (
         }
         (pos.ox, pos.oy) = (pos.x, pos.y); // To reset for the form mark animations
         if breath.soulless {queue.action = ActionType::Nothing;}
-        let info = CasterInfo{ entity, pos: (pos.x,pos.y), species: species.clone(), momentum: pos.momentum, is_player};
+        let (glamour, discipline, grace, pride) = (effects.status[0].stacks, effects.status[1].stacks,effects.status[2].stacks,effects.status[3].stacks);
+        let mut info = CasterInfo{ entity, pos: (pos.x,pos.y), species: species.clone(), momentum: pos.momentum, is_player, glamour, grace, discipline, pride};
         match queue.action{
             ActionType::SoulCast { slot } => {
                 let soul = match breath.held.get(slot).cloned(){ // Check that we aren't picking an empty slot.
@@ -231,29 +233,25 @@ fn execute_turn (
                 }
 
                 world_map.targeted_axioms.push((entity, Function::DiscardSoul { soul, slot }, info.clone()));
+
+                // CASTING
+                // ++Glamour
+                // --Grace
+                world_map.targeted_axioms.push((entity, Function::TriggerEffect { trig: TriggerType::CastSoul }, info.clone()));
             }
             ActionType::Walk { momentum } => {
-                world_map.targeted_axioms.push((entity, Function::Teleport { x: (pos.x as i32 + momentum.0) as usize, y: (pos.y as i32 + momentum.1) as usize }, CasterInfo{entity, pos: (pos.x, pos.y), species: species.clone(), momentum, is_player}));
+                info.momentum = momentum;
+                world_map.targeted_axioms.push((entity, Function::Teleport { x: (pos.x as i32 + momentum.0) as usize, y: (pos.y as i32 + momentum.1) as usize }, info.clone()));
             },
             ActionType::Nothing => ()
         };
-        let mut remove_these_effects = Vec::new();
-        for (i, eff) in effects.status.iter_mut().enumerate() {
-            if match_effect_with_decay(&eff.effect_type) == DecayType::EachTurn {
-                eff.stacks = eff.stacks.saturating_sub(1);
-            }
-            if eff.stacks == 0 {
-                match eff.effect_type {
-                    EffectType::Possession { link } => {
-                        world_map.targeted_axioms.push((link, Function::SwapAnchor, info.clone()));
-                    },
-                    _ => (),
+        if effects.status.len() > 4 {
+            for eff in effects.status.iter_mut() {
+                if match_effect_with_decay(&eff.effect_type) == TriggerType::EachTurn || match_effect_with_gain(&eff.effect_type) == TriggerType::EachTurn { // If at least one turn-decay effect, tick them
+                    world_map.targeted_axioms.push((entity, Function::TriggerEffect { trig: TriggerType::EachTurn }, info.clone()));
+                    break;
                 }
-                remove_these_effects.push(i);
             }
-        }
-        for i in remove_these_effects{
-            effects.status.remove(i);
         }
     }
     next_state.set(TurnState::DispensingFunctions);
@@ -292,6 +290,11 @@ fn dispense_functions(
         if anti_infinite_loop > 500 { panic!("Infinite loop detected in axiom queue!") }
         let (entity, function, mut info) = world_map.targeted_axioms.pop().unwrap();
         if let Ok((transform_source, _species, mut breath, mut effects, _anim, mut pos, is_player)) = creatures.p0().get_mut(entity.to_owned()) {
+            //let (glamour, discipline, grace, pride) = (effects.status[0].stacks, effects.status[1].stacks,effects.status[2].stacks,effects.status[3].stacks);
+            assert_eq!(effects.status[0].effect_type, EffectType::Glamour);
+            assert_eq!(effects.status[1].effect_type, EffectType::Discipline);
+            assert_eq!(effects.status[2].effect_type, EffectType::Grace);
+            assert_eq!(effects.status[3].effect_type, EffectType::Pride);
             let transform_source_trans = transform_source.translation;
             let function = function.to_owned();
             match function {
@@ -310,6 +313,12 @@ fn dispense_functions(
                     let dest = (pos.x as i32 -old_pos.0 as i32, pos.y as i32-old_pos.1 as i32);
                     let idx = xy_idx(pos.x, pos.y);
                     world_map.entities.swap(old_idx, idx);
+
+                    // MOVING
+                    // ++Grace
+                    // --Discipline
+                    world_map.targeted_axioms.push((entity, Function::TriggerEffect { trig: TriggerType::Move }, info.clone()));
+
                     let max = dest.0.abs().max(dest.1.abs());
                     assert!(!(dest.0 == 0 && dest.1 == 0));
                     pos.momentum = if max == dest.0.abs(){ // Reassign the new momentum.
@@ -338,12 +347,81 @@ fn dispense_functions(
 
                     }
                 },
+                Function::FlatStealSouls { dam } => {
+                    let mut rng = rand::thread_rng();
+                    let mut payload = select_random_entities(&mut breath.discard, dam, &mut rng);
+                    if payload.len() < dam {
+                        payload.append(&mut select_random_entities(&mut breath.pile, dam, &mut rng));
+                    }
+                    if payload.len() < dam {
+                        while payload.len() < dam && !breath.held.is_empty(){
+                            payload.push(breath.held.pop().unwrap());
+                            if breath.held.is_empty() {
+                                breath.soulless = true;
+                                world_map.anim_queue.push((entity, Animation::Soulless));
+                            }
+                        }
+                    }
+
+                    // TAKING DAMAGE
+                    // ++Discipline
+                    // --Pride
+                    world_map.targeted_axioms.push((entity, Function::TriggerEffect { trig: TriggerType::TakeDamage }, info.clone()));
+
+                    // DEALING DAMAGE
+                    // ++Pride
+                    // --Glamour
+                    world_map.targeted_axioms.push((info.entity, Function::TriggerEffect { trig: TriggerType::DealDamage }, info.clone()));
+
+                    
+                    if let Ok((transform_culprit, _species, mut breath_culprit, _ax, _anim, _pos, _is_player)) = creatures.p0().get_mut(info.entity.to_owned()) {
+                        let mut anim_output = Vec::new();
+                        for soul in payload{
+                            let slot = if let Ok((_anim, _transform, _sprite, soul_id), ) = souls.get(soul) { match_soul_with_display_index(soul_id) } else { panic!("A stolen soul does not exist!")};
+                            breath_culprit.discard[slot].push(soul);
+                            breath_culprit.soulless = false;
+                            anim_output.push(soul);
+                        }
+                        world_map.anim_queue.push((entity, Animation::SoulDrain { source: transform_source_trans, destination: transform_culprit.translation, drained: anim_output }));
+                    }
+
+                },
+                Function::TriggerEffect { trig } => {
+                    let mut remove_these_effects = Vec::new();
+                    for (i, eff) in effects.status.iter_mut().enumerate() {
+                        if match_effect_with_decay(&eff.effect_type) == trig {
+                            eff.stacks = reduce_down_to(match_effect_with_minimum(&eff.effect_type), eff.stacks, 1);
+                        }
+                        if match_effect_with_gain(&eff.effect_type) == trig {
+                            eff.stacks += 1;
+                        }
+                        if eff.stacks == 0 {
+                            match eff.effect_type {
+                                EffectType::Possession { link } => {
+                                    world_map.targeted_axioms.push((link, Function::SwapAnchor, info.clone()));
+                                },
+                                _ => (),
+                            }
+                            remove_these_effects.push(i);
+                        }
+                    }
+                    for i in remove_these_effects{
+                        effects.status.remove(i);
+                    }
+                }
                 Function::ApplyEffect { effect } => {
                     effects.status.push(effect);
                 },
-                Function::PossessCreature { duration } => {
+                Function::StealSouls => {
+                    world_map.targeted_axioms.push((entity, Function::FlatStealSouls { dam: info.pride }, info.clone()));
+                }
+                Function::PossessCreature => {
+                    let duration = info.glamour;
                     world_map.targeted_axioms.push((entity, Function::SwapAnchor, info.clone()));
                     world_map.targeted_axioms.push((entity, Function::ApplyEffect { effect: Effect {stacks: duration, effect_type: EffectType::Possession { link: info.entity }}}, info.clone()));
+                }
+                Function::MomentumDash => {
+                    world_map.targeted_axioms.push((entity, Function::FlatMomentumDash { dist: info.grace }, info.clone()));
                 }
                 Function::Collide { with } => {
                     let coll_species = creatures.p2().get(with).unwrap().clone();
@@ -355,8 +433,8 @@ fn dispense_functions(
                         Species::AxiomCrate => {
                             
                             if world_map.entities[xy_idx((coll_pos.0 as i32 + info.momentum.0) as usize, (coll_pos.1 as i32 + info.momentum.1) as usize)].is_some() {continue;}
-                            world_map.targeted_axioms.push((entity, Function::MomentumDash { dist: 1 }, info.clone()));
-                            world_map.targeted_axioms.push((with, Function::MomentumDash { dist: 1 }, info.clone()));
+                            world_map.targeted_axioms.push((entity, Function::FlatMomentumDash { dist: 1 }, info.clone()));
+                            world_map.targeted_axioms.push((with, Function::FlatMomentumDash { dist: 1 }, info.clone()));
                         }
                         _ => ()
                     }
@@ -382,49 +460,22 @@ fn dispense_functions(
                         current_crea_display.entity = info.entity;
                     }
                 }
-                Function::StealSouls { dam } => {
-                    let mut rng = rand::thread_rng();
-                    let mut payload = select_random_entities(&mut breath.discard, dam, &mut rng);
-                    if payload.len() < dam {
-                        payload.append(&mut select_random_entities(&mut breath.pile, dam, &mut rng));
-                    }
-                    if payload.len() < dam {
-                        while payload.len() < dam && !breath.held.is_empty(){
-                            payload.push(breath.held.pop().unwrap());
-                            if breath.held.is_empty() {
-                                breath.soulless = true;
-                                world_map.anim_queue.push((entity, Animation::Soulless));
-                            }
-                        }
-                    }
-                    
-                    if let Ok((transform_culprit, _species, mut breath_culprit, _ax, _anim, _pos, _is_player)) = creatures.p0().get_mut(info.entity.to_owned()) {
-                        let mut anim_output = Vec::new();
-                        for soul in payload{
-                            let slot = if let Ok((_anim, _transform, _sprite, soul_id), ) = souls.get(soul) { match_soul_with_display_index(soul_id) } else { panic!("A stolen soul does not exist!")};
-                            breath_culprit.discard[slot].push(soul);
-                            breath_culprit.soulless = false;
-                            anim_output.push(soul);
-                        }
-                        world_map.anim_queue.push((entity, Animation::SoulDrain { source: transform_source_trans, destination: transform_culprit.translation, drained: anim_output }));
-                    }
-
-                },
-                Function::Coil { mult } => {
+                Function::Coil => {
                     let atk_pos = match creatures.p1().get(info.entity) {
                         Ok(atk_pos) => (atk_pos.x, atk_pos.y),
                         Err(_) => panic!("Impossible.")
                     };
                     let adj = get_neighbouring_entities(&world_map.entities, atk_pos.0, atk_pos.1);
                     let count = adj.iter().filter(|&x| x.is_some()).count();
-                    world_map.targeted_axioms.push((entity, Function::StealSouls { dam: mult*count }, info.clone()));
+                    world_map.targeted_axioms.push((entity, Function::FlatStealSouls { dam: info.pride*count }, info.clone()));
 
                 }
                 Function::RedirectSouls { dam, dest } => {
-                    let new_info = if let Ok((_transform_source, species, _breath, _ax, _anim, pos, is_player)) = creatures.p0().get(dest) {
-                        CasterInfo{entity: dest, pos: (pos.x, pos.y), species: species.clone(), momentum: pos.momentum, is_player}
+                    let new_info = if let Ok((_transform_source, species, _breath, ax, _anim, pos, is_player)) = creatures.p0().get(dest) {
+                        let (glamour, discipline, grace, pride) = (ax.status[0].stacks, ax.status[1].stacks,ax.status[2].stacks,ax.status[3].stacks);
+                        CasterInfo{entity: dest, pos: (pos.x, pos.y), species: species.clone(), momentum: pos.momentum, is_player, glamour, grace, discipline, pride}
                     } else { panic!("The RedirectSouls's destination entity does not exist!")};
-                    world_map.targeted_axioms.push((entity, Function::StealSouls { dam }, new_info));
+                    world_map.targeted_axioms.push((entity, Function::FlatStealSouls { dam }, new_info));
                 },
                 Function::Dash { dx, dy } => {
                     let dest = (dx, dy);
@@ -444,13 +495,13 @@ fn dispense_functions(
                     }
                     world_map.targeted_axioms.push((entity, Function::Teleport { x: fx, y: fy }, info.clone()));
                 },
-                Function::MomentumDash { dist } => {
+                Function::FlatMomentumDash { dist } => {
                     let dest = (dist as i32 * info.momentum.0, dist as i32 * info.momentum.1);
                     world_map.targeted_axioms.push((entity, Function::Dash { dx: dest.0, dy: dest.1 }, info.clone()));
                 },
                 Function::MomentumSlamDash { dist } => {
                     world_map.targeted_axioms.push((entity, Function::MeleeSlam { dist }, info.clone()));
-                    world_map.targeted_axioms.push((entity, Function::MomentumDash { dist }, info.clone()));
+                    world_map.targeted_axioms.push((entity, Function::FlatMomentumDash { dist }, info.clone()));
                 },
                 Function::MeleeSlam { dist } => {
                     let coll_pos = match creatures.p1().get(info.entity) {
@@ -460,10 +511,11 @@ fn dispense_functions(
                     info.pos = coll_pos;
                     let targets = grab_coords_from_form(&world_map.entities, Form::MomentumTouch, info.clone());
                     for target in targets.entities {
-                        world_map.targeted_axioms.push((target, Function::MomentumDash { dist }, info.clone()));
+                        world_map.targeted_axioms.push((target, Function::FlatMomentumDash { dist }, info.clone()));
                     }
                 }
-                Function::MomentumReverseDash { dist } => {
+                Function::MomentumReverseDash => {
+                    let dist = info.grace;
                     let dest = (dist as i32 * -info.momentum.0, dist as i32 * -info.momentum.1);
                     world_map.targeted_axioms.push((entity, Function::Dash { dx: dest.0, dy: dest.1 }, info.clone()));
                 },
@@ -587,6 +639,8 @@ fn dispense_functions(
                 },
                 Function::Empty => ()
             };
+            //let new_stats = &effects.status.clone();
+
         }
     }
     world_map.anim_queue.reverse(); // I will probably forget about this and rage later

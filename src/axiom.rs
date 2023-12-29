@@ -2,16 +2,16 @@ use bevy::ecs::entity::Entity;
 
 use crate::{soul::Soul, species::Species, map::{get_entity_at_coords, bresenham_line, is_in_bounds, xy_idx}};
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq)]
 pub struct Effect {
     pub stacks: usize,
     pub effect_type: EffectType,
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq)]
 pub enum EffectType {
     Glamour, // ++ casting, -- deal dmg // Your soul, a droplet, drowning in an ocean of endless lives.
-    Pride, // ++ deal dmg, -- take dmg // Us, standing on towers of gold so high and bright they burn away all doubt. You, so, so below, in a pit of submission so hidden one wonders how we even noticed your existence.
+    Pride, // ++ deal dmg, -- take dmg* // Us, standing on towers of gold so high and bright they burn away all doubt. You, so, so below, in a pit of submission so hidden one wonders how we even noticed your existence.
     Discipline, // ++ take dmg, -- move // Maximize pleasure. Minimize pain. Maximize reproduction. Minimize solitude. Your flesh is one of carbon, yet your soul mimicks silicon.
     Grace, // ++ move, -- casting // You ran without thought or reason, pursued in a meadow where each blade of grass had been turned to a steel knife, until none was left but blood.
     Possession {link: Entity},
@@ -19,23 +19,60 @@ pub enum EffectType {
 
 pub fn match_effect_with_decay(
     effect: &EffectType
-) -> DecayType {
+) -> TriggerType {
     match effect {
-        EffectType::Discipline => DecayType::Move,
-        EffectType::Glamour => DecayType::DealDamage,
-        EffectType::Grace => DecayType::CastSoul,
-        EffectType::Pride => DecayType::TakeDamage,
-        _ => DecayType::EachTurn
+        EffectType::Discipline => TriggerType::Move,
+        EffectType::Glamour => TriggerType::DealDamage,
+        EffectType::Grace => TriggerType::CastSoul,
+        EffectType::Pride => TriggerType::TakeDamage,
+        _ => TriggerType::EachTurn
+    }
+}
+
+pub fn match_effect_with_gain(
+    effect: &EffectType
+) -> TriggerType {
+    match effect {
+        EffectType::Grace => TriggerType::Move,
+        EffectType::Pride => TriggerType::DealDamage,
+        EffectType::Glamour => TriggerType::CastSoul,
+        EffectType::Discipline => TriggerType::TakeDamage,
+        _ => TriggerType::Never
+    }
+}
+
+pub fn match_effect_with_minimum(
+    effect: &EffectType
+) -> usize {
+    match effect {
+        EffectType::Discipline => 1,
+        EffectType::Glamour => 1,
+        EffectType::Grace => 1,
+        EffectType::Pride => 1,
+        _ => 0
+    }
+}
+
+pub fn reduce_down_to(
+    lowest: usize,
+    ori: usize,
+    reduc: usize,
+) -> usize {
+    if ori.saturating_sub(reduc) < lowest {
+        lowest
+    } else {
+        ori.saturating_sub(reduc)
     }
 }
 
 #[derive(Clone, Debug, PartialEq)]
-pub enum DecayType {
+pub enum TriggerType {
     EachTurn,
     DealDamage,
     TakeDamage,
     Move,
     CastSoul,
+    Never,
 }
 
 pub fn match_effect_with_sprite(
@@ -59,24 +96,29 @@ pub enum Form {
     MomentumLateral,
     MomentumTouch,
 }
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq)]
 pub enum Function {
     Empty,
     Dash { dx: i32, dy: i32 }, // Position is incremented by dx and dy, but stops when it hits an edge or a creature.
     Teleport { x: usize, y: usize }, // 
-    MomentumDash { dist: usize }, // Grace
-    MomentumReverseDash { dist: usize }, // Grace
+    FlatMomentumDash { dist: usize },
     DiscardSoul { soul: Entity, slot: usize },
-    StealSouls { dam: usize }, // Pride
+    FlatStealSouls { dam: usize },
     SwapAnchor,
-    RedirectSouls { dam: usize, dest: Entity}, // Pride
+    RedirectSouls { dam: usize, dest: Entity},
     Collide {with: Entity},
     MessageLog {message_id: usize},
     ApplyEffect { effect: Effect },
-    PossessCreature {duration: usize}, // Glamour
-    MomentumSlamDash {dist: usize}, // Discipline
-    Coil {mult: usize},
+    MomentumSlamDash {dist: usize},
     MeleeSlam {dist: usize},
+    TriggerEffect {trig: TriggerType},
+
+    MomentumDash, // Grace
+    MomentumReverseDash, // Grace
+    PossessCreature, // Glamour
+    StealSouls, // Pride
+    Coil, // Pride
+
 }
 
 pub fn match_soul_with_axiom(
@@ -114,13 +156,17 @@ pub struct CasterInfo{
     pub pos: (usize,usize),
     pub species: Species,
     pub momentum: (i32,i32),
+    pub glamour: usize,
+    pub grace: usize,
+    pub discipline: usize,
+    pub pride: usize,
     pub is_player: bool,
 }
 
 impl CasterInfo{
     pub fn placeholder(
     ) -> CasterInfo {
-        CasterInfo { entity: Entity::PLACEHOLDER, pos: (0,0), species: Species::BuggedSpecies, momentum: (0,1), is_player: false }
+        CasterInfo { entity: Entity::PLACEHOLDER, pos: (0,0), species: Species::BuggedSpecies, momentum: (0,1), is_player: false, glamour: 1, pride: 1, grace: 1, discipline: 1 }
     }
 }
 

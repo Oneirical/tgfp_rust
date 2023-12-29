@@ -39,7 +39,7 @@ fn main() {
                     resizable: true,
                     //resolution: (1920.0, 1080.0).into(),
                     title: "The Games Foxes Play".into(),
-                    mode: WindowMode::Fullscreen,
+                    //mode: WindowMode::Fullscreen,
                     position: WindowPosition::Centered(MonitorSelection::Current),
                     ..default()
                 }),
@@ -232,12 +232,6 @@ fn spawn_players(
         RealityAnchor { player_id: 0},
     )).id();
     commands.insert_resource(CurrentEntityInUI{entity});
-    commands.entity(entity).insert(AxiomEffects{ axioms: vec![
-        (Form::MomentumBeam, Function::StealSouls { dam: 10 }),
-        (Form::Ego, Function::MomentumSlamDash { dist: 5 }),
-        (Form::MomentumBeam, Function::MomentumReverseDash { dist: 5 }),
-        (Form::Empty, Function::Empty),
-    ], polarity: vec![0,0,0,0], status: Vec::new()});
 }
 
 fn summon_walls(
