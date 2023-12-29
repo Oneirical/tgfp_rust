@@ -47,6 +47,11 @@ pub struct LogIndex{
     pub going_to: f32,
 }
 
+#[derive(Component)]
+pub struct EffectTracker{
+    pub tracking_index: usize,
+}
+
 #[derive(Component, PartialEq)]
 pub enum Faction{
     Saintly,
