@@ -410,7 +410,17 @@ fn dispense_functions(
                     }
                 }
                 Function::ApplyEffect { effect } => {
-                    effects.status.push(effect);
+                    let mut found_same_effect = false;
+                    for eff in effects.status.iter_mut() {
+                        if eff.effect_type == effect.effect_type {
+                            eff.stacks += effect.stacks;
+                            found_same_effect = true;
+                            break;
+                        }
+                    }
+                    if !found_same_effect {
+                        effects.status.push(effect);
+                    }
                 },
                 Function::StealSouls => {
                     world_map.targeted_axioms.push((entity, Function::FlatStealSouls { dam: info.pride }, info.clone()));
