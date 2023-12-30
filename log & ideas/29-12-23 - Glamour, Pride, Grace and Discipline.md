@@ -16,7 +16,9 @@ Here's how it works: all creatures start at 1 stack each of Glamour, Discipline,
 * **Casting Axioms** increases Glamour, but lowers Grace.
 * **Moving** increases Grace, but lowers Discipline.
 
-All Axioms scale off one or multiple of these Virtues to define their power level. For example, the aforementioned Possession lasts longer the more Glamour stacks you have. This paves the way to some character archetypes:
+All Axioms scale off one or multiple of these Virtues to define their power level. For example, the aforementioned Possession lasts longer the more Glamour stacks you have. 
+
+Another example is Coil, which scales off Discipline and deals more damage if the target is surrounded by solid entities. Or Pull, which drags targeted creatures closer with distance relative to your Grace. This paves the way to some character archetypes:
 
 * "Trickster/debuffer" for Glamour.
 * "Tank" for Discipline.
@@ -27,6 +29,8 @@ The goal of this mechanic is twofold:
 
 A) Since every instance of "damage" in the game is basically lifesteal, some battles can go on forever as two powerful foes drain each other over and over. Virtues prevent this, as they (especially Discipline) keep on getting stacked until Axioms have become so powerful that ties will be broken.
 
-B) Certain Virtues, especially Glamour, open the way to unconventional strategies. How can one defeat foes without being allowed to deal damage? In the case of Epsilon's challenge, it is possible to bait the snake into attaching to itself the segments scattered around the arena, then Possessing it, and moving Epsilon's body so that it becomes stuck on a wall with no way to exit. But to do this, one has to stack their Glamour first, which involves finding safe spaces to cast Axioms without getting obliterated by Epsilon's attacks.
+B) Certain Virtues, especially Glamour, open the way to unconventional strategies. How can one defeat foes without being allowed to deal damage? [In the case of Epsilon's challenge, it is possible to bait the snake into attaching to itself the segments scattered around the arena, then Possessing it, and moving Epsilon's body so that it becomes stuck on a wall with no way to exit. But to do this, one has to stack their Glamour first, which involves finding safe spaces to cast Axioms without getting obliterated by Epsilon's attacks.](https://yewtu.be/embed/zwRAGfCumTo?) Check out the video for a full demonstration!
 
 I am mildly suspicious that this mechanic will lead to oneshot fiestas and cheesy mechanics - moving back and forth in a corner over and over to stack Grace, for example. Perhaps it will have to be removed, or more hopefully, it will be able to shine with a few tweaks.
+
+My next objective is shipping the reworked Epsilon boss battle in playable form soon-ish. It has been too long since the last release.

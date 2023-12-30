@@ -202,7 +202,7 @@ fn execute_turn (
 ){
     let play_ent = if let Ok(ent) = player.get_single() { ent } else { panic!("0 or 2+ players")};
     if turn_count.turns%10 == 1 {
-        world_map.targeted_axioms.push((play_ent, Function::MessageLog { message_id: turn_count.turns/10 }, CasterInfo::placeholder()));
+        //world_map.targeted_axioms.push((play_ent, Function::MessageLog { message_id: turn_count.turns/10 }, CasterInfo::placeholder()));
     }
     for (entity, mut queue, species, mut effects, breath, mut pos, is_player) in creatures.iter_mut(){
         if is_player {
