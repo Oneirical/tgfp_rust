@@ -241,7 +241,7 @@ fn execute_turn (
             }
             ActionType::Walk { momentum } => {
                 info.momentum = momentum;
-                world_map.targeted_axioms.push((entity, Function::Teleport { x: (pos.x as i32 + momentum.0) as usize, y: (pos.y as i32 + momentum.1) as usize }, info.clone()));
+                world_map.targeted_axioms.push((entity, Function::FlatMomentumDash {dist: 1}, info.clone()));
             },
             ActionType::Nothing => ()
         };
