@@ -15,6 +15,7 @@ pub enum EffectType {
     Discipline, // ++ take dmg, -- move // Maximize pleasure. Minimize pain. Maximize reproduction. Minimize solitude. Your flesh is one of carbon, yet your soul mimicks silicon.
     Grace, // ++ move, -- casting // You ran without thought or reason, pursued in a meadow where each blade of grass had been turned to a steel knife, until none was left but blood.
     Possession {link: Entity},
+    Polymorph {original: Species},
 }
 
 pub fn match_effect_with_decay(
@@ -112,13 +113,15 @@ pub enum Function {
     MomentumSlamDash {dist: usize},
     MeleeSlam {dist: usize},
     TriggerEffect {trig: TriggerType},
+    PolymorphNow {new_species: Species},
 
     MomentumDash, // Grace
     MomentumReverseDash, // Grace
     PossessCreature, // Glamour
     StealSouls, // Pride
     Coil, // Pride
-
+    ImitateSpecies, // Discipline
+    SwapSpecies, // Discipline
 }
 
 pub fn match_soul_with_axiom(

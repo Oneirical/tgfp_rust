@@ -4,7 +4,7 @@ use bevy::prelude::*;
 use bevy_tweening::{*, lens::{TransformPositionLens, TransformScaleLens, TransformRotationLens}};
 use rand::seq::SliceRandom;
 
-use crate::{components::{QueuedAction, RealityAnchor, Position, SoulBreath, AxiomEffects, EffectMarker, Faction}, input::ActionType, TurnState, map::{xy_idx, WorldMap, is_in_bounds, bresenham_line, get_neighbouring_entities, get_best_move, get_all_factions_except_one}, soul::{Soul, get_soul_rot_position, SoulRotationTimer, match_soul_with_display_index, match_soul_with_sprite, select_random_entities, CurrentEntityInUI}, ui::{CenterOfWheel, LogMessage}, axiom::{grab_coords_from_form, CasterInfo, match_soul_with_axiom, Function, Form, match_axiom_with_soul, Effect, EffectType, match_effect_with_decay, TriggerType, reduce_down_to, match_effect_with_minimum, match_effect_with_gain}, species::{Species, match_faction_with_index, match_species_with_priority}, ZoomInEffect, SpriteSheetHandle};
+use crate::{components::{QueuedAction, RealityAnchor, Position, SoulBreath, AxiomEffects, EffectMarker, Faction}, input::ActionType, TurnState, map::{xy_idx, WorldMap, is_in_bounds, bresenham_line, get_neighbouring_entities, get_best_move, get_all_factions_except_one}, soul::{Soul, get_soul_rot_position, SoulRotationTimer, match_soul_with_display_index, match_soul_with_sprite, select_random_entities, CurrentEntityInUI}, ui::{CenterOfWheel, LogMessage}, axiom::{grab_coords_from_form, CasterInfo, match_soul_with_axiom, Function, Form, match_axiom_with_soul, Effect, EffectType, match_effect_with_decay, TriggerType, reduce_down_to, match_effect_with_minimum, match_effect_with_gain}, species::{Species, match_faction_with_index, match_species_with_priority, match_species_with_sprite}, ZoomInEffect, SpriteSheetHandle};
 
 pub struct TurnPlugin;
 
@@ -15,7 +15,8 @@ pub enum Animation{
     FormMark {coords: (usize, usize)},
     Soulless,
     MessagePrint,
-    SoulSwap
+    SoulSwap,
+    Polymorph {new_species: Species},
 }
 
 impl Plugin for TurnPlugin {
@@ -261,7 +262,7 @@ fn execute_turn (
 
 fn dispense_functions(
     mut creatures: ParamSet<(
-        Query<(&Transform, &Species, &mut SoulBreath, &mut AxiomEffects, &mut Animator<Transform>, &mut Position, Has<RealityAnchor>)>,
+        Query<(&Transform, &mut Species, &mut SoulBreath, &mut AxiomEffects, &mut Animator<Transform>, &mut Position, Has<RealityAnchor>)>,
         Query<&Position>,
         Query<&Species>,
     )>,
@@ -289,7 +290,7 @@ fn dispense_functions(
         anti_infinite_loop += 1;
         if anti_infinite_loop > 500 { panic!("Infinite loop detected in axiom queue!") }
         let (entity, function, mut info) = world_map.targeted_axioms.pop().unwrap();
-        if let Ok((transform_source, _species, mut breath, mut effects, _anim, mut pos, is_player)) = creatures.p0().get_mut(entity.to_owned()) {
+        if let Ok((transform_source, mut species, mut breath, mut effects, _anim, mut pos, is_player)) = creatures.p0().get_mut(entity.to_owned()) {
             //let (glamour, discipline, grace, pride) = (effects.status[0].stacks, effects.status[1].stacks,effects.status[2].stacks,effects.status[3].stacks);
             assert_eq!(effects.status[0].effect_type, EffectType::Glamour);
             assert_eq!(effects.status[1].effect_type, EffectType::Discipline);
@@ -396,10 +397,13 @@ fn dispense_functions(
                             eff.stacks += 1;
                         }
                         if eff.stacks == 0 {
-                            match eff.effect_type {
+                            match &eff.effect_type {
                                 EffectType::Possession { link } => {
-                                    world_map.targeted_axioms.push((link, Function::SwapAnchor, info.clone()));
+                                    world_map.targeted_axioms.push((*link, Function::SwapAnchor, info.clone()));
                                 },
+                                EffectType::Polymorph { original } => {
+                                    world_map.targeted_axioms.push((entity, Function::PolymorphNow { new_species: original.clone() }, info.clone()));
+                                }
                                 _ => (),
                             }
                             remove_these_effects.push(i);
@@ -429,6 +433,22 @@ fn dispense_functions(
                     let duration = info.glamour;
                     world_map.targeted_axioms.push((entity, Function::SwapAnchor, info.clone()));
                     world_map.targeted_axioms.push((entity, Function::ApplyEffect { effect: Effect {stacks: duration, effect_type: EffectType::Possession { link: info.entity }}}, info.clone()));
+                }
+                Function::ImitateSpecies => {
+                    let duration = info.grace;
+                    world_map.targeted_axioms.push((info.entity, Function::PolymorphNow { new_species: species.clone() }, info.clone()));
+                    world_map.targeted_axioms.push((info.entity, Function::ApplyEffect { effect: Effect {stacks: duration, effect_type: EffectType::Polymorph { original: info.species.clone() }}}, info.clone()));
+                }
+                Function::SwapSpecies => {
+                    let duration = info.grace;
+                    world_map.targeted_axioms.push((info.entity, Function::PolymorphNow { new_species: species.clone() }, info.clone()));
+                    world_map.targeted_axioms.push((info.entity, Function::ApplyEffect { effect: Effect {stacks: duration, effect_type: EffectType::Polymorph { original: info.species.clone() }}}, info.clone()));
+                    world_map.targeted_axioms.push((entity, Function::PolymorphNow { new_species: info.species.clone() }, info.clone()));
+                    world_map.targeted_axioms.push((entity, Function::ApplyEffect { effect: Effect {stacks: duration, effect_type: EffectType::Polymorph { original: species.clone() }}}, info.clone()));
+                }
+                Function::PolymorphNow { new_species } => {
+                    *species = new_species.clone();
+                    world_map.anim_queue.push((entity, Animation::Polymorph {new_species}));
                 }
                 Function::MomentumDash => {
                     world_map.targeted_axioms.push((entity, Function::FlatMomentumDash { dist: info.grace }, info.clone()));
@@ -658,7 +678,7 @@ fn dispense_functions(
 }
 
 fn unpack_animations(
-    mut creatures: Query<(&SoulBreath, &mut Transform, &mut Animator<Transform>, &Position, Has<RealityAnchor>), With<Position>>,
+    mut creatures: Query<(&SoulBreath, &mut Transform, &mut TextureAtlasSprite, &mut Animator<Transform>, &Position, Has<RealityAnchor>), With<Position>>,
     mut souls: Query<(&mut Animator<Transform>, &mut Visibility), (With<Soul>,Without<Position>)>,
     player: Query<&Position>,
     new_player: Query<Entity, With<RealityAnchor>>,
@@ -678,7 +698,7 @@ fn unpack_animations(
     let (entity, anim_choice) = match world_map.anim_queue.pop() { // The fact that this is pop and not a loop might cause "fake" lag with a lot of queued animations
         Some(element) => element,
         None => {
-            for (_breath, trans_crea, mut anim_crea, fini, _is_player) in creatures.iter_mut(){
+            for (_breath, trans_crea, _sprite, mut anim_crea, fini, _is_player) in creatures.iter_mut(){
                 let end = Vec3::new(player_trans.x + (fini.x as f32 -player_pos.0 as f32)/2., player_trans.y + (fini.y as f32 -player_pos.1 as f32)/2., 0.);
                 let tween = Tween::new(
                     EaseFunction::QuadraticInOut,
@@ -695,8 +715,11 @@ fn unpack_animations(
             return;
         }
     };
-    if let Ok((breath, transform, mut anim, _fin, _is_player)) = creatures.get_mut(entity.to_owned()) {
+    if let Ok((breath, transform, mut sprite, mut anim, _fin, _is_player)) = creatures.get_mut(entity.to_owned()) {
         match anim_choice {
+            Animation::Polymorph {new_species}=> {
+                sprite.index = match_species_with_sprite(&new_species);
+            }
             Animation::Soulless => {
                 if !breath.soulless {return;}
                 let tween_rot = Tween::new(
@@ -715,7 +738,7 @@ fn unpack_animations(
                 world_map.animation_timer.set_duration(Duration::from_millis(1));
             }
             Animation::Passage => {
-                for (_breath, transform, mut anim, posi, is_player) in creatures.iter_mut(){
+                for (_breath, transform, _sprite, mut anim, posi, is_player) in creatures.iter_mut(){
                     if is_player {continue;}
                     let tween_sc = Tween::new(
                         EaseFunction::QuadraticInOut,
