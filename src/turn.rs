@@ -537,6 +537,15 @@ fn dispense_functions(
                     *species = new_species.clone();
                     world_map.anim_queue.push((entity, Animation::Polymorph {new_species}));
                 }
+                Function::BlinkOuter => {
+                    let dests = grab_coords_from_form(&world_map.entities, Form::BigOuter, info.clone());
+                    for target in dests.coords {
+                        if world_map.entities[xy_idx(target.0, target.1)].is_none() {
+                            world_map.targeted_axioms.push((entity, Function::Teleport { x: target.0, y: target.1 }, info.clone()));
+                            break;
+                        }
+                    }
+                }
                 Function::MomentumDash => {
                     world_map.targeted_axioms.push((entity, Function::FlatMomentumDash { dist: info.grace }, info.clone()));
                 }

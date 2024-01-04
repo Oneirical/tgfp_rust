@@ -98,6 +98,8 @@ pub enum Form {
     MomentumTail,
     MomentumLateral,
     MomentumTouch,
+    SmallBurst,
+    BigOuter,
 }
 #[derive(Clone, Debug, PartialEq)]
 pub enum Function {
@@ -118,6 +120,7 @@ pub enum Function {
     PolymorphNow {new_species: Species},
     Charm {dur: usize},
     InjectCaste {num: usize, caste: Soul},
+    BlinkOuter,
 
     MomentumDash, // Grace
     MomentumReverseDash, // Grace
@@ -177,7 +180,7 @@ pub fn grab_coords_from_form( // vec in vec for better, synchronized animations?
     form: Form,
     caster: CasterInfo,
 ) -> ReturnedForm {
-    let coords = match form {
+    let mut coords = match form {
         Form::Empty => Vec::new(),
         Form::Ego => vec![caster.pos],
         Form::MomentumBeam => blocked_beam(tup_usize_to_i32(caster.pos), (caster.pos.0 as i32+ caster.momentum.0*45, caster.pos.1 as i32+ caster.momentum.1*45), map),
@@ -185,7 +188,10 @@ pub fn grab_coords_from_form( // vec in vec for better, synchronized animations?
         Form::MomentumTouch => vec![tup_i32_to_usize((tup_usize_to_i32(caster.pos).0+caster.momentum.0, tup_usize_to_i32(caster.pos).1+caster.momentum.1))],
         Form::MomentumLateral => vec![tup_i32_to_usize((tup_usize_to_i32(caster.pos).0+caster.momentum.1, tup_usize_to_i32(caster.pos).1+caster.momentum.0)), 
             tup_i32_to_usize((tup_usize_to_i32(caster.pos).0-caster.momentum.1, tup_usize_to_i32(caster.pos).1-caster.momentum.0))],
+        Form::SmallBurst => filled_circle(tup_usize_to_i32(caster.pos), 3),
+        Form::BigOuter => outer_circle(tup_usize_to_i32(caster.pos), 10),
     };
+    coords.retain(|coordinate| is_in_bounds(coordinate.0 as i32, coordinate.1 as i32));
     let mut entities = Vec::with_capacity(coords.len());
     for (x,y) in &coords {
         match get_entity_at_coords(map, *x, *y) {
@@ -194,6 +200,64 @@ pub fn grab_coords_from_form( // vec in vec for better, synchronized animations?
         }
     }
     ReturnedForm { entities, coords } 
+}
+
+fn filled_circle(
+    ori: (i32, i32),
+    radius: i32,
+) -> Vec<(usize, usize)> {
+    let mut coords = Vec::new();
+    let (mut x, mut y) = (1, radius);
+    let mut d = 3 - 2 * radius;
+ 
+    while x <= y {
+        for dy in -y..=y {
+            coords.push(((ori.0 + x) as usize, (ori.1 + dy) as usize));
+            coords.push(((ori.0 - x) as usize, (ori.1 + dy) as usize));
+            coords.push(((ori.0 + dy) as usize, (ori.1 + x) as usize));
+            coords.push(((ori.0 + dy) as usize, (ori.1 - x) as usize));
+        }
+ 
+        if d > 0 {
+            y -= 1;
+            d += 4 * (x - y) + 10;
+        } else {
+            d += 4 * x + 6;
+        }
+        x += 1;
+    }
+ 
+    coords
+}
+
+fn outer_circle(
+    origin: (i32, i32),
+    radius: i32,
+) -> Vec<(usize, usize)> {
+    let mut coords = Vec::new();
+    let (mut x, mut y) = (0, radius);
+    let mut d = 3 - 2 * radius;
+ 
+    while y >= x {
+        coords.push(((origin.0 + x) as usize, (origin.1 + y) as usize));
+        coords.push(((origin.0 + y) as usize, (origin.1 + x) as usize));
+        coords.push(((origin.0 - x) as usize, (origin.1 + y) as usize));
+        coords.push(((origin.0 - y) as usize, (origin.1 + x) as usize));
+        coords.push(((origin.0 + x) as usize, (origin.1 - y) as usize));
+        coords.push(((origin.0 + y) as usize, (origin.1 - x) as usize));
+        coords.push(((origin.0 - x) as usize, (origin.1 - y) as usize));
+        coords.push(((origin.0 - y) as usize, (origin.1 - x) as usize));
+ 
+        if d > 0 {
+            y -= 1;
+            d += 4 * (x - y) + 10;
+        } else {
+            d += 4 * x + 6;
+        }
+        x += 1;
+    }
+ 
+    coords
 }
 
 fn blocked_beam(
