@@ -238,10 +238,10 @@ pub fn match_species_with_axioms(
             (Form::MomentumBeam, Function::StealSouls),
         ], vec![-1,-1,-1,-1] ),
         Species::Terminal => (vec![
+            (Form::MomentumBeam, Function::PossessCreature),
+            (Form::MomentumBeam, Function::ImitateSpecies),
             (Form::MomentumBeam, Function::Synchronize),
-            (Form::Ego, Function::MomentumSlamDash { dist: 5 }),
-            (Form::MomentumBeam, Function::MomentumReverseDash),
-            (Form::Empty, Function::Empty),
+            (Form::MomentumBeam, Function::CyanCharm),
         ], vec![0,0,0,0]),
         _ => (vec![
             (Form::Empty, Function::Empty),

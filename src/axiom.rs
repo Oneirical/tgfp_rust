@@ -1,6 +1,6 @@
 use bevy::ecs::entity::Entity;
 
-use crate::{soul::Soul, species::Species, map::{get_entity_at_coords, bresenham_line, is_in_bounds, xy_idx}};
+use crate::{soul::Soul, species::Species, map::{get_entity_at_coords, bresenham_line, is_in_bounds, xy_idx}, components::Faction};
 
 #[derive(Clone, Debug, PartialEq)]
 pub struct Effect {
@@ -17,6 +17,7 @@ pub enum EffectType {
     Possession {link: Entity},
     Polymorph {original: Species},
     Sync {link: Entity},
+    Charm {original: Faction},
 }
 
 pub fn match_effect_with_decay(
@@ -115,6 +116,8 @@ pub enum Function {
     MeleeSlam {dist: usize},
     TriggerEffect {trig: TriggerType},
     PolymorphNow {new_species: Species},
+    Charm {dur: usize},
+    InjectCaste {num: usize, caste: Soul},
 
     MomentumDash, // Grace
     MomentumReverseDash, // Grace
@@ -124,6 +127,7 @@ pub enum Function {
     ImitateSpecies, // Discipline
     SwapSpecies, // Discipline
     Synchronize, // Grace
+    CyanCharm, //Pride
 }
 
 pub fn match_soul_with_axiom(
@@ -166,13 +170,6 @@ pub struct CasterInfo{
     pub discipline: usize,
     pub pride: usize,
     pub is_player: bool,
-}
-
-impl CasterInfo{
-    pub fn placeholder(
-    ) -> CasterInfo {
-        CasterInfo { entity: Entity::PLACEHOLDER, pos: (0,0), species: Species::BuggedSpecies, momentum: (0,1), is_player: false, glamour: 1, pride: 1, grace: 1, discipline: 1 }
-    }
 }
 
 pub fn grab_coords_from_form( // vec in vec for better, synchronized animations?

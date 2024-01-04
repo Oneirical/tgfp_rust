@@ -1,4 +1,4 @@
-use std::{time::Duration, f32::consts::PI, cmp::Ordering};
+use std::{time::Duration, f32::consts::PI};
 
 use bevy::prelude::*;
 use bevy_tweening::{*, lens::{TransformPositionLens, TransformScaleLens, TransformRotationLens}};
@@ -86,7 +86,7 @@ fn calculate_actions (
     for _i in 0..5 {
         contestants.push(Vec::new());
     }
-    for (entity, _queue, ax, brea, _pos, _species, faction, _is_player) in creatures.iter_mut(){
+    for (entity, _queue, _ax, brea, _pos, _species, faction, _is_player) in creatures.iter_mut(){
         let index = match_faction_with_index(faction);
         if index.is_some() && !brea.soulless { contestants[index.unwrap()].push(entity); } else { continue;} // Gather the pool of fighters by faction.
     }
@@ -279,6 +279,7 @@ fn dispense_functions(
         Query<&Position>,
         Query<&Species>,
     )>,
+    faction: Query<&Faction>,
     mut next_state: ResMut<NextState<TurnState>>,
     mut world_map: ResMut<WorldMap>,
     mut souls: Query<(&mut Animator<Transform>, &Transform, &mut TextureAtlasSprite, &mut Soul), Without<Position>>,
@@ -417,6 +418,9 @@ fn dispense_functions(
                                 EffectType::Polymorph { original } => {
                                     world_map.targeted_axioms.push((entity, Function::PolymorphNow { new_species: original.clone() }, info.clone()));
                                 }
+                                EffectType::Charm { original } => {
+                                    commands.entity(entity).insert(original.clone());
+                                }
                                 _ => (),
                             }
                             remove_these_effects.push(i);
@@ -448,8 +452,74 @@ fn dispense_functions(
                     world_map.targeted_axioms.push((entity, Function::ApplyEffect { effect: Effect {stacks: duration, effect_type: EffectType::Possession { link: info.entity }}}, info.clone()));
                 }
                 Function::Synchronize => {
-                    let duration = 999;//info.grace;
+                    let duration = 10;//info.grace;
                     world_map.targeted_axioms.push((entity, Function::ApplyEffect { effect: Effect {stacks: duration, effect_type: EffectType::Sync { link: info.entity }}}, info.clone()));
+                }
+                Function::Charm {dur}=> {
+                    let fac = match faction.get(entity) {
+                        Ok(fac) => fac,
+                        Err(_) => panic!("Impossible.")
+                    };
+                    let new_fac = match faction.get(info.entity) {
+                        Ok(new_fac) => new_fac,
+                        Err(_) => panic!("Impossible.")
+                    };
+                    world_map.targeted_axioms.push((entity, Function::ApplyEffect { effect: Effect {stacks: dur, effect_type: EffectType::Charm { original: fac.clone()}}}, info.clone()));
+                    commands.entity(entity).insert(new_fac.clone());
+                }
+                Function::InjectCaste {num, caste} => {
+                    let mut payload = Vec::with_capacity(num);
+                    let slot = match_soul_with_display_index(&caste);
+                    let mut origin_translation = Vec3::ZERO;
+
+                    if let Ok((transform_culprit, _species, mut breath_culprit, _ax, _anim, _pos, _is_player)) = creatures.p0().get_mut(info.entity.to_owned()) {
+                        origin_translation = transform_culprit.translation;
+                        while payload.len() < num {
+                            if !breath_culprit.discard[slot].is_empty() {
+                                let soul = breath_culprit.discard[slot].pop().unwrap();
+                                payload.push(soul);
+                            } else if !breath_culprit.pile[slot].is_empty() {
+                                let soul = breath_culprit.pile[slot].pop().unwrap();
+                                payload.push(soul);
+                            } else if !breath_culprit.held.is_empty() {
+                                let soul = breath_culprit.held.pop().unwrap();
+                                let soul_type = if let Ok((_anim, _transform, _sprite, soul_id), ) = souls.get(soul) {soul_id } else { panic!("A stolen soul does not exist!")};
+                                if soul_type == &caste {
+                                    payload.push(soul);
+                                } else {
+                                    breath_culprit.held.push(soul);
+                                }
+                            } else {
+                                breath_culprit.soulless = true;
+                                break;
+                            }
+                        }
+                    }
+                    if let Ok((transform_receiver, _species, mut breath_receiver, _ax, _anim, _pos, _is_player)) = creatures.p0().get_mut(entity) {
+                        let mut anim_output = Vec::new();
+                        for i in payload {
+                            breath_receiver.discard[slot].push(i);
+                            anim_output.push(i);
+                            breath_receiver.soulless = false;
+                        }
+                        world_map.anim_queue.push((entity, Animation::SoulDrain { source: origin_translation, destination: transform_receiver.translation, drained: anim_output }));
+                    }
+
+                    // TAKING DAMAGE
+                    // ++Discipline
+                    // --Pride
+                    world_map.targeted_axioms.push((info.entity, Function::TriggerEffect { trig: TriggerType::TakeDamage }, info.clone()));
+
+                    // DEALING DAMAGE
+                    // ++Pride
+                    // --Glamour
+                    world_map.targeted_axioms.push((entity, Function::TriggerEffect { trig: TriggerType::DealDamage }, info.clone()));
+
+                }
+                Function::CyanCharm => {
+                    let dur = 10;//info.pride;
+                    world_map.targeted_axioms.push((entity, Function::InjectCaste {num: 1, caste: Soul::Serene}, info.clone()));
+                    world_map.targeted_axioms.push((entity, Function::Charm {dur}, info.clone()));
                 }
                 Function::ImitateSpecies => {
                     let duration = info.grace;

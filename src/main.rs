@@ -1,7 +1,6 @@
 use std::time::Duration;
 
-use axiom::{Form, Function};
-use bevy::{prelude::*, render::camera::ScalingMode, window::WindowMode, input::common_conditions::input_toggle_active};
+use bevy::{prelude::*, render::camera::ScalingMode, input::common_conditions::input_toggle_active};
 use bevy_inspector_egui::quick::WorldInspectorPlugin;
 use bevy_mouse_tracking_plugin::{mouse_pos::{MousePosPlugin, InitMouseTracking}, MainCamera, MousePos};
 use bevy_tweening::TweeningPlugin;
@@ -180,8 +179,6 @@ fn toggle_resolution(
     keys: Res<Input<KeyCode>>,
     mut query_camera: Query<&mut OrthographicProjection, With<Camera2d>>,
     resolution: Res<ResolutionSettings>,
-
-    mouse: Res<MousePos>,
 ) {
     let mut projection = query_camera.single_mut();
 

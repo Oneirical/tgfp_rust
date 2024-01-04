@@ -1,6 +1,6 @@
 use bevy::prelude::*;
 
-use crate::{species::Species, input::ActionType, axiom::{Form, Function, Effect}, soul::Soul};
+use crate::{species::Species, input::ActionType, axiom::{Form, Function, Effect}};
 
 #[derive(Component)]
 pub struct RealityAnchor {
@@ -52,7 +52,7 @@ pub struct EffectTracker{
     pub tracking_index: usize,
 }
 
-#[derive(Component, PartialEq)]
+#[derive(Component, PartialEq, Clone, Debug)]
 pub enum Faction{
     Saintly,
     Feral,

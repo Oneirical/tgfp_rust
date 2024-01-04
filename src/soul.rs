@@ -4,7 +4,7 @@ use bevy::prelude::*;
 use bevy_tweening::{Animator, Tween, EaseFunction, lens::TransformPositionLens};
 use rand::Rng;
 
-use crate::{SpriteSheetHandle, components::{SoulBreath, RealityAnchor, Position, MomentumMarker}, ui::CenterOfWheel};
+use crate::{SpriteSheetHandle, components::{SoulBreath, Position, MomentumMarker}, ui::CenterOfWheel};
 
 pub struct SoulPlugin;
 
