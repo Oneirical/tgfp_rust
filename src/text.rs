@@ -21,7 +21,14 @@ pub const LORE: &[&str] = &[
 "[y]\"Epsilon, you know as well as I do the importance of my message.\"",
 "[y]\"Spread the word.\"",
 
+"[r]MELTDOWN - Each turn, if this [y]Creature[w] is adjacent to 4 [y]Creatures[w], it gains one [l]Meltdown[w]. Upon reaching 5 [l]Meltdown[w], it immediately [r]Concedes[w].",
+"The head of a gigantic mechanical snake, its blazing red eyes burning away the retinas of organics whom would dare stare too long. Its gold and chrome frills act as an attestation of the superiority of metal over muscle.",
 
+"[c]\"Fu! The vessel which adores its own emptiness has arrived to muddy our sights.\"",
+"[c]\"The serpent awaits his chance at seizing the Reality Anchor. We expect his victory with great certitude.\"",
+"[c]\"As to lessen your humiliation, ruffian, make your choice among the four Virtues presented at my sides.\"",
+"[c]\"Two shall follow, two shall remain.\"",
+"[c]\"Our frigid robes await their worthy wearer, hidden down a pit of trances within trances...\"",
 
 "The airlock opens in a hiss of steam.",
 "Steel tubes, eldritch glyphs and claw marks battle for representation along the walls of the cell.",
@@ -97,6 +104,9 @@ fn match_char_code_with_color(
                 'p' => Color::VIOLET,
                 'r' => Color::ORANGE_RED,
                 'y' => Color::YELLOW,
+                'w' => Color::WHITE,
+                'l' => Color::LIME_GREEN,
+                'c' => Color::CYAN,
                 _ => {
                     info!("Warning, an invalid color tag was used.");
                     Color::WHITE

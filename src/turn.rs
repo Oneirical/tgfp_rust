@@ -4,7 +4,7 @@ use bevy::prelude::*;
 use bevy_tweening::{*, lens::{TransformPositionLens, TransformScaleLens, TransformRotationLens}};
 use rand::seq::SliceRandom;
 
-use crate::{components::{QueuedAction, RealityAnchor, Position, SoulBreath, AxiomEffects, EffectMarker, Faction}, input::ActionType, TurnState, map::{xy_idx, WorldMap, is_in_bounds, bresenham_line, get_neighbouring_entities, get_best_move, get_all_factions_except_one}, soul::{Soul, get_soul_rot_position, SoulRotationTimer, match_soul_with_display_index, match_soul_with_sprite, select_random_entities, CurrentEntityInUI}, ui::{CenterOfWheel, LogMessage}, axiom::{grab_coords_from_form, CasterInfo, match_soul_with_axiom, Function, Form, match_axiom_with_soul, Effect, EffectType, match_effect_with_decay, TriggerType, reduce_down_to, match_effect_with_minimum, match_effect_with_gain}, species::{Species, match_faction_with_index, match_species_with_priority, match_species_with_sprite}, ZoomInEffect, SpriteSheetHandle};
+use crate::{components::{QueuedAction, RealityAnchor, Position, SoulBreath, AxiomEffects, EffectMarker, Faction}, input::ActionType, TurnState, map::{xy_idx, WorldMap, is_in_bounds, bresenham_line, get_neighbouring_entities, get_best_move, get_all_factions_except_one}, soul::{Soul, get_soul_rot_position, SoulRotationTimer, match_soul_with_display_index, match_soul_with_sprite, select_random_entities, CurrentEntityInUI}, ui::{CenterOfWheel, LogMessage}, axiom::{grab_coords_from_form, CasterInfo, match_soul_with_axiom, Function, Form, match_axiom_with_soul, Effect, EffectType, match_effect_with_decay, TriggerType, reduce_down_to, match_effect_with_minimum, match_effect_with_gain}, species::{Species, match_faction_with_index, match_species_with_priority, match_species_with_sprite, is_pushable}, ZoomInEffect, SpriteSheetHandle};
 
 pub struct TurnPlugin;
 
@@ -302,8 +302,8 @@ fn dispense_functions(
                 Function::Teleport { x, y } => {
                     if !is_in_bounds(x as i32, y as i32) {continue;}
                     else if world_map.entities[xy_idx(x, y)].is_some() { // Cancel teleport if target is occupied
-                        let collider = world_map.entities[xy_idx(x, y)].unwrap();
-                        world_map.targeted_axioms.push((entity, Function::Collide { with: collider }, info.clone()));
+                        //let collider = world_map.entities[xy_idx(x, y)].unwrap();
+                        //world_map.targeted_axioms.push((entity, Function::Collide { with: collider }, info.clone()));
                         continue;
                     }
                     let old_pos = (pos.x, pos.y);
@@ -459,14 +459,10 @@ fn dispense_functions(
                         Ok(coll_pos_full) => (coll_pos_full.x, coll_pos_full.y),
                         Err(_) => panic!("Impossible.")
                     };
-                    match coll_species {
-                        Species::AxiomCrate => {
-                            
-                            if world_map.entities[xy_idx((coll_pos.0 as i32 + info.momentum.0) as usize, (coll_pos.1 as i32 + info.momentum.1) as usize)].is_some() {continue;}
-                            world_map.targeted_axioms.push((entity, Function::FlatMomentumDash { dist: 1 }, info.clone()));
-                            world_map.targeted_axioms.push((with, Function::FlatMomentumDash { dist: 1 }, info.clone()));
-                        }
-                        _ => ()
+                    if is_pushable(&coll_species) {
+                        if world_map.entities[xy_idx((coll_pos.0 as i32 + info.momentum.0) as usize, (coll_pos.1 as i32 + info.momentum.1) as usize)].is_some() {continue;}
+                        world_map.targeted_axioms.push((entity, Function::FlatMomentumDash { dist: 1 }, info.clone()));
+                        world_map.targeted_axioms.push((with, Function::FlatMomentumDash { dist: 1 }, info.clone()));
                     }
                 },
                 Function::MessageLog { message_id } => {
@@ -516,6 +512,8 @@ fn dispense_functions(
                         if is_in_bounds(nx, ny){
                             if world_map.entities[xy_idx(nx as usize, ny as usize)].is_some() {
                                 // TODO Raise a collision event here
+                                let collider = world_map.entities[xy_idx(nx as usize, ny as usize)].unwrap();
+                                world_map.targeted_axioms.push((entity, Function::Collide { with: collider }, info.clone()));
                                 break;
                             }
                             else {(fx, fy) = (nx as usize, ny as usize)}

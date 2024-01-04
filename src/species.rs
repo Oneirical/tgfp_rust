@@ -144,6 +144,11 @@ pub enum Species {
     EpsilonTail{order: usize},
     LunaMoth,
     AxiomCrate,
+    GlamourCrate,
+    DisciplineCrate,
+    GraceCrate,
+    PrideCrate,
+    Harmonizer,
 }
 
 pub fn match_species_with_sprite(
@@ -162,6 +167,11 @@ pub fn match_species_with_sprite(
         Species::EpsilonTail {order: _} => 68,
         Species::LunaMoth => 44,
         Species::AxiomCrate => 19,
+        Species::Harmonizer => 26,
+        Species::GlamourCrate => 19,
+        Species::DisciplineCrate => 20,
+        Species::GraceCrate => 21,
+        Species::PrideCrate => 22,
     }
 }
 
@@ -192,7 +202,12 @@ pub fn match_species_with_name(
         Species::EpsilonHead{ len: _ } => "Epsilon, Adorned in Jade",
         Species::EpsilonTail {order: _}=> "Rubberized Mecha-Segment",
         Species::LunaMoth => "Cosmos Worn as Robes",
-        Species::AxiomCrate => "Axiomatic Crate"
+        Species::AxiomCrate => "Axiomatic Crate",
+        Species::GlamourCrate => "Adorned Crate",
+        Species::DisciplineCrate => "Steel-Plated Crate",
+        Species::GraceCrate => "Vibrating Crate",
+        Species::PrideCrate => "Tar-Soaked Crate",
+        Species::Harmonizer => "Harmonic Organizer",
     }
 }
 
@@ -286,6 +301,18 @@ pub fn is_invisible(
     match species {
         Species::Void => true,
         Species::Projector => true,
+        _ => false,
+    }
+}
+
+pub fn is_pushable(
+    species: &Species
+) -> bool {
+    match species {
+        Species::GlamourCrate => true,
+        Species::DisciplineCrate => true,
+        Species::GraceCrate => true,
+        Species::PrideCrate => true,
         _ => false,
     }
 }
