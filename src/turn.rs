@@ -194,26 +194,39 @@ fn calculate_actions (
 }
 
 fn execute_turn (
-    mut creatures: Query<(Entity, &mut QueuedAction, &Species, &mut AxiomEffects, &mut SoulBreath, &mut Position, Has<RealityAnchor>)>,
-    player: Query<Entity, With<RealityAnchor>>,
+    mut creatures: Query<(Entity, &QueuedAction, &Species, &mut AxiomEffects, &mut SoulBreath, &mut Position, Has<RealityAnchor>)>,
+    read_action: Query<&QueuedAction>,
     mut next_state: ResMut<NextState<TurnState>>,
     mut world_map: ResMut<WorldMap>,
     souls: Query<(&mut Animator<Transform>, &Transform, &Soul), Without<Position>>,
     turn_count: Res<TurnCount>,
 ){
-    let play_ent = if let Ok(ent) = player.get_single() { ent } else { panic!("0 or 2+ players")};
     if turn_count.turns%10 == 1 {
         //world_map.targeted_axioms.push((play_ent, Function::MessageLog { message_id: turn_count.turns/10 }, CasterInfo::placeholder()));
     }
-    for (entity, mut queue, species, mut effects, breath, mut pos, is_player) in creatures.iter_mut(){
+    for (entity, queue, species, mut effects, breath, mut pos, is_player) in creatures.iter_mut(){
         if is_player {
             world_map.anim_reality_anchor = entity;
         }
         (pos.ox, pos.oy) = (pos.x, pos.y); // To reset for the form mark animations
-        if breath.soulless {queue.action = ActionType::Nothing;}
+        let mut chosen_action = queue.action.clone();
+        if breath.soulless {chosen_action = ActionType::Nothing;}
         let (glamour, discipline, grace, pride) = (effects.status[0].stacks, effects.status[1].stacks,effects.status[2].stacks,effects.status[3].stacks);
         let mut info = CasterInfo{ entity, pos: (pos.x,pos.y), species: species.clone(), momentum: pos.momentum, is_player, glamour, grace, discipline, pride};
-        match queue.action{
+        for eff in effects.status.iter() {
+            match eff.effect_type {
+                EffectType::Sync { link } => {
+                    let overwrite = match read_action.get(link) {
+                        Ok(overwrite) => &overwrite.action,
+                        Err(_) => panic!("Impossible.")
+                    };
+                    chosen_action = overwrite.clone();
+                    break;
+                }
+                _ => ()
+            }
+        }
+        match chosen_action{
             ActionType::SoulCast { slot } => {
                 let soul = match breath.held.get(slot).cloned(){ // Check that we aren't picking an empty slot.
                     Some(soul) => soul,
@@ -430,9 +443,13 @@ fn dispense_functions(
                     world_map.targeted_axioms.push((entity, Function::FlatStealSouls { dam: info.pride }, info.clone()));
                 }
                 Function::PossessCreature => {
-                    let duration = info.glamour;
+                    let duration = 999;//info.glamour;
                     world_map.targeted_axioms.push((entity, Function::SwapAnchor, info.clone()));
                     world_map.targeted_axioms.push((entity, Function::ApplyEffect { effect: Effect {stacks: duration, effect_type: EffectType::Possession { link: info.entity }}}, info.clone()));
+                }
+                Function::Synchronize => {
+                    let duration = 999;//info.grace;
+                    world_map.targeted_axioms.push((entity, Function::ApplyEffect { effect: Effect {stacks: duration, effect_type: EffectType::Sync { link: info.entity }}}, info.clone()));
                 }
                 Function::ImitateSpecies => {
                     let duration = info.grace;

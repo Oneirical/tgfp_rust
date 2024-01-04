@@ -16,6 +16,7 @@ pub enum EffectType {
     Grace, // ++ move, -- casting // You ran without thought or reason, pursued in a meadow where each blade of grass had been turned to a steel knife, until none was left but blood.
     Possession {link: Entity},
     Polymorph {original: Species},
+    Sync {link: Entity},
 }
 
 pub fn match_effect_with_decay(
@@ -122,6 +123,7 @@ pub enum Function {
     Coil, // Pride
     ImitateSpecies, // Discipline
     SwapSpecies, // Discipline
+    Synchronize, // Grace
 }
 
 pub fn match_soul_with_axiom(

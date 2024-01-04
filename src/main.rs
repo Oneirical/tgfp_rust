@@ -238,7 +238,7 @@ fn summon_walls(
     texture_atlas_handle: Res<SpriteSheetHandle>,
     mut commands: Commands, 
 ){
-    let queue = get_build_sequence(Vault::EpicWow, (1,1));
+    let queue = get_build_sequence(Vault::Epsilon, (0,0));
     for task in &queue{
         let position = task.1;
         if task.0 == Species::Void {continue;}
