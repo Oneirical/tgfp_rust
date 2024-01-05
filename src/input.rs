@@ -3,7 +3,7 @@ use std::time::Duration;
 use bevy::prelude::*;
 use bevy_tweening::{EaseFunction, Tween, lens::TransformPositionLens, Animator};
 
-use crate::{InputDelay, TurnState, components::{RealityAnchor, QueuedAction, Position, Cursor}, map::is_in_bounds, axiom::tup_i32_to_usize};
+use crate::{InputDelay, TurnState, components::{RealityAnchor, QueuedAction, Position, Cursor}, map::{is_in_bounds, WorldMap, xy_idx}, axiom::tup_i32_to_usize, soul::CurrentEntityInUI};
 
 pub struct InputPlugin;
 
@@ -114,19 +114,21 @@ fn move_cursor(
     input: Res<Input<KeyCode>>,
     bindings: Res<InputBindings>,
     mut next_state: ResMut<NextState<TurnState>>,
+    mut inspected: ResMut<CurrentEntityInUI>,
+    world_map: Res<WorldMap>,
 ) {
     let (mut pointer, mut anim, mut vis, trans) = cursor.get_single_mut().unwrap();
-
+    let pos= player.get_single().unwrap();
     if input.any_just_pressed(bindings.cursor.clone()){
         next_state.set(TurnState::AwaitingInput);
         *vis = Visibility::Hidden;
+        if let Some(crea) = world_map.entities[xy_idx(pos.x, pos.y)] { inspected.entity = crea } else {panic!("Where did the player go?")};
         return;
     }
     delay.time.tick(time.delta());
     if !delay.time.finished() {
         return;
     }
-    let pos= player.get_single().unwrap();
     let mut action = if input.any_pressed(bindings.up.clone()){
         (0.,1.)
     }
@@ -156,6 +158,7 @@ fn move_cursor(
                 end: Vec3::new((trans.translation.x *2. + action.0).round()/2., (trans.translation.y *2. + action.1).round()/2., 10.)
             },
         );
+        if let Some(crea) = world_map.entities[xy_idx(pointer.x, pointer.y)] { inspected.entity = crea } else {};
         anim.set_tweenable(tween);
         delay.time.reset();
     }
