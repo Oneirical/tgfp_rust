@@ -174,6 +174,7 @@ pub struct CasterInfo{
     pub discipline: usize,
     pub pride: usize,
     pub is_player: bool,
+    pub effects: Vec<Effect>,
 }
 
 pub fn grab_coords_from_form( // vec in vec for better, synchronized animations?

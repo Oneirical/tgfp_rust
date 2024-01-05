@@ -56,6 +56,17 @@ fn choose_action (
             if foes.contains(&target) {scores[i] -= polarity[i]} else if allies.contains(&target) { scores[i] += polarity[i] };
         }
     }
+    match info.species {
+        Species::EpsilonHead { len: _ } => {
+            for i in &info.effects {
+                if i.effect_type == EffectType::Meltdown {
+                    scores[3] = 99;
+                    break;
+                }
+            }
+        }
+        _ => ()
+    }
     let (score_index, score) = scores.iter().enumerate().max_by_key(|&(_, x)| x).unwrap();
     let desired_soul = match_axiom_with_soul(score_index);
     if  score > &0  && available_souls.contains(&&desired_soul) {
@@ -113,7 +124,7 @@ fn calculate_actions (
             }
         };
         let (glamour, discipline, grace, pride) = (ax.status[0].stacks, ax.status[1].stacks,ax.status[2].stacks,ax.status[3].stacks);
-        let info = CasterInfo{entity, pos: (pos.x, pos.y), species: species.clone(), momentum: pos.momentum, is_player, glamour, grace, discipline, pride };
+        let info = CasterInfo{entity, pos: (pos.x, pos.y), species: species.clone(), momentum: pos.momentum, is_player, glamour, grace, discipline, pride, effects: ax.status.clone() };
         let mut available_souls = Vec::with_capacity(4);
         for av in &brea.held {
             if let Ok(soul_type) = souls.get(*av) { available_souls.push(soul_type) };
@@ -223,7 +234,7 @@ fn execute_turn (
         let mut chosen_action = queue.action.clone();
         if breath.soulless {chosen_action = ActionType::Nothing;}
         let (glamour, discipline, grace, pride) = (effects.status[0].stacks, effects.status[1].stacks,effects.status[2].stacks,effects.status[3].stacks);
-        let mut info = CasterInfo{ entity, pos: (pos.x,pos.y), species: species.clone(), momentum: pos.momentum, is_player, glamour, grace, discipline, pride};
+        let mut info = CasterInfo{ entity, pos: (pos.x,pos.y), species: species.clone(), momentum: pos.momentum, is_player, glamour, grace, discipline, pride, effects: effects.status.clone()};
         for eff in effects.status.iter() {
             match eff.effect_type {
                 EffectType::Sync { link } => {
@@ -610,7 +621,7 @@ fn dispense_functions(
                 Function::RedirectSouls { dam, dest } => {
                     let new_info = if let Ok((_transform_source, species, _breath, ax, _anim, pos, is_player)) = creatures.p0().get(dest) {
                         let (glamour, discipline, grace, pride) = (ax.status[0].stacks, ax.status[1].stacks,ax.status[2].stacks,ax.status[3].stacks);
-                        CasterInfo{entity: dest, pos: (pos.x, pos.y), species: species.clone(), momentum: pos.momentum, is_player, glamour, grace, discipline, pride}
+                        CasterInfo{entity: dest, pos: (pos.x, pos.y), species: species.clone(), momentum: pos.momentum, is_player, glamour, grace, discipline, pride, effects: ax.status.clone()}
                     } else { panic!("The RedirectSouls's destination entity does not exist!")};
                     world_map.targeted_axioms.push((entity, Function::FlatStealSouls { dam }, new_info));
                 },

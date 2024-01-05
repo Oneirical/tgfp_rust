@@ -239,7 +239,7 @@ pub fn match_species_with_axioms(
         ], vec![-1,-1,-1,0] ),
         Species::Terminal => (vec![
             (Form::MomentumBeam, Function::PossessCreature),
-            (Form::SmallBurst, Function::ImitateSpecies),
+            (Form::MomentumBeam, Function::MomentumReverseDash),
             (Form::SmallBurst, Function::Synchronize),
             (Form::SmallBurst, Function::CyanCharm), // TODO there is an infinite loop, fix it
         ], vec![0,0,0,0]),
