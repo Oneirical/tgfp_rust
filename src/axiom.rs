@@ -18,6 +18,7 @@ pub enum EffectType {
     Polymorph {original: Species},
     Sync {link: Entity},
     Charm {original: Faction},
+    Meltdown,
 }
 
 pub fn match_effect_with_decay(

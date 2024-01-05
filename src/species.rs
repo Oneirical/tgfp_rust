@@ -235,10 +235,10 @@ pub fn match_species_with_axioms(
             (Form::MomentumBeam, Function::MomentumReverseDash),
             (Form::MomentumLateral, Function::Coil),
             (Form::MomentumBeam, Function::StealSouls),
-            (Form::MomentumBeam, Function::StealSouls),
-        ], vec![-1,-1,-1,-1] ),
-        Species::Terminal => (vec![
             (Form::SmallBurst, Function::BlinkOuter),
+        ], vec![-1,-1,-1,0] ),
+        Species::Terminal => (vec![
+            (Form::MomentumBeam, Function::PossessCreature),
             (Form::SmallBurst, Function::ImitateSpecies),
             (Form::SmallBurst, Function::Synchronize),
             (Form::SmallBurst, Function::CyanCharm), // TODO there is an infinite loop, fix it

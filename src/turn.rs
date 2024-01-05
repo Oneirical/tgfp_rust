@@ -77,7 +77,7 @@ fn calculate_actions (
     read_position: Query<&Position>,
     souls: Query<&Soul>,
     mut next_state: ResMut<NextState<TurnState>>,
-    world_map: Res<WorldMap>,
+    mut world_map: ResMut<WorldMap>,
     mut commands: Commands,
     mut turn_count: ResMut<TurnCount>,
 ){
@@ -128,8 +128,16 @@ fn calculate_actions (
                 let mut self_pos = (pos.x, pos.y);
                 let mut self_mom = pos.momentum;
                 let mut detected_tails = Vec::new();
+                let mut num_nei = 0;
                 loop {
                     let neigh = get_neighbouring_entities(&world_map.entities, self_pos.0, self_pos.1);
+                    if self_pos == (pos.x, pos.y) {
+                        for i in &neigh {
+                            if i.is_some() {
+                                num_nei += 1;
+                            }
+                        }
+                    }
                     let mut found_segment = false;
                     for detected in neigh{
                         match detected {
@@ -157,6 +165,9 @@ fn calculate_actions (
                         };
                     }
                     if !found_segment {break;}
+                }
+                if num_nei >= 4 {
+                    world_map.targeted_axioms.push((entity, Function::ApplyEffect { effect: Effect {stacks: 2, effect_type: EffectType::Meltdown}}, info.clone()));
                 }
                 commands.entity(entity).insert(Species::EpsilonHead { len: current_order });
                 choose_action(destination, foes, allies, ax.axioms.clone(), ax.polarity.clone(), available_souls, info, &world_map.entities)
@@ -423,6 +434,10 @@ fn dispense_functions(
                                 }
                                 _ => (),
                             }
+                            remove_these_effects.push(i);
+                        }
+                        if eff.effect_type == EffectType::Meltdown && eff.stacks > 9 {
+                            world_map.targeted_axioms.push((entity, Function::BlinkOuter, info.clone()));
                             remove_these_effects.push(i);
                         }
                     }
