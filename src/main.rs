@@ -1,6 +1,6 @@
 use std::time::Duration;
 
-use bevy::{prelude::*, render::camera::ScalingMode, input::common_conditions::input_toggle_active};
+use bevy::{prelude::*, render::camera::ScalingMode, input::common_conditions::input_toggle_active, window::WindowMode};
 use bevy_inspector_egui::quick::WorldInspectorPlugin;
 use bevy_mouse_tracking_plugin::{mouse_pos::{MousePosPlugin, InitMouseTracking}, MainCamera, MousePos};
 use bevy_tweening::{TweeningPlugin, Animator, Tween, EaseFunction, lens::TransformPositionLens};
@@ -38,7 +38,7 @@ fn main() {
                     resizable: true,
                     //resolution: (1920.0, 1080.0).into(),
                     title: "The Games Foxes Play".into(),
-                    //mode: WindowMode::Fullscreen,
+                    mode: WindowMode::Fullscreen,
                     position: WindowPosition::Centered(MonitorSelection::Current),
                     ..default()
                 }),

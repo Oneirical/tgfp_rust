@@ -3,7 +3,7 @@ use std::{f32::consts::PI, time::Duration};
 use bevy::{prelude::*, text::{BreakLineOn, Text2dBounds, TextLayoutInfo}, sprite::Anchor};
 use bevy_tweening::{Tween, EaseFunction, lens::TransformPositionLens, Animator};
 
-use crate::{SpriteSheetHandle, components::{MinimapTile, LogIndex, MomentumMarker, EffectTracker, AxiomEffects}, map::{WORLD_HEIGHT, WORLD_WIDTH, WorldMap, xy_idx}, species::{Species, match_species_with_pixel}, TurnState, text::{LORE, split_text}, soul::CurrentEntityInUI, axiom::match_effect_with_sprite};
+use crate::{SpriteSheetHandle, components::{MinimapTile, LogIndex, MomentumMarker, EffectTracker, AxiomEffects, CreatureDescription}, map::{WORLD_HEIGHT, WORLD_WIDTH, WorldMap, xy_idx}, species::{Species, match_species_with_pixel}, TurnState, text::{LORE, split_text}, soul::CurrentEntityInUI, axiom::match_effect_with_sprite};
 
 pub struct UIPlugin;
 
@@ -289,8 +289,8 @@ fn place_down_text(
             EaseFunction::QuadraticInOut,
             Duration::from_millis(0),
             TransformPositionLens {
-                start: Vec3{ x: 12.1+7.25, y: -10.+5., z: 0.07},
-                end: Vec3{ x: 12.1+7.25, y: -10.+5., z: 0.07},
+                start: Vec3{ x: 19.35, y: -5., z: 0.07},
+                end: Vec3{ x: 19.35, y: -5., z: 0.07},
             },
         );
         commands.spawn((
@@ -309,9 +309,7 @@ fn place_down_text(
             Name::new("Log Message"),
             Animator::new(tween)
         ));
-        
     }
-
 }
 
 fn push_log(
@@ -366,6 +364,7 @@ fn push_log(
 fn draw_chain_borders(
     mut commands: Commands, 
     texture_atlas_handle: Res<SpriteSheetHandle>,
+    asset_server: Res<AssetServer>,
 ){
     commands.spawn(UIBundle{
         sprite_bundle: SpriteSheetBundle {
@@ -410,7 +409,7 @@ fn draw_chain_borders(
                 ..default()
             },
             transform: Transform {
-                translation: Vec3{x: 19.35+7.25, y: -11.4+5., z: 0.1},
+                translation: Vec3{x: 19.35+7.25, y: -6.4, z: 0.1},
                 ..default()
             },
             ..default()
@@ -432,31 +431,37 @@ fn draw_chain_borders(
             },
             ..default()
         },
-        name: Name::new("Bottom Log Border Mask"),
+        name: Name::new("Top Log Border Mask"),
     });
-    /*
-    commands.spawn(UIBundle{
-        sprite_bundle: SpriteSheetBundle {
-            texture_atlas: texture_atlas_handle.handle.clone(),
-            sprite: TextureAtlasSprite{
-                index : 166_usize,
-                custom_size: Some(Vec2::new(9., 9.)),
-                ..default()
-            },
+
+    let mut text_sections = Vec::new();
+    let chosen_text = "You're not supposed to see this.";
+    let split_text = split_text(chosen_text, &asset_server);
+    for (snippet, style) in split_text {
+        text_sections.push(TextSection::new(snippet, style));
+    }
+    let text = Text {
+        sections: text_sections,
+        alignment: TextAlignment::Left,
+        linebreak_behavior: BreakLineOn::WordBoundary
+    };
+    commands.spawn((
+        Text2dBundle {
+            text,
+            text_anchor: Anchor::TopLeft,
             transform: Transform {
-                translation: Vec3{ x: 14., y: 0., z: 0.2},
-                rotation: Quat::from_rotation_z(PI/2.),
+                translation: Vec3{ x: 19.35, y: 2.1, z: 0.07},
+                scale: Vec3{x: 1./64., y: 1./64., z: 0.}, // Set to the camera scaling mode fixed size
                 ..default()
             },
+            visibility: Visibility::Hidden,
+            text_2d_bounds: Text2dBounds { size: Vec2 { x: 550., y: 600. }},
             ..default()
         },
-        ui: UIElement{
-            x: 14.,
-            y: 0.
-        },
-        name: Name::new("Inventory Tree"),
-    });
-    */
+        CreatureDescription,
+        Name::new("Creature Description text"),
+    ));
+
     let mut main_square = get_chain_border(31, 31, (8., -1.5));
     let mut side_left = get_chain_border(6, 6, (-11.5, 11.));
     let mut side_left_bottom = get_chain_border(6, 24, (-11.5, -5.));

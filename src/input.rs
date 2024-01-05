@@ -1,9 +1,9 @@
 use std::time::Duration;
 
-use bevy::prelude::*;
+use bevy::{prelude::*, text::BreakLineOn};
 use bevy_tweening::{EaseFunction, Tween, lens::TransformPositionLens, Animator};
 
-use crate::{InputDelay, TurnState, components::{RealityAnchor, QueuedAction, Position, Cursor}, map::{is_in_bounds, WorldMap, xy_idx}, axiom::tup_i32_to_usize, soul::CurrentEntityInUI};
+use crate::{InputDelay, TurnState, components::{RealityAnchor, QueuedAction, Position, Cursor, LogIndex, CreatureDescription}, map::{is_in_bounds, WorldMap, xy_idx}, axiom::tup_i32_to_usize, soul::CurrentEntityInUI, text::{match_species_with_description, LORE, split_text}, species::Species};
 
 pub struct InputPlugin;
 
@@ -98,17 +98,25 @@ fn await_input(
 fn reset_cursor(
     mut cursor: Query<(&mut Cursor, &mut Visibility, &mut Transform), Without<RealityAnchor>>,
     player: Query<(&Position, &Transform), With<RealityAnchor>>,
+    mut log_messages: Query<&mut Visibility, (With<LogIndex>, Without<CreatureDescription>, Without<RealityAnchor>, Without<Cursor>)>,
+    mut desc: Query<&mut Visibility, (With<CreatureDescription>, Without<LogIndex>, Without<RealityAnchor>, Without<Cursor>)>,
 ){
     let (pos, p_t) = player.get_single().unwrap();
+    let mut desc_vis = desc.get_single_mut().unwrap();
     let (mut pointer, mut vis, mut trans) = cursor.get_single_mut().unwrap();
     (pointer.x, pointer.y) = (pos.x, pos.y);
     *vis = Visibility::Visible;
     trans.translation = p_t.translation;
+    *desc_vis = Visibility::Visible;
+    for mut log_vis in log_messages.iter_mut() {
+        *log_vis = Visibility::Hidden;
+    }
 }
 
 fn move_cursor(
     mut cursor: Query<(&mut Cursor, &mut Animator<Transform>, &mut Visibility, &Transform), Without<RealityAnchor>>,
-    player: Query<(&Position), With<RealityAnchor>>,
+    player: Query<&Position, With<RealityAnchor>>,
+    read_species: Query<&Species>,
     mut delay: ResMut<InputDelay>,
     time: Res<Time>,
     input: Res<Input<KeyCode>>,
@@ -116,13 +124,40 @@ fn move_cursor(
     mut next_state: ResMut<NextState<TurnState>>,
     mut inspected: ResMut<CurrentEntityInUI>,
     world_map: Res<WorldMap>,
+    asset_server: Res<AssetServer>,
+
+    mut log_messages: Query<&mut Visibility, (With<LogIndex>, Without<CreatureDescription>, Without<RealityAnchor>, Without<Cursor>)>,
+    mut desc: Query<(&mut Text, &mut Visibility), (With<CreatureDescription>, Without<LogIndex>, Without<RealityAnchor>, Without<Cursor>)>,
 ) {
     let (mut pointer, mut anim, mut vis, trans) = cursor.get_single_mut().unwrap();
+    let (mut text, mut desc_vis) = desc.get_single_mut().unwrap();
     let pos= player.get_single().unwrap();
     if input.any_just_pressed(bindings.cursor.clone()){
         next_state.set(TurnState::AwaitingInput);
         *vis = Visibility::Hidden;
         if let Some(crea) = world_map.entities[xy_idx(pos.x, pos.y)] { inspected.entity = crea } else {panic!("Where did the player go?")};
+
+        for mut log_vis in log_messages.iter_mut() {
+            *log_vis = Visibility::Visible;
+        }
+        *desc_vis = Visibility::Hidden;
+
+        let mut text_sections = Vec::new();
+        let crea_of_interest = read_species.get(inspected.entity).unwrap();
+        let chosen_text = match LORE.get(match_species_with_description(crea_of_interest)) {
+            Some(lore) => *lore,
+            None => "\"Hi, Onei here. That text index doesn't exist, so here I am instead. Please report this bug.\"",
+        };
+        let split_text = split_text(chosen_text, &asset_server);
+        for (snippet, style) in split_text {
+            text_sections.push(TextSection::new(snippet, style));
+        }
+        let set_text = Text {
+            sections: text_sections,
+            alignment: TextAlignment::Left,
+            linebreak_behavior: BreakLineOn::WordBoundary
+        };
+        *text = set_text;
         return;
     }
     delay.time.tick(time.delta());
@@ -161,5 +196,22 @@ fn move_cursor(
         if let Some(crea) = world_map.entities[xy_idx(pointer.x, pointer.y)] { inspected.entity = crea } else {};
         anim.set_tweenable(tween);
         delay.time.reset();
+
+        let mut text_sections = Vec::new();
+        let crea_of_interest = read_species.get(inspected.entity).unwrap();
+        let chosen_text = match LORE.get(match_species_with_description(crea_of_interest)) {
+            Some(lore) => *lore,
+            None => "\"Hi, Onei here. That text index doesn't exist, so here I am instead. Please report this bug.\"",
+        };
+        let split_text = split_text(chosen_text, &asset_server);
+        for (snippet, style) in split_text {
+            text_sections.push(TextSection::new(snippet, style));
+        }
+        let set_text = Text {
+            sections: text_sections,
+            alignment: TextAlignment::Left,
+            linebreak_behavior: BreakLineOn::WordBoundary
+        };
+        *text = set_text;
     }
 }

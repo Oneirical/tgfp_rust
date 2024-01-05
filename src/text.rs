@@ -20,9 +20,7 @@ pub const LORE: &[&str] = &[
 "The world and its symbols never held much meaning in your eyes. Now that the latter are glowing red and vibrating with raw data, the glyphs all around amount only to variables, objectives and failure-states.",
 "[y]\"Epsilon, you know as well as I do the importance of my message.\"",
 "[y]\"Spread the word.\"",
-
-"[r]MELTDOWN - Each turn, if this [y]Creature[w] is adjacent to 4 [y]Creatures[w], it gains one [l]Meltdown[w]. Upon reaching 5 [l]Meltdown[w], it immediately [r]Concedes[w].",
-"The head of a gigantic mechanical snake, its blazing red eyes burning away the retinas of organics whom would dare stare too long. Its gold and chrome frills act as an attestation of the superiority of metal over muscle.",
+"The head of a gigantic mechanical snake, its blazing red eyes burning away the retinas of organics whom would dare stare too long. Its gold and chrome frills act as an attestation of the superiority of metal over muscle.\n\n[r]MELTDOWN[w] - Each turn, if this [y]Creature[w] is adjacent to 4 [y]Creatures[w], it gains one [l]Meltdown[w]. Upon reaching 5 [l]Meltdown[w], it immediately [r]Concedes[w].",
 
 "Cyan Floods Wash Away Scorn - If possessed, Inject 1 Serene Soul into each Targeted Creature. Targeted Creatures become Charmed for Pride x 10 turns.",
 "Steps Aligned, Minds United - Each Targeted Creature becomes Synchronized with the Caster for Grace x 10 turns.",
@@ -58,8 +56,19 @@ pub const LORE: &[&str] = &[
 "Perhaps the visions swirling in the Well beyond shall grant it.",
 ];
 
+pub fn match_species_with_description(
+    species: &Species
+) -> usize {
+    match species {
+        Species::EpsilonHead { len: _ } => 21,
+        _ => 0,
+    }
+}
+
 use bevy::{text::TextStyle, asset::AssetServer, ecs::system::Res, render::color::Color, log::info};
 use regex::Regex;
+
+use crate::species::Species;
 
 pub fn split_text(
     text: &str,

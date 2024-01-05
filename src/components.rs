@@ -35,6 +35,9 @@ pub struct Intangible;
 pub struct EffectMarker;
 
 #[derive(Component)]
+pub struct CreatureDescription;
+
+#[derive(Component)]
 pub struct MomentumMarker{
     pub dir: (i32, i32),
 }
