@@ -3,7 +3,7 @@ use std::time::Duration;
 use bevy::{prelude::*, render::camera::ScalingMode, input::common_conditions::input_toggle_active};
 use bevy_inspector_egui::quick::WorldInspectorPlugin;
 use bevy_mouse_tracking_plugin::{mouse_pos::{MousePosPlugin, InitMouseTracking}, MainCamera, MousePos};
-use bevy_tweening::TweeningPlugin;
+use bevy_tweening::{TweeningPlugin, Animator, Tween, EaseFunction, lens::TransformPositionLens};
 use components::*;
 use input::*;
 use map::{MapPlugin, WorldMap, generate_world_vector, xy_idx};
@@ -85,7 +85,7 @@ fn setup(
     camera_bundle.projection.scaling_mode = ScalingMode::WindowSize(64.);
     //camera_bundle.projection.scale = 0.99;
     commands.spawn(camera_bundle).add(InitMouseTracking).insert(MainCamera);
-    commands.insert_resource(InputDelay{time: Timer::new(Duration::from_millis(1), TimerMode::Once)});
+    commands.insert_resource(InputDelay{time: Timer::new(Duration::from_millis(50), TimerMode::Once)});
     commands.insert_resource(BuildDelay{time: Timer::new(Duration::from_millis(200), TimerMode::Repeating)});
     zoom.timer.pause();
 }
@@ -245,7 +245,18 @@ fn spawn_players(
         visibility: Visibility::Hidden,
         ..default()
     };
-    commands.spawn((cursor, Cursor));
+    let tween = Tween::new(
+        EaseFunction::QuadraticInOut,
+        Duration::from_millis(150),
+        TransformPositionLens {
+            start: Vec3{ x: 11., y: 4., z: 10.0},
+            end: Vec3{ x: 11., y: 4., z: 10.0},
+        },
+    );
+    commands.spawn((cursor, Animator::new(tween), Cursor {
+        x: 11,
+        y: 4
+    }));
 }
 
 fn summon_walls(

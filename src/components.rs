@@ -22,7 +22,10 @@ pub struct BuildQueue {
 }
 
 #[derive(Component)]
-pub struct Cursor;
+pub struct Cursor {
+    pub x: usize,
+    pub y: usize,
+}
 
 // Add this component to a creature to have it not interact with the world and be pass-through.
 #[derive(Component)]
