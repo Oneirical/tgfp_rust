@@ -150,6 +150,7 @@ fn world_swap(
 enum TurnState {
     #[default]
     AwaitingInput,
+    ExaminingCreatures,
     CalculatingResponse,
     ExecutingTurn,
     DispensingFunctions,
@@ -229,6 +230,22 @@ fn spawn_players(
         RealityAnchor { player_id: 0},
     )).id();
     commands.insert_resource(CurrentEntityInUI{entity});
+    let cursor = SpriteSheetBundle {
+        texture_atlas: texture_atlas_handle.handle.clone(),
+        sprite: TextureAtlasSprite{
+            index : 18_usize,
+            custom_size: Some(Vec2::new(1., 1.)),
+            ..default()
+        },
+        transform: Transform {
+            translation: Vec3{ x: 11., y: 4., z: 10.0},
+            scale: Vec3{x: 0.5, y: 0.5, z:1.},
+            ..default()
+        },
+        visibility: Visibility::Hidden,
+        ..default()
+    };
+    commands.spawn((cursor, Cursor));
 }
 
 fn summon_walls(
