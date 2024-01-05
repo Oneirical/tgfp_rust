@@ -267,7 +267,7 @@ fn blocked_beam(
     end: (i32, i32),
     map: &[Option<Entity>],
 ) -> Vec<(usize, usize)> {
-    let mut line = bresenham_line(start.0 as i32, start.1 as i32, end.0, end.1);
+    let mut line = bresenham_line(start.0, start.1, end.0, end.1);
     line.remove(0);
     let mut stop_point = 0;
     for (i, (nx, ny)) in line.iter().enumerate() {

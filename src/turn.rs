@@ -45,13 +45,13 @@ fn choose_action (
     info: CasterInfo,
     world_map: &[Option<Entity>],
 ) -> ActionType {
-    let mut scores = vec![0,0,0,0];
+    let mut scores = [0,0,0,0];
     for (i, (form, _function)) in axioms.iter().enumerate() {
         if !available_souls.contains(&&match_axiom_with_soul(i)) {
             scores[i] = -99;
             continue;
         }
-        let results = grab_coords_from_form(&world_map, form.clone(), info.clone()); // It is checking all its combos even though not all of them might be available. Potential optimization?
+        let results = grab_coords_from_form(world_map, form.clone(), info.clone()); // It is checking all its combos even though not all of them might be available. Potential optimization?
         for target in results.entities {
             if foes.contains(&target) {scores[i] -= polarity[i]} else if allies.contains(&target) { scores[i] += polarity[i] };
         }
@@ -79,7 +79,7 @@ fn choose_action (
         if possi.is_none() { choices.push(momentum_pool[i]) };
     }
     let momentum = get_best_move(info.pos, destination, choices);
-    if momentum.is_some(){  ActionType::Walk { momentum: momentum.unwrap() } } else { ActionType::Nothing }
+    if let Some(momentum) = momentum {  ActionType::Walk { momentum } } else { ActionType::Nothing }
 }
 
 fn calculate_actions (
@@ -336,12 +336,12 @@ fn dispense_functions(
             let function = function.to_owned();
             match function {
                 Function::Teleport { x, y } => {
-                    if !is_in_bounds(x as i32, y as i32) {continue;}
-                    else if world_map.entities[xy_idx(x, y)].is_some() { // Cancel teleport if target is occupied
+                    if !is_in_bounds(x as i32, y as i32) || world_map.entities[xy_idx(x, y)].is_some() {continue;}
+                    //else if world_map.entities[xy_idx(x, y)].is_some() { // Cancel teleport if target is occupied
                         //let collider = world_map.entities[xy_idx(x, y)].unwrap();
                         //world_map.targeted_axioms.push((entity, Function::Collide { with: collider }, info.clone()));
-                        continue;
-                    }
+                        //continue;
+                    //}
                     let old_pos = (pos.x, pos.y);
                     let old_idx = xy_idx(pos.x, pos.y);
                     (pos.x, pos.y) = (x, y);
@@ -883,7 +883,7 @@ fn unpack_animations(
             },
             Animation::SoulDrain { source, destination, mut drained } => {
                 let soul = drained.pop();
-                let soul = if soul.is_some() { soul.unwrap() } else { return; };
+                let soul = if let Some(soul) = soul { soul } else { return; };
                 if let Ok((mut anim, mut vis) ) = souls.get_mut(soul) { 
                     *vis = Visibility::Visible;
                     let tween = Tween::new(

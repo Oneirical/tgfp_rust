@@ -77,7 +77,7 @@ fn soul_rotation(
                     None => {
                         dbg!(caste);
                         dbg!(&soul_type);
-                        dbg!(match_soul_with_display_index(&soul_type));
+                        dbg!(match_soul_with_display_index(soul_type));
                         panic!("The desired soul in the draw pile was not found.");
                     }
                 };
@@ -114,7 +114,7 @@ fn soul_rotation(
                         dbg!(caste);
                         dbg!(&soul_type);
                         dbg!(current.entity);
-                        dbg!(match_soul_with_display_index(&soul_type));
+                        dbg!(match_soul_with_display_index(soul_type));
                         panic!("The desired soul in the discard pile was not found.");
                     }
                 };

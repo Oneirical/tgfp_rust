@@ -71,10 +71,10 @@ pub fn split_text(
     let mut colors = Vec::new();
     let mut last_end = 0;
 
-    for cap in re.captures_iter(&text) {
+    for cap in re.captures_iter(text) {
         let start = cap.get(0).unwrap().start();
         let end = cap.get(0).unwrap().end();
-        let tag = cap.get(1).unwrap().as_str().chars().nth(0);
+        let tag = cap.get(1).unwrap().as_str().chars().next();
         colors.push(match_char_code_with_color(tag));
         split_text.push(&text[last_end..start]);
         last_end = end;

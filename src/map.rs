@@ -100,7 +100,6 @@ pub fn place_down_new_entities(
                             translation: Vec3{ x: y as f32/2./8.-1.19, y: x as f32/2./8.-1.19, z: -0.1},
                             scale: Vec3 { x: 1./8., y: 1./8., z: 1. },
                             rotation: match_species_with_rotation(j),
-                            ..default()
                         },
                         ..default()
                     },
@@ -176,7 +175,7 @@ pub fn bresenham_line(x0: i32, y0: i32, x1: i32, y1: i32) -> Vec<(i32, i32)> {
     vec_vecs.swap_remove(exclude);
     let mut output = Vec::new();
     for mut i in vec_vecs {
-        output.append(&mut i);
+        output.append(i);
     }
     output
  }
