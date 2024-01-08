@@ -20,6 +20,7 @@ pub enum EffectType {
     Charm {original: Faction},
     Meltdown,
     OpenDoor,
+    AssignedPatient {link: Entity},
 }
 
 pub fn match_effect_with_decay(

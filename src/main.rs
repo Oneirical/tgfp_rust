@@ -1,5 +1,6 @@
 use std::time::Duration;
 
+use ai::AIPlugin;
 use bevy::{prelude::*, render::camera::ScalingMode, input::common_conditions::input_toggle_active, window::WindowMode};
 use bevy_inspector_egui::quick::WorldInspectorPlugin;
 use bevy_mouse_tracking_plugin::{mouse_pos::{MousePosPlugin, InitMouseTracking}, MainCamera, MousePos};
@@ -25,6 +26,7 @@ mod soul;
 mod axiom;
 mod text;
 mod world;
+mod ai;
 
 fn main() {
     App::new()
@@ -50,6 +52,7 @@ fn main() {
         .add_plugins(UIPlugin)
         .add_plugins(TurnPlugin)
         .add_plugins(SoulPlugin)
+        .add_plugins(AIPlugin)
         //.add_plugins(
         //    WorldInspectorPlugin::default().run_if(input_toggle_active(true, KeyCode::Escape)),
         //)

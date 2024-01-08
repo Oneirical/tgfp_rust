@@ -4,7 +4,7 @@ use bevy::prelude::*;
 use bevy_tweening::{*, lens::{TransformPositionLens, TransformScaleLens, TransformRotationLens}};
 use rand::seq::SliceRandom;
 
-use crate::{components::{QueuedAction, RealityAnchor, Position, SoulBreath, AxiomEffects, EffectMarker, Faction}, input::ActionType, TurnState, map::{xy_idx, WorldMap, is_in_bounds, bresenham_line, get_neighbouring_entities, get_best_move, get_all_factions_except_one, get_astar_best_move}, soul::{Soul, get_soul_rot_position, SoulRotationTimer, match_soul_with_display_index, match_soul_with_sprite, select_random_entities, CurrentEntityInUI}, ui::{CenterOfWheel, LogMessage}, axiom::{grab_coords_from_form, CasterInfo, match_soul_with_axiom, Function, Form, match_axiom_with_soul, Effect, EffectType, match_effect_with_decay, TriggerType, reduce_down_to, match_effect_with_minimum, match_effect_with_gain}, species::{Species, match_faction_with_index, match_species_with_priority, match_species_with_sprite, is_pushable, is_openable}, ZoomInEffect, SpriteSheetHandle};
+use crate::{components::{QueuedAction, RealityAnchor, Position, SoulBreath, AxiomEffects, EffectMarker, Faction, Wounded}, input::ActionType, TurnState, map::{xy_idx, WorldMap, is_in_bounds, bresenham_line, get_neighbouring_entities, get_best_move, get_all_factions_except_one, get_astar_best_move, manhattan_distance}, soul::{Soul, get_soul_rot_position, SoulRotationTimer, match_soul_with_display_index, match_soul_with_sprite, select_random_entities, CurrentEntityInUI}, ui::{CenterOfWheel, LogMessage}, axiom::{grab_coords_from_form, CasterInfo, match_soul_with_axiom, Function, Form, match_axiom_with_soul, Effect, EffectType, match_effect_with_decay, TriggerType, reduce_down_to, match_effect_with_minimum, match_effect_with_gain, tup_usize_to_i32, tup_i32_to_usize}, species::{Species, match_faction_with_index, match_species_with_priority, match_species_with_sprite, is_pushable, is_openable}, ZoomInEffect, SpriteSheetHandle, ai::has_effect};
 
 pub struct TurnPlugin;
 
@@ -58,11 +58,8 @@ fn choose_action (
     }
     match info.species {
         Species::EpsilonHead { len: _ } => {
-            for i in &info.effects {
-                if i.effect_type == EffectType::Meltdown {
-                    scores[3] = 99;
-                    break;
-                }
+            if has_effect(&info.effects, EffectType::Meltdown).is_some() {
+                scores[3] = 99;
             }
         }
         _ => ()
@@ -72,12 +69,6 @@ fn choose_action (
     if  score > &0  && available_souls.contains(&&desired_soul) {
         return ActionType::SoulCast { slot: available_souls.iter().position(|s| **s == desired_soul).unwrap()}
     }
-    let possible_movements = get_neighbouring_entities(world_map, info.pos.0, info.pos.1);
-    let momentum_pool = [(-1,0),(1,0),(0,1),(0,-1)];
-    let mut choices = Vec::with_capacity(4);
-    for (i, possi) in possible_movements.iter().enumerate(){
-        if possi.is_none() { choices.push(momentum_pool[i]) };
-    }
     let momentum = get_astar_best_move(info.pos, destination, world_map);
     if let Some(momentum) = momentum {  ActionType::Walk { momentum } } else { ActionType::Nothing }
 }
@@ -86,6 +77,7 @@ fn calculate_actions (
     mut creatures: Query<(Entity, &mut QueuedAction, &AxiomEffects, &SoulBreath, &Position, &Species, &Faction, Has<RealityAnchor>)>,
     read_species: Query<&Species>,
     read_position: Query<&Position>,
+    locate_wounded: Query<(Entity, &Position), With<Wounded>>,
     souls: Query<&Soul>,
     mut next_state: ResMut<NextState<TurnState>>,
     mut world_map: ResMut<WorldMap>,
@@ -131,6 +123,48 @@ fn calculate_actions (
         }
         let saved_play_action = if is_player { queue.action.clone() } else { ActionType::Nothing };
         queue.action = match species {
+            Species::ChromeNurse => {
+                let mut patient = None;
+                for search in &info.effects {
+                    match search.effect_type {
+                        EffectType::AssignedPatient { link } => patient = Some(link),
+                        _ => continue
+                    }
+                }
+                match patient {
+                    Some(found) => {
+                        let patient_pos = read_position.get(found).unwrap();
+                        let patient_next_move = get_astar_best_move((patient_pos.x, patient_pos.y), (22, 22), &world_map.entities);
+                        match patient_next_move {
+                            Some(momen) => {
+                                let push_zone = (patient_pos.x as i32 - momen.0, patient_pos.y as i32 - momen.1);
+                                if tup_usize_to_i32(info.pos) == push_zone {
+                                    ActionType::Walk { momentum: momen }
+                                } else {
+                                    let momentum = get_astar_best_move(info.pos, tup_i32_to_usize(push_zone), &world_map.entities);
+                                    if let Some(momentum) = momentum {  ActionType::Walk { momentum } } else { ActionType::Nothing }
+                                }
+                            }
+                            None => ActionType::Nothing
+                        }
+                    }
+                    None => {
+                        let mut located_wounded = Vec::new();
+                        for wound in locate_wounded.iter() {
+                            located_wounded.push(wound);
+                        }
+                        located_wounded.sort_by(|a, b| {
+                            let dist_a = manhattan_distance(tup_usize_to_i32((a.1.x, a.1.y)), tup_usize_to_i32(info.pos));
+                            let dist_b = manhattan_distance(tup_usize_to_i32((b.1.x, b.1.y)), tup_usize_to_i32(info.pos));
+                            dist_a.cmp(&dist_b)
+                        });
+                        let grab_this = located_wounded.get(0);
+                        if let Some(grab_this) = grab_this {  
+                            choose_action((grab_this.1.x, grab_this.1.y), foes, vec![grab_this.0], ax.axioms.clone(), ax.polarity.clone(), available_souls, info, &world_map.entities)
+                        } else {ActionType::Nothing}
+                    }
+                }
+            }
             Species::LunaMoth => {
                 choose_action(destination, foes, allies, ax.axioms.clone(), ax.polarity.clone(), available_souls, info, &world_map.entities)
             }
@@ -395,6 +429,7 @@ fn dispense_functions(
                             payload.push(breath.held.pop().unwrap());
                             if breath.held.is_empty() {
                                 breath.soulless = true;
+                                commands.entity(entity).insert(Wounded);
                                 world_map.anim_queue.push((entity, Animation::Soulless));
                             }
                         }
@@ -417,6 +452,7 @@ fn dispense_functions(
                             let slot = if let Ok((_anim, _transform, _sprite, soul_id), ) = souls.get(soul) { match_soul_with_display_index(soul_id) } else { panic!("A stolen soul does not exist!")};
                             breath_culprit.discard[slot].push(soul);
                             breath_culprit.soulless = false;
+                            commands.entity(info.entity).remove::<Wounded>();
                             anim_output.push(soul);
                         }
                         world_map.anim_queue.push((entity, Animation::SoulDrain { source: transform_source_trans, destination: transform_culprit.translation, drained: anim_output }));
@@ -520,6 +556,7 @@ fn dispense_functions(
                                 }
                             } else {
                                 breath_culprit.soulless = true;
+                                commands.entity(info.entity).insert(Wounded);
                                 break;
                             }
                         }
@@ -530,6 +567,7 @@ fn dispense_functions(
                             breath_receiver.discard[slot].push(i);
                             anim_output.push(i);
                             breath_receiver.soulless = false;
+                            commands.entity(entity).remove::<Wounded>();
                         }
                         world_map.anim_queue.push((entity, Animation::SoulDrain { source: origin_translation, destination: transform_receiver.translation, drained: anim_output }));
                     }

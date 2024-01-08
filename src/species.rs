@@ -254,7 +254,7 @@ pub fn match_species_with_axioms(
             (Form::MomentumBeam, Function::MomentumReverseDash),
             (Form::Empty, Function::Empty),
             (Form::Empty, Function::Empty),
-        ], vec![0,0,0,0]),
+        ], vec![0,1,0,0]),
         _ => (vec![
             (Form::Empty, Function::Empty),
             (Form::Empty, Function::Empty),
@@ -333,6 +333,7 @@ pub fn is_soulless(
     match species {
         Species::Terminal => false,
         Species::EpsilonHead { len: _ } => false,
+        Species::ChromeNurse => false,
         _ => true,
     }
 }

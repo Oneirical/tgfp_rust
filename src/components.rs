@@ -38,6 +38,9 @@ pub struct EffectMarker;
 pub struct CreatureDescription;
 
 #[derive(Component)]
+pub struct Wounded;
+
+#[derive(Component)]
 pub struct MomentumMarker{
     pub dir: (i32, i32),
 }
