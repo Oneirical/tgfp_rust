@@ -150,6 +150,7 @@ pub enum Species {
     PrideCrate,
     Harmonizer,
     Airlock {dir: usize},
+    ChromeNurse,
 }
 
 pub fn match_species_with_sprite(
@@ -174,6 +175,7 @@ pub fn match_species_with_sprite(
         Species::GraceCrate => 21,
         Species::PrideCrate => 22,
         Species::Airlock {dir: _ } => 17,
+        Species::ChromeNurse => 6,
     }
 }
 
@@ -211,6 +213,7 @@ pub fn match_species_with_name(
         Species::PrideCrate => "Tar-Soaked Crate",
         Species::Harmonizer => "Harmonic Organizer",
         Species::Airlock {dir: _ } => "Quicksilver Curtains",
+        Species::ChromeNurse => "Chrome Attendant",
     }
 }
 
@@ -245,6 +248,12 @@ pub fn match_species_with_axioms(
             (Form::MomentumBeam, Function::MomentumReverseDash),
             (Form::SmallBurst, Function::Synchronize),
             (Form::SmallBurst, Function::CyanCharm), // TODO there is an infinite loop, fix it
+        ], vec![0,0,0,0]),
+        Species::ChromeNurse => (vec![
+            (Form::Empty, Function::Empty),
+            (Form::MomentumBeam, Function::MomentumReverseDash),
+            (Form::Empty, Function::Empty),
+            (Form::Empty, Function::Empty),
         ], vec![0,0,0,0]),
         _ => (vec![
             (Form::Empty, Function::Empty),

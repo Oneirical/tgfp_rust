@@ -1,6 +1,7 @@
 use std::time::Duration;
 
 use bevy::prelude::*;
+use pathfinding::directed::astar::astar;
 
 use crate::{components::{Position, Intangible}, axiom::{Function, CasterInfo, tup_usize_to_i32}, world::{Plane, match_plane_with_vaults}, species::{Species, match_species_with_sprite, match_species_with_rotation, is_invisible}, vaults::{extract_square, match_vault_with_spawn_loc}, SpriteSheetHandle, turn::Animation};
 
@@ -13,8 +14,8 @@ impl Plugin for MapPlugin {
     }
 }
 
-pub const WORLD_WIDTH: usize = 90;
-pub const WORLD_HEIGHT: usize = 90;
+pub const WORLD_WIDTH: usize = 45;
+pub const WORLD_HEIGHT: usize = 45;
 
 #[derive(Resource)]
 pub struct WorldMap {
@@ -174,8 +175,65 @@ pub fn bresenham_line(x0: i32, y0: i32, x1: i32, y1: i32) -> Vec<(i32, i32)> {
  ) -> Vec<Entity> {
     vec_vecs.swap_remove(exclude);
     let mut output = Vec::new();
-    for mut i in vec_vecs {
+    for i in vec_vecs {
         output.append(i);
     }
     output
  }
+
+ pub fn pathfind_to_location(
+    start: (usize, usize),
+    destination: (usize, usize),
+    map: &[Option<Entity>],
+) -> Option<(Vec<(i32, i32)>, u32)> {
+    let goal = tup_usize_to_i32(destination);
+    let init = tup_usize_to_i32(start);
+    let result = astar(&init,
+                   |&(x, y)| detect_walls(x, y, vec![start, destination], map)
+                              .into_iter().map(|p| (p, 1)),
+                   |&(x, y)| (goal.0.abs_diff(x) + goal.1.abs_diff(y)) / 3,
+                   |&p| p == goal);
+    result
+}
+
+fn detect_walls(
+    x: i32,
+    y: i32,
+    force_empty: Vec<(usize, usize)>,
+    map: &[Option<Entity>]
+) -> Vec<(i32, i32)> {
+    
+    let mut neighbors = Vec::new();
+    let diffs = [(x-1,y),(x+1,y), (x,y-1), (x,y+1)];
+    let mut idxs = Vec::new();
+    for (dx, dy) in diffs {
+        if is_in_bounds(dx, dy) {
+            idxs.push(xy_idx(dx as usize, dy as usize));
+        }
+    }
+    for (i, idx) in idxs.iter().enumerate() {
+        let mut okay = map[*idx].is_none();
+        for (ex, ey) in &force_empty {
+            if *idx == xy_idx(*ex, *ey) {
+                okay = true;
+            }
+        }
+        if okay {neighbors.push(diffs[i])};
+    }  
+    neighbors
+}
+
+pub fn get_astar_best_move(
+    start: (usize, usize),
+    destination: (usize, usize),
+    map: &[Option<Entity>],
+) -> Option<(i32, i32)> {
+    let astar = pathfind_to_location(start, destination, map);
+    match astar {
+        None => return None,
+        Some(path) => {
+            let path = path.0;
+            Some((path[1].0-path[0].0, path[1].1-path[0].1))
+        }
+    }
+}
