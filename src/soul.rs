@@ -160,7 +160,7 @@ fn distribute_some_souls(
             breath.soulless = true;
             continue;
         }
-        for i in 0..50{
+        for i in 0..5{
             let soul = vec![Soul::Serene, Soul::Feral, Soul::Ordered, Soul::Saintly, Soul::Vile];
             let tween = Tween::new(
                 EaseFunction::QuadraticInOut,

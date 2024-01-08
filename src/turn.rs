@@ -4,7 +4,7 @@ use bevy::prelude::*;
 use bevy_tweening::{*, lens::{TransformPositionLens, TransformScaleLens, TransformRotationLens}};
 use rand::seq::SliceRandom;
 
-use crate::{components::{QueuedAction, RealityAnchor, Position, SoulBreath, AxiomEffects, EffectMarker, Faction, Wounded}, input::ActionType, TurnState, map::{xy_idx, WorldMap, is_in_bounds, bresenham_line, get_neighbouring_entities, get_best_move, get_all_factions_except_one, get_astar_best_move, manhattan_distance}, soul::{Soul, get_soul_rot_position, SoulRotationTimer, match_soul_with_display_index, match_soul_with_sprite, select_random_entities, CurrentEntityInUI}, ui::{CenterOfWheel, LogMessage}, axiom::{grab_coords_from_form, CasterInfo, match_soul_with_axiom, Function, Form, match_axiom_with_soul, Effect, EffectType, match_effect_with_decay, TriggerType, reduce_down_to, match_effect_with_minimum, match_effect_with_gain, tup_usize_to_i32, tup_i32_to_usize}, species::{Species, match_faction_with_index, match_species_with_priority, match_species_with_sprite, is_pushable, is_openable}, ZoomInEffect, SpriteSheetHandle, ai::has_effect};
+use crate::{components::{QueuedAction, RealityAnchor, Position, SoulBreath, AxiomEffects, EffectMarker, Faction, Wounded, Thought}, input::ActionType, TurnState, map::{xy_idx, WorldMap, is_in_bounds, bresenham_line, get_neighbouring_entities, get_best_move, get_all_factions_except_one, get_astar_best_move, manhattan_distance, pathfind_to_location}, soul::{Soul, get_soul_rot_position, SoulRotationTimer, match_soul_with_display_index, match_soul_with_sprite, select_random_entities, CurrentEntityInUI}, ui::{CenterOfWheel, LogMessage}, axiom::{grab_coords_from_form, CasterInfo, match_soul_with_axiom, Function, Form, match_axiom_with_soul, Effect, EffectType, match_effect_with_decay, TriggerType, reduce_down_to, match_effect_with_minimum, match_effect_with_gain, tup_usize_to_i32, tup_i32_to_usize}, species::{Species, match_faction_with_index, match_species_with_priority, match_species_with_sprite, is_pushable, is_openable}, ZoomInEffect, SpriteSheetHandle, ai::has_effect};
 
 pub struct TurnPlugin;
 
@@ -74,9 +74,10 @@ fn choose_action (
 }
 
 fn calculate_actions (
-    mut creatures: Query<(Entity, &mut QueuedAction, &AxiomEffects, &SoulBreath, &Position, &Species, &Faction, Has<RealityAnchor>)>,
+    mut creatures: Query<(Entity, &mut QueuedAction, &Thought, &AxiomEffects, &SoulBreath, &Position, &Species, &Faction, Has<RealityAnchor>)>,
     read_species: Query<&Species>,
     read_position: Query<&Position>,
+    read_thought: Query<&Thought>,
     locate_wounded: Query<(Entity, &Position), With<Wounded>>,
     souls: Query<&Soul>,
     mut next_state: ResMut<NextState<TurnState>>,
@@ -89,11 +90,11 @@ fn calculate_actions (
     for _i in 0..5 {
         contestants.push(Vec::new());
     }
-    for (entity, _queue, _ax, brea, _pos, _species, faction, _is_player) in creatures.iter_mut(){
+    for (entity, _queue, _th, _ax, brea, _pos, _species, faction, _is_player) in creatures.iter_mut(){
         let index = match_faction_with_index(faction);
         if index.is_some() && !brea.soulless { contestants[index.unwrap()].push(entity); } else { continue;} // Gather the pool of fighters by faction.
     }
-    for (entity, mut queue, ax, brea, pos, species, faction, is_player) in creatures.iter_mut(){
+    for (entity, mut queue, thought, ax, brea, pos, species, faction, is_player) in creatures.iter_mut(){
         if brea.soulless {
             queue.action = ActionType::Nothing;
             continue;
@@ -134,7 +135,43 @@ fn calculate_actions (
                 match patient {
                     Some(found) => {
                         let patient_pos = read_position.get(found).unwrap();
-                        let patient_next_move = get_astar_best_move((patient_pos.x, patient_pos.y), (22, 22), &world_map.entities);
+                        let mut patient_next_dest = match &read_thought.get(found).unwrap().stored_path {
+                            Some(seq) => {
+                                seq.0.clone().pop()
+                            }
+                            None => {
+                                None
+                            }
+                        };
+                        let path_accepted = match patient_next_dest {
+                            Some(can) => {
+                                world_map.entities[xy_idx(can.0 as usize, can.1 as usize)].is_none()
+                            }
+                            None => false
+                        };
+
+                        if !path_accepted {
+                            let mut new_path = pathfind_to_location((patient_pos.x, patient_pos.y), (36, 8), &world_map.entities);
+                            if let Some(mut rev) = new_path { 
+                                rev.0.reverse();
+                                rev.0.pop();
+                                patient_next_dest = if !rev.0.is_empty() {
+                                    Some(rev.0[rev.0.len()-1]) } else { None };
+                                new_path = Some((rev.0, rev.1));} else { new_path = None};
+                            commands.entity(found).insert(Thought{stored_path: new_path});
+                        }
+
+
+                        let patient_next_move = match patient_next_dest {
+                            None => None,
+                            Some(dest) => {
+                                if tup_i32_to_usize(dest) == info.pos {
+                                    None
+                                } else {
+                                    Some((dest.0-patient_pos.x as i32, dest.1-patient_pos.y as i32))
+                                }
+                            }
+                        };
                         match patient_next_move {
                             Some(momen) => {
                                 let push_zone = (patient_pos.x as i32 - momen.0, patient_pos.y as i32 - momen.1);
@@ -266,7 +303,7 @@ fn execute_turn (
         }
         (pos.ox, pos.oy) = (pos.x, pos.y); // To reset for the form mark animations
         let mut chosen_action = queue.action.clone();
-        if breath.soulless {chosen_action = ActionType::Nothing;}
+        if breath.soulless && !matches!(species, &Species::EpsilonTail { .. }) {chosen_action = ActionType::Nothing;}
         let (glamour, discipline, grace, pride) = (effects.status[0].stacks, effects.status[1].stacks,effects.status[2].stacks,effects.status[3].stacks);
         let mut info = CasterInfo{ entity, pos: (pos.x,pos.y), species: species.clone(), momentum: pos.momentum, is_player, glamour, grace, discipline, pride, effects: effects.status.clone()};
         for eff in effects.status.iter() {
@@ -334,8 +371,10 @@ fn dispense_functions(
         Query<(&Transform, &mut Species, &mut SoulBreath, &mut AxiomEffects, &mut Animator<Transform>, &mut Position, Has<RealityAnchor>)>,
         Query<&Position>,
         Query<&Species>,
+        Query<&SoulBreath>,
     )>,
     faction: Query<&Faction>,
+    check_wound: Query<Entity, With<Wounded>>,
     mut next_state: ResMut<NextState<TurnState>>,
     mut world_map: ResMut<WorldMap>,
     mut souls: Query<(&mut Animator<Transform>, &Transform, &mut TextureAtlasSprite, &mut Soul), Without<Position>>,
@@ -532,6 +571,10 @@ fn dispense_functions(
                     world_map.targeted_axioms.push((entity, Function::ApplyEffect { effect: Effect {stacks: dur, effect_type: EffectType::Charm { original: fac.clone()}}}, info.clone()));
                     commands.entity(entity).insert(new_fac.clone());
                 }
+                Function::MarkPatient => {
+                    world_map.targeted_axioms.push((entity, Function::MomentumReverseDash, info.clone()));
+                    world_map.targeted_axioms.push((info.entity, Function::ApplyEffect { effect: Effect { stacks: 99, effect_type: EffectType::AssignedPatient { link: entity } } }, info.clone()));
+                }
                 Function::InjectCaste {num, caste} => {
                     let mut payload = Vec::with_capacity(num);
                     let slot = match_soul_with_display_index(&caste);
@@ -622,7 +665,8 @@ fn dispense_functions(
                         Ok(coll_pos_full) => (coll_pos_full.x, coll_pos_full.y),
                         Err(_) => panic!("Impossible.")
                     };
-                    if is_pushable(&coll_species) {
+                    let wound = check_wound.get(with);
+                    if is_pushable(&coll_species) || wound.is_ok() {
                         if world_map.entities[xy_idx((coll_pos.0 as i32 + info.momentum.0) as usize, (coll_pos.1 as i32 + info.momentum.1) as usize)].is_some() {continue;}
                         world_map.targeted_axioms.push((entity, Function::FlatMomentumDash { dist: 1 }, info.clone()));
                         world_map.targeted_axioms.push((with, Function::FlatMomentumDash { dist: 1 }, info.clone()));

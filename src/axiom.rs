@@ -126,6 +126,7 @@ pub enum Function {
     BlinkOuter,
     BecomeIntangible,
     BecomeTangible,
+    MarkPatient,
 
     MomentumDash, // Grace
     MomentumReverseDash, // Grace

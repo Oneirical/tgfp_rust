@@ -232,6 +232,9 @@ pub fn get_astar_best_move(
     match astar {
         None => return None,
         Some(path) => {
+            if path.0.len() <= 1 {
+                return None;
+            }
             let path = path.0;
             Some((path[1].0-path[0].0, path[1].1-path[0].1))
         }

@@ -17,6 +17,11 @@ pub struct Position {
 }
 
 #[derive(Component)]
+pub struct Thought {
+    pub stored_path: Option<(Vec<(i32, i32)>, u32)>
+}
+
+#[derive(Component)]
 pub struct BuildQueue {
     pub build_queue: Vec<(Species, (usize, usize))>
 }

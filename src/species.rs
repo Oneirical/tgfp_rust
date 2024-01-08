@@ -1,6 +1,6 @@
 use std::time::Duration;
 
-use crate::{components::{Position, QueuedAction, SoulBreath, AxiomEffects, Faction}, SpriteSheetHandle, input::ActionType, axiom::{Form, Function, Effect, EffectType}};
+use crate::{components::{Position, QueuedAction, SoulBreath, AxiomEffects, Faction, Thought}, SpriteSheetHandle, input::ActionType, axiom::{Form, Function, Effect, EffectType}};
 use bevy::prelude::*;
 use bevy_tweening::{*, lens::TransformPositionLens};
 use std::f32::consts::PI;
@@ -21,6 +21,7 @@ pub struct CreatureBundle {
     breath: SoulBreath,
     axioms: AxiomEffects,
     faction: Faction,
+    thought: Thought,
 }
 
 impl CreatureBundle { // Creatures displayed on screen.
@@ -71,7 +72,8 @@ impl CreatureBundle { // Creatures displayed on screen.
                 Effect{stacks: 1, effect_type: EffectType::Discipline},
                 Effect{stacks: 1, effect_type: EffectType::Grace},
                 Effect{stacks: 1, effect_type: EffectType::Pride},
-            ]}
+            ]},
+            thought: Thought {stored_path: None},
         }
     }
     pub fn with_data(
@@ -250,11 +252,11 @@ pub fn match_species_with_axioms(
             (Form::SmallBurst, Function::CyanCharm), // TODO there is an infinite loop, fix it
         ], vec![0,0,0,0]),
         Species::ChromeNurse => (vec![
+            (Form::MomentumBeam, Function::MarkPatient),
+            (Form::MomentumBeam, Function::MarkPatient),
+            (Form::MomentumBeam, Function::MarkPatient),
             (Form::Empty, Function::Empty),
-            (Form::MomentumBeam, Function::MomentumReverseDash),
-            (Form::Empty, Function::Empty),
-            (Form::Empty, Function::Empty),
-        ], vec![0,1,0,0]),
+        ], vec![1,1,1,0]),
         _ => (vec![
             (Form::Empty, Function::Empty),
             (Form::Empty, Function::Empty),
