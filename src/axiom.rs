@@ -19,6 +19,7 @@ pub enum EffectType {
     Sync {link: Entity},
     Charm {original: Faction},
     Meltdown,
+    OpenDoor,
 }
 
 pub fn match_effect_with_decay(
@@ -122,6 +123,8 @@ pub enum Function {
     Charm {dur: usize},
     InjectCaste {num: usize, caste: Soul},
     BlinkOuter,
+    BecomeIntangible,
+    BecomeTangible,
 
     MomentumDash, // Grace
     MomentumReverseDash, // Grace

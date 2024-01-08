@@ -149,6 +149,7 @@ pub enum Species {
     GraceCrate,
     PrideCrate,
     Harmonizer,
+    Airlock {dir: usize},
 }
 
 pub fn match_species_with_sprite(
@@ -172,6 +173,7 @@ pub fn match_species_with_sprite(
         Species::DisciplineCrate => 20,
         Species::GraceCrate => 21,
         Species::PrideCrate => 22,
+        Species::Airlock {dir: _ } => 17,
     }
 }
 
@@ -208,6 +210,7 @@ pub fn match_species_with_name(
         Species::GraceCrate => "Vibrating Crate",
         Species::PrideCrate => "Tar-Soaked Crate",
         Species::Harmonizer => "Harmonic Organizer",
+        Species::Airlock {dir: _ } => "Quicksilver Curtains",
     }
 }
 
@@ -281,6 +284,7 @@ pub fn match_species_with_rotation(
 ) -> Quat{
     match species{
         Species::RiftBorder { dir } => Quat::from_rotation_z((PI/2.)*(*dir as f32)),
+        Species::Airlock { dir } => Quat::from_rotation_z((PI/2.)*(*dir as f32)),
         _ => Quat::from_rotation_z(0.)
     }
 }
@@ -302,6 +306,25 @@ pub fn is_invisible(
         Species::Void => true,
         Species::Projector => true,
         _ => false,
+    }
+}
+
+pub fn is_openable(
+    species: &Species
+) -> bool {
+    match species {
+        Species::Airlock { dir: _ } => true,
+        _ => false,
+    }
+}
+
+pub fn is_soulless(
+    species: &Species
+) -> bool {
+    match species {
+        Species::Terminal => false,
+        Species::EpsilonHead { len: _ } => false,
+        _ => true,
     }
 }
 

@@ -4,7 +4,7 @@ use bevy::prelude::*;
 use bevy_tweening::{Animator, Tween, EaseFunction, lens::TransformPositionLens};
 use rand::Rng;
 
-use crate::{SpriteSheetHandle, components::{SoulBreath, Position, MomentumMarker}, ui::CenterOfWheel};
+use crate::{SpriteSheetHandle, components::{SoulBreath, Position, MomentumMarker}, ui::CenterOfWheel, species::{is_soulless, Species}};
 
 pub struct SoulPlugin;
 
@@ -154,55 +154,58 @@ pub fn get_soul_rot_position(
 fn distribute_some_souls(
     mut commands: Commands,
     texture_atlas_handle: Res<SpriteSheetHandle>,
-    mut creatures: Query<&mut SoulBreath>,
-){  for mut breath in creatures.iter_mut(){
-    for i in 0..50{
-        let soul = vec![Soul::Serene, Soul::Feral, Soul::Ordered, Soul::Saintly, Soul::Vile];
-        let tween = Tween::new(
-            EaseFunction::QuadraticInOut,
-            Duration::from_millis(1000),
-            TransformPositionLens {
-                start: Vec3::ZERO,
-                end: Vec3{ x: 0., y: 0., z: 0.5},
-            },
-        );
-        let scale = if i < 4 {
-            Vec3::new(3., 3., 0.)
-        } else { Vec3::new(1., 1., 0.) };
-        let mut rng = rand::thread_rng();
-        let index = rng.gen_range(1..5);
-        let entity = commands.spawn(SoulBundle{
-            sprite_bundle: SpriteSheetBundle {
-                texture_atlas: texture_atlas_handle.handle.clone(),
-                sprite: TextureAtlasSprite{
-                    index : match_soul_with_sprite(&soul[index]),
-                    custom_size: Some(Vec2::new(0.25, 0.25)),
+    mut creatures: Query<(&Species, &mut SoulBreath)>,
+){  for (sp, mut breath) in creatures.iter_mut(){
+        if is_soulless(sp) {
+            breath.soulless = true;
+            continue;
+        }
+        for i in 0..50{
+            let soul = vec![Soul::Serene, Soul::Feral, Soul::Ordered, Soul::Saintly, Soul::Vile];
+            let tween = Tween::new(
+                EaseFunction::QuadraticInOut,
+                Duration::from_millis(1000),
+                TransformPositionLens {
+                    start: Vec3::ZERO,
+                    end: Vec3{ x: 0., y: 0., z: 0.5},
+                },
+            );
+            let scale = if i < 4 {
+                Vec3::new(3., 3., 0.)
+            } else { Vec3::new(1., 1., 0.) };
+            let mut rng = rand::thread_rng();
+            let index = rng.gen_range(1..5);
+            let entity = commands.spawn(SoulBundle{
+                sprite_bundle: SpriteSheetBundle {
+                    texture_atlas: texture_atlas_handle.handle.clone(),
+                    sprite: TextureAtlasSprite{
+                        index : match_soul_with_sprite(&soul[index]),
+                        custom_size: Some(Vec2::new(0.25, 0.25)),
+                        ..default()
+                    },
+                    visibility: Visibility::Hidden,
+                    transform: Transform {
+                        translation: Vec3::ZERO,
+                        scale,
+                        ..default()
+                    },
                     ..default()
                 },
-                visibility: Visibility::Hidden,
-                transform: Transform {
-                    translation: Vec3::ZERO,
-                    scale,
-                    ..default()
-                },
-                ..default()
-            },
-            animation: Animator::new(tween),
-            name: Name::new("Breathed Soul"),
-            soul: soul[index].clone(),
-        }).id();
-        if i < 4 {
-            breath.held.push(entity);
-        }
-        else if i < 12 {
-            breath.pile[index].push(entity);
-        }
-        else {
-            breath.discard[index].push(entity);
+                animation: Animator::new(tween),
+                name: Name::new("Breathed Soul"),
+                soul: soul[index].clone(),
+            }).id();
+            if i < 4 {
+                breath.held.push(entity);
+            }
+            else if i < 12 {
+                breath.pile[index].push(entity);
+            }
+            else {
+                breath.discard[index].push(entity);
+            }
         }
     }
-}
-
 }
 
 pub fn match_soul_with_sprite(

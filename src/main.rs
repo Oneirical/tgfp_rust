@@ -50,9 +50,9 @@ fn main() {
         .add_plugins(UIPlugin)
         .add_plugins(TurnPlugin)
         .add_plugins(SoulPlugin)
-        .add_plugins(
-            WorldInspectorPlugin::default().run_if(input_toggle_active(true, KeyCode::Escape)),
-        )
+        //.add_plugins(
+        //    WorldInspectorPlugin::default().run_if(input_toggle_active(true, KeyCode::Escape)),
+        //)
         .add_state::<TurnState>()
         .insert_resource(ClearColor(Color::rgb(0., 0., 0.)))
         .insert_resource(Msaa::Off) // This fixes weird black lines on the tiles.
@@ -222,7 +222,7 @@ fn spawn_players(
     texture_atlas_handle: Res<SpriteSheetHandle>,
 ) {
     // Player 1
-    let position = (22,8);
+    let position = (9,10);
     let player_1 = CreatureBundle::new(&texture_atlas_handle)
         .with_data(position.0, position.1, (0.,0.), Species::Terminal);
     let entity = commands.spawn((
@@ -263,7 +263,7 @@ fn summon_walls(
     texture_atlas_handle: Res<SpriteSheetHandle>,
     mut commands: Commands, 
 ){
-    let queue = get_build_sequence(Vault::Epsilon, (0,0));
+    let queue = get_build_sequence(Vault::Factory, (0,0));
     for task in &queue{
         let position = task.1;
         if task.0 == Species::Void {continue;}

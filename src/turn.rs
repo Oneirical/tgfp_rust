@@ -4,7 +4,7 @@ use bevy::prelude::*;
 use bevy_tweening::{*, lens::{TransformPositionLens, TransformScaleLens, TransformRotationLens}};
 use rand::seq::SliceRandom;
 
-use crate::{components::{QueuedAction, RealityAnchor, Position, SoulBreath, AxiomEffects, EffectMarker, Faction}, input::ActionType, TurnState, map::{xy_idx, WorldMap, is_in_bounds, bresenham_line, get_neighbouring_entities, get_best_move, get_all_factions_except_one}, soul::{Soul, get_soul_rot_position, SoulRotationTimer, match_soul_with_display_index, match_soul_with_sprite, select_random_entities, CurrentEntityInUI}, ui::{CenterOfWheel, LogMessage}, axiom::{grab_coords_from_form, CasterInfo, match_soul_with_axiom, Function, Form, match_axiom_with_soul, Effect, EffectType, match_effect_with_decay, TriggerType, reduce_down_to, match_effect_with_minimum, match_effect_with_gain}, species::{Species, match_faction_with_index, match_species_with_priority, match_species_with_sprite, is_pushable}, ZoomInEffect, SpriteSheetHandle};
+use crate::{components::{QueuedAction, RealityAnchor, Position, SoulBreath, AxiomEffects, EffectMarker, Faction}, input::ActionType, TurnState, map::{xy_idx, WorldMap, is_in_bounds, bresenham_line, get_neighbouring_entities, get_best_move, get_all_factions_except_one}, soul::{Soul, get_soul_rot_position, SoulRotationTimer, match_soul_with_display_index, match_soul_with_sprite, select_random_entities, CurrentEntityInUI}, ui::{CenterOfWheel, LogMessage}, axiom::{grab_coords_from_form, CasterInfo, match_soul_with_axiom, Function, Form, match_axiom_with_soul, Effect, EffectType, match_effect_with_decay, TriggerType, reduce_down_to, match_effect_with_minimum, match_effect_with_gain}, species::{Species, match_faction_with_index, match_species_with_priority, match_species_with_sprite, is_pushable, is_openable}, ZoomInEffect, SpriteSheetHandle};
 
 pub struct TurnPlugin;
 
@@ -443,6 +443,9 @@ fn dispense_functions(
                                 EffectType::Charm { original } => {
                                     commands.entity(entity).insert(original.clone());
                                 }
+                                EffectType::OpenDoor => {
+                                    world_map.targeted_axioms.push((entity, Function::BecomeTangible, info.clone()));
+                                }
                                 _ => (),
                             }
                             remove_these_effects.push(i);
@@ -575,7 +578,7 @@ fn dispense_functions(
                 Function::MomentumDash => {
                     world_map.targeted_axioms.push((entity, Function::FlatMomentumDash { dist: info.grace }, info.clone()));
                 }
-                Function::Collide { with } => {
+                Function::Collide { with } => { // with is the entity you hit with your move
                     let coll_species = creatures.p2().get(with).unwrap().clone();
                     let coll_pos = match creatures.p1().get(with) {
                         Ok(coll_pos_full) => (coll_pos_full.x, coll_pos_full.y),
@@ -586,7 +589,19 @@ fn dispense_functions(
                         world_map.targeted_axioms.push((entity, Function::FlatMomentumDash { dist: 1 }, info.clone()));
                         world_map.targeted_axioms.push((with, Function::FlatMomentumDash { dist: 1 }, info.clone()));
                     }
+                    if is_openable(&coll_species) {
+                        world_map.targeted_axioms.push((with, Function::BecomeIntangible, info.clone()));
+                        world_map.targeted_axioms.push((with, Function::ApplyEffect { effect: Effect {stacks: 3, effect_type: EffectType::OpenDoor}}, info.clone()));
+                    }
                 },
+                Function::BecomeIntangible => {
+                    let idx = xy_idx(pos.x, pos.y);
+                    world_map.entities[idx] = None;
+                }
+                Function::BecomeTangible => {
+                    let idx = xy_idx(pos.x, pos.y);
+                    world_map.entities[idx] = Some(entity);
+                }
                 Function::MessageLog { message_id } => {
                     events.send(LogMessage(message_id));
                     world_map.anim_queue.push((entity, Animation::MessagePrint));
