@@ -4,7 +4,7 @@ use bevy::prelude::*;
 use bevy_tweening::{*, lens::{TransformPositionLens, TransformScaleLens, TransformRotationLens}};
 use rand::seq::SliceRandom;
 
-use crate::{components::{QueuedAction, RealityAnchor, Position, SoulBreath, AxiomEffects, EffectMarker, Faction, Wounded, Thought}, input::ActionType, TurnState, map::{xy_idx, WorldMap, is_in_bounds, bresenham_line, get_neighbouring_entities, get_best_move, get_all_factions_except_one, get_astar_best_move, manhattan_distance, pathfind_to_location}, soul::{Soul, get_soul_rot_position, SoulRotationTimer, match_soul_with_display_index, match_soul_with_sprite, select_random_entities, CurrentEntityInUI}, ui::{CenterOfWheel, LogMessage}, axiom::{grab_coords_from_form, CasterInfo, match_soul_with_axiom, Function, Form, match_axiom_with_soul, Effect, EffectType, match_effect_with_decay, TriggerType, reduce_down_to, match_effect_with_minimum, match_effect_with_gain, tup_usize_to_i32, tup_i32_to_usize}, species::{Species, match_faction_with_index, match_species_with_priority, match_species_with_sprite, is_pushable, is_openable}, ZoomInEffect, SpriteSheetHandle, ai::has_effect};
+use crate::{components::{QueuedAction, RealityAnchor, Position, SoulBreath, AxiomEffects, EffectMarker, Faction, Wounded, Thought, Segmentified}, input::ActionType, TurnState, map::{xy_idx, WorldMap, is_in_bounds, bresenham_line, get_neighbouring_entities, get_best_move, get_all_factions_except_one, get_astar_best_move, manhattan_distance, pathfind_to_location}, soul::{Soul, get_soul_rot_position, SoulRotationTimer, match_soul_with_display_index, match_soul_with_sprite, select_random_entities, CurrentEntityInUI}, ui::{CenterOfWheel, LogMessage}, axiom::{grab_coords_from_form, CasterInfo, match_soul_with_axiom, Function, Form, match_axiom_with_soul, Effect, EffectType, match_effect_with_decay, TriggerType, reduce_down_to, match_effect_with_minimum, match_effect_with_gain, tup_usize_to_i32, tup_i32_to_usize}, species::{Species, match_faction_with_index, match_species_with_priority, match_species_with_sprite, is_pushable, is_openable}, ZoomInEffect, SpriteSheetHandle, ai::has_effect};
 
 pub struct TurnPlugin;
 
@@ -74,11 +74,12 @@ fn choose_action (
 }
 
 fn calculate_actions (
-    mut creatures: Query<(Entity, &mut QueuedAction, &Thought, &AxiomEffects, &SoulBreath, &Position, &Species, &Faction, Has<RealityAnchor>)>,
+    mut creatures: Query<(Entity, &mut QueuedAction, &AxiomEffects, &SoulBreath, &Position, &Species, &Faction, Has<RealityAnchor>)>,
     read_species: Query<&Species>,
     read_position: Query<&Position>,
     read_thought: Query<&Thought>,
     locate_wounded: Query<(Entity, &Position), With<Wounded>>,
+    locate_segments: Query<Entity, With<Segmentified>>,
     souls: Query<&Soul>,
     mut next_state: ResMut<NextState<TurnState>>,
     mut world_map: ResMut<WorldMap>,
@@ -90,14 +91,13 @@ fn calculate_actions (
     for _i in 0..5 {
         contestants.push(Vec::new());
     }
-    for (entity, _queue, _th, _ax, brea, _pos, _species, faction, _is_player) in creatures.iter_mut(){
+    for (entity, _queue, _ax, brea, _pos, _species, faction, _is_player) in creatures.iter_mut(){
         let index = match_faction_with_index(faction);
         if index.is_some() && !brea.soulless { contestants[index.unwrap()].push(entity); } else { continue;} // Gather the pool of fighters by faction.
     }
-    for (entity, mut queue, thought, ax, brea, pos, species, faction, is_player) in creatures.iter_mut(){
-        if brea.soulless {
+    for (entity, mut queue, ax, brea, pos, species, faction, is_player) in creatures.iter_mut(){
+        if brea.soulless && !matches!(species, &Species::EpsilonTail { .. }){ // this caused a weird bug with the segments
             queue.action = ActionType::Nothing;
-            continue;
         }
         let mut foes = Vec::new();
         let mut allies = Vec::new();
@@ -107,11 +107,22 @@ fn calculate_actions (
             foes = get_all_factions_except_one(&mut contestants.clone(), fac_index.unwrap());
         }
         let destination = {
-            let target = foes.get(0); // Get the first foe available as a walking destination.
+            let target = if foes.is_empty() { None } else {Some(foes[0])}; // Get the first foe available as a walking destination.
+            let target = if matches!(species, Species::EpsilonHead { .. }) && target.is_none() {
+                let mut located_seg = Vec::new();
+                for segment in locate_segments.iter() {
+                    located_seg.push(segment);
+                }
+                let mut tail_detect = None;
+                for tail in located_seg {
+                    if matches!(read_species.get(tail).unwrap(), Species::EpsilonTail { order: -1 }) {tail_detect = Some(tail); break;} else {continue;}
+                }
+                tail_detect
+            } else {target};
             if target.is_none() {
-                (pos.x, pos.y)
+                (22, 22)
             } else {
-                let tar_pos = read_position.get(*target.unwrap());
+                let tar_pos = read_position.get(target.unwrap());
                 let tar_pos = tar_pos.unwrap();
                 (tar_pos.x, tar_pos.y)
             }
@@ -124,6 +135,20 @@ fn calculate_actions (
         }
         let saved_play_action = if is_player { queue.action.clone() } else { ActionType::Nothing };
         queue.action = match species {
+            Species::SegmentTransformer => {
+                let mut located_wounded = Vec::new();
+                for wound in locate_wounded.iter() {
+                    located_wounded.push(wound);
+                }
+                located_wounded.sort_by(|a, b| {
+                    let dist_a = manhattan_distance(tup_usize_to_i32((a.1.x, a.1.y)), tup_usize_to_i32(info.pos));
+                    let dist_b = manhattan_distance(tup_usize_to_i32((b.1.x, b.1.y)), tup_usize_to_i32(info.pos));
+                    dist_a.cmp(&dist_b)
+                });
+                let grab_this = located_wounded.get(0);
+                if let Some(grab_this) = grab_this {  
+                    choose_action(info.pos, vec![grab_this.0], Vec::new(), ax.axioms.clone(), ax.polarity.clone(), available_souls, info, &world_map.entities)
+                } else {ActionType::Nothing}            }
             Species::ChromeNurse => {
                 let mut patient = None;
                 for search in &info.effects {
@@ -235,7 +260,7 @@ fn calculate_actions (
                                             commands.entity(creature).insert(QueuedAction{action: ActionType::Walk { momentum }});
                                             found_segment = true;
                                             detected_tails.push(creature);
-                                            commands.entity(creature).insert(Species::EpsilonTail { order: current_order });
+                                            commands.entity(creature).insert(Species::EpsilonTail { order: current_order as i32 });
                                             current_order += 1;
                                             break;
                                         } else {continue;}
@@ -255,27 +280,6 @@ fn calculate_actions (
                 choose_action(destination, foes, allies, ax.axioms.clone(), ax.polarity.clone(), available_souls, info, &world_map.entities)
             },
             Species::EpsilonTail {order: _} => {
-                /*
-
-                let neigh = get_neighbouring_entities(&world_map.entities, pos.x, pos.y);
-                let target_order = order+1;
-                for detected in neigh{
-                    match detected {
-                        Some(creature) => {
-                            match read_species.get(creature).unwrap() {
-                                Species::EpsilonTail { order } => {
-                                    if order.eq(&target_order) {
-                                        let crea_pos = read_position.get(creature).unwrap();
-                                        let momentum = (pos.x as i32-crea_pos.x as i32, pos.y as i32-crea_pos.y as i32);
-                                        commands.entity(creature).insert(QueuedAction{action: ActionType::Walk { momentum }});
-                                    } else {continue;}
-                                },
-                                _ => continue,
-                            };
-                        }
-                        None => continue,
-                    };
-                } */
                 queue.action.clone()
             },
             _ => ActionType::Nothing,
@@ -630,6 +634,11 @@ fn dispense_functions(
                     let dur = 10;//info.pride;
                     world_map.targeted_axioms.push((entity, Function::InjectCaste {num: 1, caste: Soul::Serene}, info.clone()));
                     world_map.targeted_axioms.push((entity, Function::Charm {dur}, info.clone()));
+                }
+                Function::Segmentize => {
+                    world_map.targeted_axioms.push((entity, Function::PolymorphNow { new_species: Species::EpsilonTail { order: -1 } }, info.clone()));
+                    commands.entity(entity).remove::<Wounded>();
+                    commands.entity(entity).insert(Segmentified);
                 }
                 Function::ImitateSpecies => {
                     let duration = info.grace;

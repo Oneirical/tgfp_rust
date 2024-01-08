@@ -143,7 +143,7 @@ pub enum Species {
     TermiWall,
     RiftBorder{dir: usize},
     EpsilonHead {len: usize},
-    EpsilonTail{order: usize},
+    EpsilonTail{order: i32},
     LunaMoth,
     AxiomCrate,
     GlamourCrate,
@@ -153,6 +153,7 @@ pub enum Species {
     Harmonizer,
     Airlock {dir: usize},
     ChromeNurse,
+    SegmentTransformer,
 }
 
 pub fn match_species_with_sprite(
@@ -178,6 +179,7 @@ pub fn match_species_with_sprite(
         Species::PrideCrate => 22,
         Species::Airlock {dir: _ } => 17,
         Species::ChromeNurse => 6,
+        Species::SegmentTransformer => 78,
     }
 }
 
@@ -189,6 +191,7 @@ pub fn match_species_with_faction(
         Species::EpsilonHead { len: _ }=> Faction::Ordered,
         Species::EpsilonTail {order: _}=> Faction::Ordered,
         Species::Terminal => Faction::Saintly,
+        Species::SegmentTransformer => Faction::Ordered,
         _ => Faction::Unaligned,
     }
 }
@@ -216,6 +219,7 @@ pub fn match_species_with_name(
         Species::Harmonizer => "Harmonic Organizer",
         Species::Airlock {dir: _ } => "Quicksilver Curtains",
         Species::ChromeNurse => "Chrome Attendant",
+        Species::SegmentTransformer => "Bio-Mechanizer",
     }
 }
 
@@ -223,8 +227,8 @@ pub fn match_species_with_priority(
     species: &Species
 ) -> i32 {
     match species{
-        Species::EpsilonHead { len: _ } => -1,
-        Species::EpsilonTail { order } => *order as i32,
+        Species::EpsilonHead { len: _ } => -2,
+        Species::EpsilonTail { order } => *order,
         _ => 0,
     }
 }
@@ -257,6 +261,12 @@ pub fn match_species_with_axioms(
             (Form::MomentumBeam, Function::MarkPatient),
             (Form::Empty, Function::Empty),
         ], vec![1,1,1,0]),
+        Species::SegmentTransformer => (vec![
+            (Form::MomentumTouch, Function::Segmentize),
+            (Form::MomentumTouch, Function::Segmentize),
+            (Form::MomentumTouch, Function::Segmentize),
+            (Form::Empty, Function::Empty),
+        ], vec![-1,-1,-1,0]),
         _ => (vec![
             (Form::Empty, Function::Empty),
             (Form::Empty, Function::Empty),
@@ -336,6 +346,7 @@ pub fn is_soulless(
         Species::Terminal => false,
         Species::EpsilonHead { len: _ } => false,
         Species::ChromeNurse => false,
+        Species::SegmentTransformer => false,
         _ => true,
     }
 }

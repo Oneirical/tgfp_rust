@@ -127,6 +127,7 @@ pub enum Function {
     BecomeIntangible,
     BecomeTangible,
     MarkPatient,
+    Segmentize,
 
     MomentumDash, // Grace
     MomentumReverseDash, // Grace
