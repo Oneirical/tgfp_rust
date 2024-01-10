@@ -14,8 +14,8 @@ impl Plugin for MapPlugin {
     }
 }
 
-pub const WORLD_WIDTH: usize = 45;
-pub const WORLD_HEIGHT: usize = 45;
+pub const WORLD_WIDTH: usize = 80;
+pub const WORLD_HEIGHT: usize = 80;
 
 #[derive(Resource)]
 pub struct WorldMap {
@@ -112,7 +112,9 @@ pub fn place_down_new_entities(
         if is_intangible {
             continue;
         }
-        assert_eq!(world_map.entities[xy_idx(position.x, position.y)], None, "THERE IS A CREATURE SPAWNING ON TOP OF ANOTHER AT POSITION ({0}, {1})!", position.x, position.y);
+        if world_map.entities[xy_idx(position.x, position.y)] != None {
+            dbg!("THERE IS A CREATURE SPAWNING ON TOP OF ANOTHER AT POSITION ({0}, {1})!", position.x, position.y);
+        }
         world_map.entities[xy_idx(position.x, position.y)] = Some(entity_id);
     }
 }

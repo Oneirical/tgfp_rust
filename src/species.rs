@@ -1,6 +1,6 @@
 use std::time::Duration;
 
-use crate::{components::{Position, QueuedAction, SoulBreath, AxiomEffects, Faction, Thought}, SpriteSheetHandle, input::ActionType, axiom::{Form, Function, Effect, EffectType}};
+use crate::{components::{Position, QueuedAction, SoulBreath, AxiomEffects, Faction, Thought}, SpriteSheetHandle, input::ActionType, axiom::{Form, Function, Effect, EffectType, match_form_with_name}};
 use bevy::prelude::*;
 use bevy_tweening::{*, lens::TransformPositionLens};
 use std::f32::consts::PI;
@@ -154,6 +154,9 @@ pub enum Species {
     Airlock {dir: usize},
     ChromeNurse,
     SegmentTransformer,
+    CrateActivator {caste: usize},
+    FormCrate {form: Form},
+    FunctionCrate {function: Box<Function>},
 }
 
 pub fn match_species_with_sprite(
@@ -180,6 +183,9 @@ pub fn match_species_with_sprite(
         Species::Airlock {dir: _ } => 17,
         Species::ChromeNurse => 6,
         Species::SegmentTransformer => 78,
+        Species::CrateActivator { caste } => 160+caste,
+        Species::FormCrate { form: _ } => 20,
+        Species::FunctionCrate { function: _ } => 21,
     }
 }
 
@@ -198,8 +204,8 @@ pub fn match_species_with_faction(
 
 pub fn match_species_with_name(
     species: &Species
-)-> &'static str {
-    match species{
+)-> String {
+    let ret = match species{
         Species::Wall => "Rampart of Nacre",
         Species::BuggedSpecies => "Bugged, Please Report",
         Species::Terminal => "Terminal, the Reality Anchor",
@@ -220,7 +226,11 @@ pub fn match_species_with_name(
         Species::Airlock {dir: _ } => "Quicksilver Curtains",
         Species::ChromeNurse => "Chrome Attendant",
         Species::SegmentTransformer => "Bio-Mechanizer",
-    }
+        Species::CrateActivator { caste: _ } => "Axiom Activator",
+        Species::FormCrate { form: _ } => "Form Crate",
+        Species::FunctionCrate { function: _ } => "Function Crate",
+    }.to_owned();
+    ret
 }
 
 pub fn match_species_with_priority(
@@ -267,6 +277,18 @@ pub fn match_species_with_axioms(
             (Form::MomentumTouch, Function::Segmentize),
             (Form::Empty, Function::Empty),
         ], vec![-1,-1,-1,0]),
+        Species::FormCrate { form } => (vec![
+            (form.clone(), Function::Empty),
+            (form.clone(), Function::Empty),
+            (form.clone(), Function::Empty),
+            (form.clone(), Function::Empty),
+        ], vec![0,0,0,0] ),
+        Species::FunctionCrate { function } => (vec![
+            (Form::Empty, *function.clone()),
+            (Form::Empty, *function.clone()),
+            (Form::Empty, *function.clone()),
+            (Form::Empty, *function.clone()),
+        ], vec![0,0,0,0] ),
         _ => (vec![
             (Form::Empty, Function::Empty),
             (Form::Empty, Function::Empty),
@@ -359,6 +381,8 @@ pub fn is_pushable(
         Species::DisciplineCrate => true,
         Species::GraceCrate => true,
         Species::PrideCrate => true,
+        Species::FormCrate { form: _ } => true,
+        Species::FunctionCrate { function: _ } => true,
         _ => false,
     }
 }

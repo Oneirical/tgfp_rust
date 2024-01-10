@@ -93,7 +93,7 @@ pub fn match_effect_with_sprite(
     }
 }
 
-#[derive(Clone)]
+#[derive(Clone, Debug, PartialEq)]
 pub enum Form {
     Empty,
     Ego,
@@ -104,6 +104,20 @@ pub enum Form {
     SmallBurst,
     BigOuter,
 }
+
+pub fn match_form_with_name (
+    form: Form
+) -> &'static str {
+    match form {
+        Form::Ego => "Self",
+        Form::MomentumBeam => "Momentum Beam",
+        Form::MomentumTouch => "Momentum Touch",
+        Form::MomentumTail => "Momentum Tail",
+        Form::MomentumLateral => "Momentum Lateral",
+        _ => "TODO",
+    }
+}
+
 #[derive(Clone, Debug, PartialEq)]
 pub enum Function {
     Empty,
