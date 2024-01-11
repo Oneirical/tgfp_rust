@@ -142,6 +142,7 @@ pub enum Function {
     BecomeTangible,
     MarkPatient,
     Segmentize,
+    SummonCreature {species: Species},
 
     MomentumDash, // Grace
     MomentumReverseDash, // Grace

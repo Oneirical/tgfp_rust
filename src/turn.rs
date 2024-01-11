@@ -4,7 +4,7 @@ use bevy::prelude::*;
 use bevy_tweening::{*, lens::{TransformPositionLens, TransformScaleLens, TransformRotationLens}};
 use rand::seq::SliceRandom;
 
-use crate::{components::{QueuedAction, RealityAnchor, Position, SoulBreath, AxiomEffects, EffectMarker, Faction, Wounded, Thought, Segmentified}, input::ActionType, TurnState, map::{xy_idx, WorldMap, is_in_bounds, bresenham_line, get_neighbouring_entities, get_best_move, get_all_factions_except_one, get_astar_best_move, manhattan_distance, pathfind_to_location}, soul::{Soul, get_soul_rot_position, SoulRotationTimer, match_soul_with_display_index, match_soul_with_sprite, select_random_entities, CurrentEntityInUI}, ui::{CenterOfWheel, LogMessage}, axiom::{grab_coords_from_form, CasterInfo, match_soul_with_axiom, Function, Form, match_axiom_with_soul, Effect, EffectType, match_effect_with_decay, TriggerType, reduce_down_to, match_effect_with_minimum, match_effect_with_gain, tup_usize_to_i32, tup_i32_to_usize}, species::{Species, match_faction_with_index, match_species_with_priority, match_species_with_sprite, is_pushable, is_openable}, ZoomInEffect, SpriteSheetHandle, ai::has_effect};
+use crate::{components::{QueuedAction, RealityAnchor, Position, SoulBreath, AxiomEffects, EffectMarker, Faction, Wounded, Thought, Segmentified}, input::ActionType, TurnState, map::{xy_idx, WorldMap, is_in_bounds, bresenham_line, get_neighbouring_entities, get_best_move, get_all_factions_except_one, get_astar_best_move, manhattan_distance, pathfind_to_location}, soul::{Soul, get_soul_rot_position, SoulRotationTimer, match_soul_with_display_index, match_soul_with_sprite, select_random_entities, CurrentEntityInUI}, ui::{CenterOfWheel, LogMessage}, axiom::{grab_coords_from_form, CasterInfo, match_soul_with_axiom, Function, Form, match_axiom_with_soul, Effect, EffectType, match_effect_with_decay, TriggerType, reduce_down_to, match_effect_with_minimum, match_effect_with_gain, tup_usize_to_i32, tup_i32_to_usize}, species::{Species, match_faction_with_index, match_species_with_priority, match_species_with_sprite, is_pushable, is_openable, CreatureBundle}, ZoomInEffect, SpriteSheetHandle, ai::has_effect};
 
 pub struct TurnPlugin;
 
@@ -17,6 +17,7 @@ pub enum Animation{
     MessagePrint,
     SoulSwap,
     Polymorph {new_species: Species},
+    RevealCreature,
 }
 
 impl Plugin for TurnPlugin {
@@ -338,6 +339,7 @@ fn execute_turn (
                     }
                     for square in targets.coords{
                         world_map.anim_queue.push((entity, Animation::FormMark { coords: square }));
+                        world_map.floor_axioms.push((square, function.clone(), info.clone()));
                     }
                 } else {
                     panic!("The used Soul did not have a soul type!");
@@ -376,6 +378,7 @@ fn dispense_functions(
         Query<&Position>,
         Query<&Species>,
         Query<&SoulBreath>,
+        Query<&Position, With<RealityAnchor>>,
     )>,
     faction: Query<&Faction>,
     check_wound: Query<Entity, With<Wounded>>,
@@ -388,6 +391,8 @@ fn dispense_functions(
     mut zoom: ResMut<ZoomInEffect>,
     mut commands: Commands,
     mut current_crea_display: ResMut<CurrentEntityInUI>,
+    texture_atlas_handle: Res<SpriteSheetHandle>,
+
 ){
     let mut anti_infinite_loop = 0;
     /*world_map.targeted_axioms.sort_by(|a, b| { // 
@@ -397,8 +402,31 @@ fn dispense_functions(
             (false, true) => Ordering::Greater,
         }
     }); // The player acts first */
+    world_map.floor_axioms.sort_unstable_by(|a, b| match_species_with_priority(&b.2.species).cmp(&match_species_with_priority(&a.2.species)));
     world_map.targeted_axioms.sort_unstable_by(|a, b| match_species_with_priority(&b.2.species).cmp(&match_species_with_priority(&a.2.species)));
     // Then we grant special priorities
+
+    while !world_map.floor_axioms.is_empty() {
+        anti_infinite_loop += 1;
+        if anti_infinite_loop > 500 { panic!("Infinite loop detected in axiom queue!") }
+        let (coords, function, mut info) = world_map.floor_axioms.pop().unwrap();
+        match function {
+            Function::SummonCreature { species } => {
+                let mut player_pos = (0.,0.);
+                if let Ok(pos) = creatures.p4().get_single() {
+                    player_pos = ((22. - pos.x as f32)/2., (8. - pos.y as f32)/2.);
+                }
+                if world_map.entities[xy_idx(coords.0, coords.1)].is_some() {continue;}
+                let new_creature = CreatureBundle::new(&texture_atlas_handle)
+                .with_data(coords.0, coords.1, player_pos, species.clone());
+                let entity_id = commands.spawn(new_creature).id();
+                commands.entity(entity_id).insert(Visibility::Hidden);
+                world_map.anim_queue.push((entity_id, Animation::RevealCreature));
+            }
+            _ => ()
+        }
+    }
+
     while !world_map.targeted_axioms.is_empty() {
         anti_infinite_loop += 1;
         if anti_infinite_loop > 500 { panic!("Infinite loop detected in axiom queue!") }
@@ -893,7 +921,7 @@ fn dispense_functions(
                         None => panic!("The chosen Soul category had nothing left!")
                     }
                 },
-                Function::Empty => ()
+                _ => ()
             };
             //let new_stats = &effects.status.clone();
 
@@ -1026,6 +1054,9 @@ fn unpack_animations(
             },
             Animation::MessagePrint => {
                 world_map.animation_timer.set_duration(Duration::from_millis(1));
+            },
+            Animation::RevealCreature => {
+                commands.entity(entity).insert(Visibility::Visible);
             }
         }
     }
