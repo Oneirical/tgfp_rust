@@ -12,7 +12,7 @@ use soul::{SoulPlugin, CurrentEntityInUI};
 use species::{CreatureBundle, Species, is_intangible};
 use turn::TurnPlugin;
 use ui::UIPlugin;
-use vaults::{get_build_sequence, Vault, match_vault_with_spawn_loc};
+use vaults::{get_build_sequence, Vault, match_vault_with_spawn_loc, build_spire};
 use world::{match_plane_with_vaults, Plane};
 
 mod components;
@@ -260,13 +260,14 @@ fn spawn_players(
         x: 11,
         y: 4
     }));
+    //build_spire();
 }
 
 fn summon_walls(
     texture_atlas_handle: Res<SpriteSheetHandle>,
     mut commands: Commands, 
 ){
-    let queue = get_build_sequence(Vault::Epsilon, (0,0));
+    let queue = build_spire();//get_build_sequence(Vault::Epsilon, (0,0));
     for task in &queue{
         let position = task.1;
         if task.0 == Species::Void {continue;}

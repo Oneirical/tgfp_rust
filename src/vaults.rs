@@ -1,4 +1,5 @@
 use bevy::prelude::*;
+use rand::Rng;
 
 use crate::{species::Species, axiom::{Form, Function}};
 
@@ -213,6 +214,41 @@ pub fn get_build_sequence( // I am so surprised this worked on the first try. Ru
         }
     }
     output
+}
+
+pub fn build_spire(
+
+) -> Vec<(Species, (usize, usize))>
+{
+  let mut structures = Vec::new();
+  let mut rng = rand::thread_rng();
+  let start_point = rng.gen_range(0..10);
+  let mut current_center = (Species::TermiWall, (start_point, 1));
+  let mut summit = 1;
+  while summit < 40 {
+    let mut platform = Vec::new();
+    platform.push(current_center.clone());
+    let platform_length = rng.gen_range(1..5);
+    for _i in 0..platform_length {
+        let x_pos = 44.min(current_center.1.0+1);
+        current_center = (Species::TermiWall,(x_pos, summit));
+        platform.push(current_center.clone());
+    }
+    let mut ladder = Vec::new();
+    let ladder_length = rng.gen_range(2..6);
+    let ladder_pos = rng.gen_range(0..platform.len()-1);
+    let ladder_pos = platform[ladder_pos].1.0;
+    for _i in 0..ladder_length {
+        summit += 1;
+        ladder.push((Species::Wall, (ladder_pos, summit)));
+    }
+    summit+= 1;
+    current_center = ((Species::TermiWall), (ladder_pos, summit));
+    structures.append(&mut platform);
+    structures.append(&mut ladder);
+  }
+  structures
+
 }
 
 pub fn vault_xy_idx(x: usize, y: usize, size: usize) -> usize {
