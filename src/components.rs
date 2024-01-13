@@ -37,6 +37,9 @@ pub struct Cursor {
 pub struct Intangible;
 
 #[derive(Component)]
+pub struct DoorAnimation;
+
+#[derive(Component)]
 pub struct EffectMarker;
 
 #[derive(Component)]

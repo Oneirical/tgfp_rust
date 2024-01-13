@@ -225,9 +225,9 @@ fn spawn_players(
     texture_atlas_handle: Res<SpriteSheetHandle>,
 ) {
     // Player 1
-    let position = (22, 8);
+    let position = (22, 22);
     let player_1 = CreatureBundle::new(&texture_atlas_handle)
-        .with_data(position.0, position.1, (0.,0.), Species::Terminal);
+        .with_data(position.0, position.1, (0.,-7.), Species::Terminal);
     let entity = commands.spawn((
         player_1, 
         RealityAnchor { player_id: 0},
@@ -267,12 +267,12 @@ fn summon_walls(
     texture_atlas_handle: Res<SpriteSheetHandle>,
     mut commands: Commands, 
 ){
-    let queue = build_spire();//get_build_sequence(Vault::Epsilon, (0,0));
+    let queue = get_build_sequence(Vault::WorldSeed, (18,18));
     for task in &queue{
         let position = task.1;
         if task.0 == Species::Void {continue;}
         let new_creature = CreatureBundle::new(&texture_atlas_handle)
-            .with_data(position.0, position.1, (0.,0.), task.0.clone());
+            .with_data(position.0, position.1, (0.,-7.), task.0.clone());
         let entity_id = commands.spawn(new_creature).id();
         if is_intangible(&task.0){
             commands.entity(entity_id).insert(Intangible);

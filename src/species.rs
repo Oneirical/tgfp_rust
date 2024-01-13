@@ -157,6 +157,8 @@ pub enum Species {
     CrateActivator {caste: usize},
     FormCrate {form: Form},
     FunctionCrate {function: Box<Function>},
+    Platform,
+    Ladder,
 }
 
 pub fn match_species_with_sprite(
@@ -186,6 +188,8 @@ pub fn match_species_with_sprite(
         Species::CrateActivator { caste } => 160+caste,
         Species::FormCrate { form: _ } => 20,
         Species::FunctionCrate { function: _ } => 21,
+        Species::Platform => 57,
+        Species::Ladder => 58,
     }
 }
 
@@ -229,6 +233,8 @@ pub fn match_species_with_name(
         Species::CrateActivator { caste: _ } => "Axiom Activator",
         Species::FormCrate { form: _ } => "Form Crate",
         Species::FunctionCrate { function: _ } => "Function Crate",
+        Species::Platform => "Pneumatic Platform",
+        Species::Ladder => "Ascendant Gust",
     }.to_owned();
     ret
 }
@@ -238,6 +244,7 @@ pub fn match_species_with_priority(
 ) -> i32 {
     match species{
         Species::EpsilonHead { len: _ } => -2,
+        Species::Airlock { dir: _ } => -99,
         Species::EpsilonTail { order } => *order,
         _ => 0,
     }
@@ -338,6 +345,8 @@ pub fn is_intangible(
     match species{
         Species::RiftBorder { dir: _ } => true,
         Species::Projector => true,
+        //Species::Platform => true,
+        Species::Ladder => true,
         _ => false
     }
 }

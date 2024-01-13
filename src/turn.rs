@@ -1,10 +1,10 @@
-use std::{time::Duration, f32::consts::PI};
+use std::{time::Duration, f32::consts::PI, mem::swap};
 
 use bevy::prelude::*;
 use bevy_tweening::{*, lens::{TransformPositionLens, TransformScaleLens, TransformRotationLens}};
 use rand::seq::SliceRandom;
 
-use crate::{components::{QueuedAction, RealityAnchor, Position, SoulBreath, AxiomEffects, EffectMarker, Faction, Wounded, Thought, Segmentified}, input::ActionType, TurnState, map::{xy_idx, WorldMap, is_in_bounds, bresenham_line, get_neighbouring_entities, get_best_move, get_all_factions_except_one, get_astar_best_move, manhattan_distance, pathfind_to_location}, soul::{Soul, get_soul_rot_position, SoulRotationTimer, match_soul_with_display_index, match_soul_with_sprite, select_random_entities, CurrentEntityInUI}, ui::{CenterOfWheel, LogMessage}, axiom::{grab_coords_from_form, CasterInfo, match_soul_with_axiom, Function, Form, match_axiom_with_soul, Effect, EffectType, match_effect_with_decay, TriggerType, reduce_down_to, match_effect_with_minimum, match_effect_with_gain, tup_usize_to_i32, tup_i32_to_usize}, species::{Species, match_faction_with_index, match_species_with_priority, match_species_with_sprite, is_pushable, is_openable, CreatureBundle}, ZoomInEffect, SpriteSheetHandle, ai::has_effect};
+use crate::{components::{QueuedAction, RealityAnchor, Position, SoulBreath, AxiomEffects, EffectMarker, Faction, Wounded, Thought, Segmentified, DoorAnimation}, input::ActionType, TurnState, map::{xy_idx, WorldMap, is_in_bounds, bresenham_line, get_neighbouring_entities, get_best_move, get_all_factions_except_one, get_astar_best_move, manhattan_distance, pathfind_to_location}, soul::{Soul, get_soul_rot_position, SoulRotationTimer, match_soul_with_display_index, match_soul_with_sprite, select_random_entities, CurrentEntityInUI}, ui::{CenterOfWheel, LogMessage}, axiom::{grab_coords_from_form, CasterInfo, match_soul_with_axiom, Function, Form, match_axiom_with_soul, Effect, EffectType, match_effect_with_decay, TriggerType, reduce_down_to, match_effect_with_minimum, match_effect_with_gain, tup_usize_to_i32, tup_i32_to_usize}, species::{Species, match_faction_with_index, match_species_with_priority, match_species_with_sprite, is_pushable, is_openable, CreatureBundle}, ZoomInEffect, SpriteSheetHandle, ai::has_effect};
 
 pub struct TurnPlugin;
 
@@ -18,6 +18,9 @@ pub enum Animation{
     SoulSwap,
     Polymorph {new_species: Species},
     RevealCreature,
+    UseDoor {orient: usize, closing: bool},
+    RemoveDoorAnims {closed: bool},
+    MinimumDelay,
 }
 
 impl Plugin for TurnPlugin {
@@ -551,7 +554,19 @@ fn dispense_functions(
                                     commands.entity(entity).insert(original.clone());
                                 }
                                 EffectType::OpenDoor => {
-                                    world_map.targeted_axioms.push((entity, Function::BecomeTangible, info.clone()));
+                                    match world_map.entities[xy_idx(pos.x, pos.y)] {
+                                        Some(_) => {
+                                            world_map.targeted_axioms.push((entity, Function::ApplyEffect { effect: Effect {stacks: 1, effect_type: EffectType::OpenDoor}}, info.clone()));
+                                        }
+                                        None => {
+                                            world_map.targeted_axioms.push((entity, Function::BecomeTangible, info.clone()));
+                                            match *species {
+                                                Species::Airlock { dir } => world_map.anim_queue.push((entity, Animation::UseDoor { orient: dir, closing: true })),
+                                                _ => ()
+                                            }
+                                        }
+                                    }
+
                                 }
                                 _ => (),
                             }
@@ -711,6 +726,10 @@ fn dispense_functions(
                     if is_openable(&coll_species) {
                         world_map.targeted_axioms.push((with, Function::BecomeIntangible, info.clone()));
                         world_map.targeted_axioms.push((with, Function::ApplyEffect { effect: Effect {stacks: 3, effect_type: EffectType::OpenDoor}}, info.clone()));
+                        match &coll_species {
+                            Species::Airlock { dir } => world_map.anim_queue.push((with, Animation::UseDoor { orient: *dir, closing: false })),
+                            _ => ()
+                        }
                     }
                 },
                 Function::BecomeIntangible => {
@@ -928,6 +947,7 @@ fn dispense_functions(
         }
     }
     world_map.anim_queue.reverse(); // I will probably forget about this and rage later
+    if world_map.anim_queue.is_empty() {world_map.anim_queue.push((Entity::PLACEHOLDER, Animation::MinimumDelay))};
     next_state.set(TurnState::UnpackingAnimation);
 }
 
@@ -940,6 +960,7 @@ fn unpack_animations(
     mut world_map: ResMut<WorldMap>,
     time: Res<Time>,
     mut commands: Commands,
+    door_anims: Query<Entity, With<DoorAnimation>>,
     texture_atlas_handle: Res<SpriteSheetHandle>,
 ){
     world_map.animation_timer.tick(time.delta());
@@ -969,8 +990,80 @@ fn unpack_animations(
             return;
         }
     };
-    if let Ok((breath, transform, mut sprite, mut anim, _fin, _is_player)) = creatures.get_mut(entity.to_owned()) {
+    if matches!(anim_choice, Animation::MinimumDelay) {world_map.animation_timer.set_duration(Duration::from_millis(20));}
+    else if let Ok((breath, transform, mut sprite, mut anim, fini, _is_player)) = creatures.get_mut(entity.to_owned()) {
         match anim_choice {
+            Animation::UseDoor { orient, closing } => {
+                if !closing {commands.entity(entity).insert(Visibility::Hidden);}
+                let dx = [0.5, 0., 0.5, 0.];
+                let dy = [0., 0.5, 0., 0.5];
+                let mut sx = player_trans.x + (fini.x as f32 -player_pos.0 as f32)/2.;
+                let mut sy = player_trans.y + (fini.y as f32 -player_pos.1 as f32)/2.;
+                let (mut start_a, mut start_b) = (Vec3::new(sx, sy, -2.),Vec3::new(sx, sy, -2.));
+                let (mut end_a, mut end_b) = (Vec3::new(sx + dx[orient], sy + dy[orient], -2.),Vec3::new(sx - dx[orient], sy - dy[orient], -2.));
+                if closing {
+                    sx = player_trans.x + (fini.x as f32 -player_opos.0 as f32)/2.;
+                    sy = player_trans.y + (fini.y as f32 -player_opos.1 as f32)/2.;
+                    (end_a, end_b) = (Vec3::new(sx, sy, -2.),Vec3::new(sx, sy, -2.));
+                    (start_a, start_b) = (Vec3::new(sx + dx[orient], sy + dy[orient], -2.),Vec3::new(sx - dx[orient], sy - dy[orient], -2.));
+                }
+                let tween_a = Tween::new(
+                    EaseFunction::QuadraticInOut,
+                    Duration::from_millis(500),
+                    TransformPositionLens {
+                        start: start_a,
+                        end: end_a,
+                    },
+                );
+                let tween_b = Tween::new(
+                    EaseFunction::QuadraticInOut,
+                    Duration::from_millis(500),
+                    TransformPositionLens {
+                        start: start_b,
+                        end: end_b,
+                    },
+                );
+                commands.spawn((SpriteSheetBundle {
+                    sprite: TextureAtlasSprite {
+                        index: sprite.index,
+                        custom_size: Some(Vec2 { x: 0.5, y: 0.5 }),
+                        ..default()
+                    },
+                    transform: Transform {
+                        translation: start_a,
+                        rotation: transform.rotation,
+                        ..default()
+                    },
+                    texture_atlas: texture_atlas_handle.handle.clone(),
+                    ..default()
+                },DoorAnimation, Animator::new(tween_a)));
+                commands.spawn((SpriteSheetBundle {
+                    sprite: TextureAtlasSprite {
+                        index: sprite.index,
+                        custom_size: Some(Vec2 { x: 0.5, y: 0.5 }),
+                        ..default()
+                    },
+                    transform: Transform {
+                        translation: start_b,
+                        rotation: transform.rotation,
+                        ..default()
+                    },
+                    texture_atlas: texture_atlas_handle.handle.clone(),
+                    ..default()
+                }, DoorAnimation, Animator::new(tween_b)));
+                world_map.animation_timer.set_duration(Duration::from_millis(500));
+                world_map.anim_queue.push((entity, Animation::RemoveDoorAnims {closed: closing}));
+
+            }
+            Animation::RemoveDoorAnims {closed} => {
+                for door in door_anims.iter() {
+                    commands.entity(door).despawn();
+                }
+                if closed {
+                    commands.entity(entity).insert(Visibility::Visible);
+                }
+                world_map.animation_timer.set_duration(Duration::from_millis(1));
+            }
             Animation::Polymorph {new_species}=> {
                 sprite.index = match_species_with_sprite(&new_species);
             }
@@ -1057,6 +1150,9 @@ fn unpack_animations(
             },
             Animation::RevealCreature => {
                 commands.entity(entity).insert(Visibility::Visible);
+            },
+            Animation::MinimumDelay => {
+                panic!("You should never reach this arm!");
             }
         }
     }
