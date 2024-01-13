@@ -81,21 +81,26 @@ impl CreatureBundle { // Creatures displayed on screen.
         x: usize,
         y: usize,
         offset: (f32, f32),
+        start_anim: Option<(f32, f32)>,
         species: Species,
     ) -> Self{
         self = self.with_species(species);
-        self = self.with_position(x, y, offset);
+        self = self.with_position(x, y, offset, start_anim);
         self
     }
-    pub fn with_position(mut self, x: usize, y: usize, offset: (f32, f32)) -> Self {
+    pub fn with_position(mut self, x: usize, y: usize, offset: (f32, f32), start_anim: Option<(f32, f32)>) -> Self {
         self.position.x = x;
         self.position.y = y;
         let end = Vec3::new(self.position.x as f32/2. + offset.0, self.position.y as f32/2. + offset.1, self.sprite_bundle.transform.translation.z);
+        let start = match start_anim {
+            None => end,
+            Some((sx, sy)) => Vec3 { x: sx, y: sy, z: end.z}
+        };
         let tween = Tween::new(
             EaseFunction::QuadraticInOut,
-            Duration::from_millis(1),
+            Duration::from_millis(500),
             TransformPositionLens {
-                start: end,
+                start,
                 end
             },
         );
@@ -115,19 +120,6 @@ impl CreatureBundle { // Creatures displayed on screen.
         (self.axioms.axioms, self.axioms.polarity) = match_species_with_axioms(&species);
         self.faction = match_species_with_faction(&species);
         self.species = species;
-        self
-    }
-    pub fn with_anim_source(mut self, x: usize, y: usize) -> Self{ // Should always be called after with_position.
-        let end = Vec3::new(self.position.x as f32, self.position.y as f32, 0.);
-        let tween = Tween::new(
-            EaseFunction::QuadraticInOut,
-            Duration::from_millis(1000),
-            TransformPositionLens {
-                start: Vec3::new(x as f32, y as f32, 0.),
-                end
-            },
-        );
-        self.animation = Animator::new(tween);
         self
     }
 }

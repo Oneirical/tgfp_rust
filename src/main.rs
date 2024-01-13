@@ -1,9 +1,9 @@
 use std::time::Duration;
 
 use ai::AIPlugin;
-use bevy::{prelude::*, render::camera::ScalingMode, input::common_conditions::input_toggle_active, window::WindowMode};
+use bevy::{prelude::*, render::camera::ScalingMode, window::WindowMode};
 use bevy_inspector_egui::quick::WorldInspectorPlugin;
-use bevy_mouse_tracking_plugin::{mouse_pos::{MousePosPlugin, InitMouseTracking}, MainCamera, MousePos};
+use bevy_mouse_tracking_plugin::{mouse_pos::{MousePosPlugin, InitMouseTracking}, MainCamera};
 use bevy_tweening::{TweeningPlugin, Animator, Tween, EaseFunction, lens::TransformPositionLens};
 use components::*;
 use input::*;
@@ -140,7 +140,7 @@ fn world_swap(
         for task in &queue{
             let position = task.1;
             let new_creature = CreatureBundle::new(&texture_atlas_handle)
-                .with_data(position.0, position.1, player_pos, task.0.clone());
+                .with_data(position.0, position.1, player_pos, None, task.0.clone());
             let entity_id = commands.spawn(new_creature).id();
             if is_intangible(&task.0){
                 commands.entity(entity_id).insert(Intangible);
@@ -227,7 +227,7 @@ fn spawn_players(
     // Player 1
     let position = (22, 22);
     let player_1 = CreatureBundle::new(&texture_atlas_handle)
-        .with_data(position.0, position.1, (0.,-7.), Species::Terminal);
+        .with_data(position.0, position.1, (0.,-7.), None, Species::Terminal);
     let entity = commands.spawn((
         player_1, 
         RealityAnchor { player_id: 0},
@@ -272,7 +272,7 @@ fn summon_walls(
         let position = task.1;
         if task.0 == Species::Void {continue;}
         let new_creature = CreatureBundle::new(&texture_atlas_handle)
-            .with_data(position.0, position.1, (0.,-7.), task.0.clone());
+            .with_data(position.0, position.1, (0.,-7.), None, task.0.clone());
         let entity_id = commands.spawn(new_creature).id();
         if is_intangible(&task.0){
             commands.entity(entity_id).insert(Intangible);

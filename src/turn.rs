@@ -4,7 +4,7 @@ use bevy::prelude::*;
 use bevy_tweening::{*, lens::{TransformPositionLens, TransformScaleLens, TransformRotationLens}};
 use rand::seq::SliceRandom;
 
-use crate::{components::{QueuedAction, RealityAnchor, Position, SoulBreath, AxiomEffects, EffectMarker, Faction, Wounded, Thought, Segmentified, DoorAnimation}, input::ActionType, TurnState, map::{xy_idx, WorldMap, is_in_bounds, bresenham_line, get_neighbouring_entities, get_best_move, get_all_factions_except_one, get_astar_best_move, manhattan_distance, pathfind_to_location}, soul::{Soul, get_soul_rot_position, SoulRotationTimer, match_soul_with_display_index, match_soul_with_sprite, select_random_entities, CurrentEntityInUI}, ui::{CenterOfWheel, LogMessage}, axiom::{grab_coords_from_form, CasterInfo, match_soul_with_axiom, Function, Form, match_axiom_with_soul, Effect, EffectType, match_effect_with_decay, TriggerType, reduce_down_to, match_effect_with_minimum, match_effect_with_gain, tup_usize_to_i32, tup_i32_to_usize}, species::{Species, match_faction_with_index, match_species_with_priority, match_species_with_sprite, is_pushable, is_openable, CreatureBundle}, ZoomInEffect, SpriteSheetHandle, ai::has_effect};
+use crate::{components::{QueuedAction, RealityAnchor, Position, SoulBreath, AxiomEffects, EffectMarker, Faction, Wounded, Thought, Segmentified, DoorAnimation}, input::ActionType, TurnState, map::{xy_idx, WorldMap, is_in_bounds, bresenham_line, get_neighbouring_entities, get_best_move, get_all_factions_except_one, get_astar_best_move, manhattan_distance, pathfind_to_location}, soul::{Soul, get_soul_rot_position, SoulRotationTimer, match_soul_with_display_index, match_soul_with_sprite, select_random_entities, CurrentEntityInUI}, ui::{CenterOfWheel, LogMessage}, axiom::{grab_coords_from_form, CasterInfo, match_soul_with_axiom, Function, Form, match_axiom_with_soul, Effect, EffectType, match_effect_with_decay, TriggerType, reduce_down_to, match_effect_with_minimum, match_effect_with_gain, tup_usize_to_i32, tup_i32_to_usize}, species::{Species, match_faction_with_index, match_species_with_priority, match_species_with_sprite, is_pushable, is_openable, CreatureBundle}, ZoomInEffect, SpriteSheetHandle, ai::has_effect, vaults::{Vault, get_build_sequence}};
 
 pub struct TurnPlugin;
 
@@ -381,7 +381,7 @@ fn dispense_functions(
         Query<&Position>,
         Query<&Species>,
         Query<&SoulBreath>,
-        Query<&Position, With<RealityAnchor>>,
+        Query<(&Position, &Transform), With<RealityAnchor>>,
     )>,
     faction: Query<&Faction>,
     check_wound: Query<Entity, With<Wounded>>,
@@ -416,15 +416,17 @@ fn dispense_functions(
         match function {
             Function::SummonCreature { species } => {
                 let mut player_pos = (0.,0.);
-                if let Ok(pos) = creatures.p4().get_single() {
+                let mut player_trans = (0., 0.);
+                if let Ok((pos, tra)) = creatures.p4().get_single() {
                     player_pos = ((22. - pos.x as f32)/2., (8. - pos.y as f32)/2.);
+                    player_trans = (tra.translation.x, tra.translation.y);
                 }
                 if world_map.entities[xy_idx(coords.0, coords.1)].is_some() {continue;}
                 let new_creature = CreatureBundle::new(&texture_atlas_handle)
-                .with_data(coords.0, coords.1, player_pos, species.clone());
+                .with_data(coords.0, coords.1, player_pos, Some(player_trans), species.clone());
                 let entity_id = commands.spawn(new_creature).id();
-                commands.entity(entity_id).insert(Visibility::Hidden);
-                world_map.anim_queue.push((entity_id, Animation::RevealCreature));
+                //commands.entity(entity_id).insert(Visibility::Hidden);
+                //world_map.anim_queue.push((entity_id, Animation::RevealCreature));
             }
             _ => ()
         }
@@ -727,7 +729,18 @@ fn dispense_functions(
                         world_map.targeted_axioms.push((with, Function::BecomeIntangible, info.clone()));
                         world_map.targeted_axioms.push((with, Function::ApplyEffect { effect: Effect {stacks: 3, effect_type: EffectType::OpenDoor}}, info.clone()));
                         match &coll_species {
-                            Species::Airlock { dir } => world_map.anim_queue.push((with, Animation::UseDoor { orient: *dir, closing: false })),
+                            Species::Airlock { dir } => {
+                                world_map.anim_queue.push((with, Animation::UseDoor { orient: *dir, closing: false }));
+                                let corner = {
+                                    let curr = ((coll_pos.0/9)*9, (coll_pos.1/9)*9);
+                                    let dix = [(0,-9),(9,0),(0,9),(-9,0)];
+                                    tup_i32_to_usize(((curr.0 as i32 + dix[*dir].0), (curr.1 as i32+ dix[*dir].1)))
+                                };
+                                let builds = get_build_sequence(Vault::WorldSeed, corner);
+                                for bui in builds {
+                                    world_map.floor_axioms.push((bui.1, Function::SummonCreature { species: bui.0 }, info.clone()));
+                                }
+                            },
                             _ => ()
                         }
                     }
