@@ -174,11 +174,11 @@ pub fn build_spire(
     }
     summit+= 1;
     current_center = ((Species::Platform), (ladder_pos, summit));
-    ladder.push((Species::EpsilonTail { order: -1 }, (ladder_pos, summit-1)));
+    //ladder.push((Species::EpsilonTail { order: -1 }, (ladder_pos, summit-1)));
     structures.append(&mut platform);
     structures.append(&mut ladder);
   }
-  structures.push((Species::EpsilonHead { len: 0 }, (2,2)));
+  //structures.push((Species::EpsilonHead { len: 0 }, (2,2)));
   structures
 
 }

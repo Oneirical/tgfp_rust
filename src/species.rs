@@ -343,6 +343,16 @@ pub fn is_intangible(
     }
 }
 
+pub fn is_grab_point(
+    species: &Species
+) -> bool{
+    match species{
+        Species::Platform => true,
+        Species::Ladder => true,
+        _ => false
+    }
+}
+
 pub fn is_invisible(
     species: &Species
 ) -> bool {

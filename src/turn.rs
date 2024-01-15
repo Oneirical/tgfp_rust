@@ -4,7 +4,7 @@ use bevy::prelude::*;
 use bevy_tweening::{*, lens::{TransformPositionLens, TransformScaleLens, TransformRotationLens}};
 use rand::seq::SliceRandom;
 
-use crate::{components::{QueuedAction, RealityAnchor, Position, SoulBreath, AxiomEffects, EffectMarker, Faction, Wounded, Thought, Segmentified, DoorAnimation}, input::ActionType, TurnState, map::{xy_idx, WorldMap, is_in_bounds, bresenham_line, get_neighbouring_entities, get_best_move, get_all_factions_except_one, get_astar_best_move, manhattan_distance, pathfind_to_location}, soul::{Soul, get_soul_rot_position, SoulRotationTimer, match_soul_with_display_index, match_soul_with_sprite, select_random_entities, CurrentEntityInUI}, ui::{CenterOfWheel, LogMessage}, axiom::{grab_coords_from_form, CasterInfo, match_soul_with_axiom, Function, Form, match_axiom_with_soul, Effect, EffectType, match_effect_with_decay, TriggerType, reduce_down_to, match_effect_with_minimum, match_effect_with_gain, tup_usize_to_i32, tup_i32_to_usize}, species::{Species, match_faction_with_index, match_species_with_priority, match_species_with_sprite, is_pushable, is_openable, CreatureBundle}, ZoomInEffect, SpriteSheetHandle, ai::has_effect, vaults::{Vault, get_build_sequence}};
+use crate::{components::{QueuedAction, RealityAnchor, Position, SoulBreath, AxiomEffects, EffectMarker, Faction, Wounded, Thought, Segmentified, DoorAnimation}, input::ActionType, TurnState, map::{xy_idx, WorldMap, is_in_bounds, bresenham_line, get_neighbouring_entities, get_best_move, get_all_factions_except_one, get_astar_best_move, manhattan_distance, pathfind_to_location}, soul::{Soul, get_soul_rot_position, SoulRotationTimer, match_soul_with_display_index, match_soul_with_sprite, select_random_entities, CurrentEntityInUI}, ui::{CenterOfWheel, LogMessage}, axiom::{grab_coords_from_form, CasterInfo, match_soul_with_axiom, Function, Form, match_axiom_with_soul, Effect, EffectType, match_effect_with_decay, TriggerType, reduce_down_to, match_effect_with_minimum, match_effect_with_gain, tup_usize_to_i32, tup_i32_to_usize}, species::{Species, match_faction_with_index, match_species_with_priority, match_species_with_sprite, is_pushable, is_openable, CreatureBundle, is_grab_point}, ZoomInEffect, SpriteSheetHandle, ai::has_effect, vaults::{Vault, get_build_sequence}};
 
 pub struct TurnPlugin;
 
@@ -297,6 +297,7 @@ fn calculate_actions (
 fn execute_turn (
     mut creatures: Query<(Entity, &QueuedAction, &Species, &mut AxiomEffects, &mut SoulBreath, &mut Position, Has<RealityAnchor>)>,
     read_action: Query<&QueuedAction>,
+    read_species: Query<&Species>,
     mut next_state: ResMut<NextState<TurnState>>,
     mut world_map: ResMut<WorldMap>,
     souls: Query<(&mut Animator<Transform>, &Transform, &Soul), Without<Position>>,
@@ -356,8 +357,28 @@ fn execute_turn (
                 world_map.targeted_axioms.push((entity, Function::TriggerEffect { trig: TriggerType::CastSoul }, info.clone()));
             }
             ActionType::Walk { momentum } => {
-                info.momentum = momentum;
-                world_map.targeted_axioms.push((entity, Function::FlatMomentumDash {dist: 1}, info.clone()));
+                //info.momentum = momentum;
+                let adj = get_neighbouring_entities(&world_map.entities, pos.x, pos.y);
+                let mut supported = false;
+                for pot in adj {
+                    if let Some(tile) = pot { 
+                        let sp = read_species.get(tile).unwrap();
+                        if is_grab_point(sp) {supported = true;}
+                    }
+                }
+                dbg!(info.momentum);
+                if supported {
+                    world_map.targeted_axioms.push((entity, Function::Dash {dx: momentum.0, dy: momentum.1}, info.clone()));
+                    world_map.targeted_axioms.push((entity, Function::AlterMomentum {alter: momentum}, info.clone()));
+                    world_map.targeted_axioms.push((entity, Function::ResetVertical, info.clone()));
+                    if (momentum.0).signum() + (info.momentum.0).signum() == 0{
+                        world_map.targeted_axioms.push((entity, Function::ResetHorizontal, info.clone()));
+                    }
+                }
+                else {
+                    world_map.targeted_axioms.push((entity, Function::Dash {dx: info.momentum.0, dy: info.momentum.1}, info.clone()));
+                    world_map.targeted_axioms.push((entity, Function::AlterMomentum {alter: ((info.momentum.0).signum()*1,-1)}, info.clone()));
+                }
             },
             ActionType::Nothing => ()
         };
@@ -468,11 +489,11 @@ fn dispense_functions(
 
                     let max = dest.0.abs().max(dest.1.abs());
                     assert!(!(dest.0 == 0 && dest.1 == 0));
-                    pos.momentum = if max == dest.0.abs(){ // Reassign the new momentum.
+                    /*pos.momentum = if max == dest.0.abs(){ // Reassign the new momentum.
                         (dest.0/dest.0.abs(), 0)
                     } else {
                         (0, dest.1/dest.1.abs())
-                    };
+                    };*/
 
                     //if anim.tweenable().progress() != 1.0 { continue; }
                     if !is_player {
@@ -494,6 +515,16 @@ fn dispense_functions(
 
                     }
                 },
+                Function::AlterMomentum { alter } => {
+                    pos.momentum.0 += alter.0;
+                    pos.momentum.1 += alter.1;
+                }
+                Function::ResetHorizontal => {
+                    pos.momentum.0 = 0;
+                }
+                Function::ResetVertical => {
+                    pos.momentum.1 = 0;
+                }
                 Function::FlatStealSouls { dam } => {
                     let mut rng = rand::thread_rng();
                     let mut payload = select_random_entities(&mut breath.discard, dam, &mut rng);
@@ -953,14 +984,14 @@ fn dispense_functions(
                         None => panic!("The chosen Soul category had nothing left!")
                     }
                 },
-                _ => ()
+                _ => panic!("Unknown Function used!")
             };
             //let new_stats = &effects.status.clone();
 
         }
     }
     world_map.anim_queue.reverse(); // I will probably forget about this and rage later
-    if world_map.anim_queue.is_empty() {world_map.anim_queue.push((Entity::PLACEHOLDER, Animation::MinimumDelay))};
+    //if world_map.anim_queue.is_empty() {world_map.anim_queue.push((Entity::PLACEHOLDER, Animation::MinimumDelay))};
     next_state.set(TurnState::UnpackingAnimation);
 }
 

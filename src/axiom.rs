@@ -143,6 +143,9 @@ pub enum Function {
     MarkPatient,
     Segmentize,
     SummonCreature {species: Species},
+    AlterMomentum {alter: (i32, i32)},
+    ResetVertical,
+    ResetHorizontal,
 
     MomentumDash, // Grace
     MomentumReverseDash, // Grace
