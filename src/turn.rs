@@ -4,7 +4,7 @@ use bevy::prelude::*;
 use bevy_tweening::{*, lens::{TransformPositionLens, TransformScaleLens, TransformRotationLens}};
 use rand::seq::SliceRandom;
 
-use crate::{components::{QueuedAction, RealityAnchor, Position, SoulBreath, AxiomEffects, EffectMarker, Faction, Wounded, Thought, Segmentified, DoorAnimation}, input::ActionType, TurnState, map::{xy_idx, WorldMap, is_in_bounds, bresenham_line, get_neighbouring_entities, get_best_move, get_all_factions_except_one, get_astar_best_move, manhattan_distance, pathfind_to_location}, soul::{Soul, get_soul_rot_position, SoulRotationTimer, match_soul_with_display_index, match_soul_with_sprite, select_random_entities, CurrentEntityInUI}, ui::{CenterOfWheel, LogMessage}, axiom::{grab_coords_from_form, CasterInfo, match_soul_with_axiom, Function, Form, match_axiom_with_soul, Effect, EffectType, match_effect_with_decay, TriggerType, reduce_down_to, match_effect_with_minimum, match_effect_with_gain, tup_usize_to_i32, tup_i32_to_usize}, species::{Species, match_faction_with_index, match_species_with_priority, match_species_with_sprite, is_pushable, is_openable, CreatureBundle, is_grab_point}, ZoomInEffect, SpriteSheetHandle, ai::has_effect, vaults::{Vault, get_build_sequence}};
+use crate::{components::{QueuedAction, RealityAnchor, Position, SoulBreath, AxiomEffects, EffectMarker, Faction, Wounded, Thought, Segmentified, DoorAnimation}, input::ActionType, TurnState, map::{xy_idx, WorldMap, is_in_bounds, bresenham_line, get_neighbouring_entities, get_best_move, get_all_factions_except_one, get_astar_best_move, manhattan_distance, pathfind_to_location}, soul::{Soul, get_soul_rot_position, SoulRotationTimer, match_soul_with_display_index, match_soul_with_sprite, select_random_entities, CurrentEntityInUI}, ui::{CenterOfWheel, LogMessage}, axiom::{grab_coords_from_form, CasterInfo, match_soul_with_axiom, Function, Form, match_axiom_with_soul, Effect, EffectType, match_effect_with_decay, TriggerType, reduce_down_to, match_effect_with_minimum, match_effect_with_gain, tup_usize_to_i32, tup_i32_to_usize}, species::{Species, match_faction_with_index, match_species_with_priority, match_species_with_sprite, is_pushable, is_openable, CreatureBundle, is_grab_point, is_intangible}, ZoomInEffect, SpriteSheetHandle, ai::has_effect, vaults::{Vault, get_build_sequence}};
 
 pub struct TurnPlugin;
 
@@ -328,6 +328,14 @@ fn execute_turn (
                 _ => ()
             }
         }
+        let adj = get_neighbouring_entities(&world_map.entities, pos.x, pos.y);
+        let mut supported = false;
+        for pot in adj {
+            if let Some(tile) = pot { 
+                let sp = read_species.get(tile).unwrap();
+                if !is_intangible(sp) {supported = true;}
+            }
+        }
         match chosen_action{
             ActionType::SoulCast { slot } => {
                 let soul = match breath.held.get(slot).cloned(){ // Check that we aren't picking an empty slot.
@@ -357,31 +365,26 @@ fn execute_turn (
                 world_map.targeted_axioms.push((entity, Function::TriggerEffect { trig: TriggerType::CastSoul }, info.clone()));
             }
             ActionType::Walk { momentum } => {
-                //info.momentum = momentum;
-                let adj = get_neighbouring_entities(&world_map.entities, pos.x, pos.y);
-                let mut supported = false;
-                for pot in adj {
-                    if let Some(tile) = pot { 
-                        let sp = read_species.get(tile).unwrap();
-                        if is_grab_point(sp) {supported = true;}
-                    }
-                }
-                dbg!(info.momentum);
-                if supported {
+                if supported || species != &Species::Terminal{
                     world_map.targeted_axioms.push((entity, Function::Dash {dx: momentum.0, dy: momentum.1}, info.clone()));
-                    world_map.targeted_axioms.push((entity, Function::AlterMomentum {alter: momentum}, info.clone()));
-                    world_map.targeted_axioms.push((entity, Function::ResetVertical, info.clone()));
-                    if (momentum.0).signum() + (info.momentum.0).signum() == 0{
-                        world_map.targeted_axioms.push((entity, Function::ResetHorizontal, info.clone()));
+                    if species == &Species::Terminal {
+                        world_map.targeted_axioms.push((entity, Function::AlterMomentum {alter: momentum}, info.clone()));
+                        if (momentum.1).signum() + (info.momentum.1).signum() == 0{
+                            world_map.targeted_axioms.push((entity, Function::ResetVertical, info.clone()));
+                        }
+                        if (momentum.0).signum() + (info.momentum.0).signum() == 0{
+                            world_map.targeted_axioms.push((entity, Function::ResetHorizontal, info.clone()));
+                        }
                     }
-                }
-                else {
-                    world_map.targeted_axioms.push((entity, Function::Dash {dx: info.momentum.0, dy: info.momentum.1}, info.clone()));
-                    world_map.targeted_axioms.push((entity, Function::AlterMomentum {alter: ((info.momentum.0).signum()*1,-1)}, info.clone()));
+                    else {pos.momentum = momentum;}
                 }
             },
             ActionType::Nothing => ()
         };
+        if !supported && species == &Species::Terminal{
+            world_map.targeted_axioms.push((entity, Function::Dash {dx: info.momentum.0, dy: info.momentum.1}, info.clone()));
+            world_map.targeted_axioms.push((entity, Function::AlterMomentum {alter: (0,-1)}, info.clone()));
+        }
         if effects.status.len() > 4 {
             for eff in effects.status.iter_mut() {
                 if match_effect_with_decay(&eff.effect_type) == TriggerType::EachTurn || match_effect_with_gain(&eff.effect_type) == TriggerType::EachTurn { // If at least one turn-decay effect, tick them

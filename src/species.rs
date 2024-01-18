@@ -192,7 +192,7 @@ pub fn match_species_with_faction(
         Species::LunaMoth => Faction::Feral,
         Species::EpsilonHead { len: _ }=> Faction::Ordered,
         Species::EpsilonTail {order: _}=> Faction::Ordered,
-        Species::Terminal => Faction::Saintly,
+        Species::Terminal => Faction::Ordered,
         Species::SegmentTransformer => Faction::Ordered,
         _ => Faction::Unaligned,
     }

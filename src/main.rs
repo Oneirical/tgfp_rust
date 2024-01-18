@@ -225,7 +225,7 @@ fn spawn_players(
     texture_atlas_handle: Res<SpriteSheetHandle>,
 ) {
     // Player 1
-    let position = (22, 22);
+    let position = (5, 38);
     let player_1 = CreatureBundle::new(&texture_atlas_handle)
         .with_data(position.0, position.1, (0.,-7.), None, Species::Terminal);
     let entity = commands.spawn((
@@ -267,7 +267,7 @@ fn summon_walls(
     texture_atlas_handle: Res<SpriteSheetHandle>,
     mut commands: Commands, 
 ){
-    let queue = build_spire();//get_build_sequence(Vault::WorldSeed, (18,18));
+    let queue = get_build_sequence(Vault::Factory, (0,0));//build_spire();//
     for task in &queue{
         let position = task.1;
         if task.0 == Species::Void {continue;}
