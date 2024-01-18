@@ -238,17 +238,17 @@ fn draw_minimap(
 ){
     for x in 0..WORLD_WIDTH{
         for y in 0..WORLD_HEIGHT{
-            let size_factor = 16.;
+            let size_factor = 32.;
             commands.spawn((UIBundle{
                 sprite_bundle:SpriteSheetBundle {
                     texture_atlas: texture_atlas_handle.handle.clone(),
                     sprite: TextureAtlasSprite{
                         index : 107_usize,
-                        custom_size: Some(Vec2::new(1., 1.)),
+                        custom_size: Some(Vec2::new(0.5, 0.5)),
                         ..default()
                     },
                     transform: Transform {
-                        translation: Vec3{  x: -6.9+x as f32/size_factor+7.25, y: 3.4+y as f32/size_factor +5., z: 0.2},
+                        translation: Vec3{  x: x as f32/size_factor, y: y as f32/size_factor +8.5, z: 0.2},
                         ..default()
                     },
                     visibility: Visibility::Hidden,

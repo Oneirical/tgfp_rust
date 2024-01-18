@@ -12,7 +12,7 @@ use soul::{SoulPlugin, CurrentEntityInUI};
 use species::{CreatureBundle, Species, is_intangible};
 use turn::TurnPlugin;
 use ui::UIPlugin;
-use vaults::{get_build_sequence, Vault, match_vault_with_spawn_loc, build_spire};
+use vaults::{get_build_sequence, Vault, match_vault_with_spawn_loc, build_spire, build_pit};
 use world::{match_plane_with_vaults, Plane};
 
 mod components;
@@ -225,7 +225,7 @@ fn spawn_players(
     texture_atlas_handle: Res<SpriteSheetHandle>,
 ) {
     // Player 1
-    let position = (5, 38);
+    let position = (38, 38);
     let player_1 = CreatureBundle::new(&texture_atlas_handle)
         .with_data(position.0, position.1, (0.,-7.), None, Species::Terminal);
     let entity = commands.spawn((
@@ -267,7 +267,7 @@ fn summon_walls(
     texture_atlas_handle: Res<SpriteSheetHandle>,
     mut commands: Commands, 
 ){
-    let queue = get_build_sequence(Vault::Factory, (0,0));//build_spire();//
+    let queue = build_pit();//get_build_sequence(Vault::Factory, (0,0));//build_spire();//
     for task in &queue{
         let position = task.1;
         if task.0 == Species::Void {continue;}
