@@ -318,10 +318,7 @@ fn execute_turn (
         for eff in effects.status.iter() {
             match eff.effect_type {
                 EffectType::Sync { link } => {
-                    let overwrite = match read_action.get(link) {
-                        Ok(overwrite) => &overwrite.action,
-                        Err(_) => panic!("Impossible.")
-                    };
+                    let atk_pos = read_action.get(link).map(|e| (e.action)).unwrap();
                     chosen_action = overwrite.clone();
                     break;
                 }
@@ -643,14 +640,8 @@ fn dispense_functions(
                     world_map.targeted_axioms.push((entity, Function::ApplyEffect { effect: Effect {stacks: duration, effect_type: EffectType::Sync { link: info.entity }}}, info.clone()));
                 }
                 Function::Charm {dur}=> {
-                    let fac = match faction.get(entity) {
-                        Ok(fac) => fac,
-                        Err(_) => panic!("Impossible.")
-                    };
-                    let new_fac = match faction.get(info.entity) {
-                        Ok(new_fac) => new_fac,
-                        Err(_) => panic!("Impossible.")
-                    };
+                    let fac = faction.get(entity).unwrap();
+                    let new_fac = faction.get(info.entity).unwrap();
                     world_map.targeted_axioms.push((entity, Function::ApplyEffect { effect: Effect {stacks: dur, effect_type: EffectType::Charm { original: fac.clone()}}}, info.clone()));
                     commands.entity(entity).insert(new_fac.clone());
                 }
@@ -749,10 +740,7 @@ fn dispense_functions(
                 }
                 Function::Collide { with } => { // with is the entity you hit with your move
                     let coll_species = creatures.p2().get(with).unwrap().clone();
-                    let coll_pos = match creatures.p1().get(with) {
-                        Ok(coll_pos_full) => (coll_pos_full.x, coll_pos_full.y),
-                        Err(_) => panic!("Impossible.")
-                    };
+                    let coll_pos = creatures.p1().get(with).map(|e| (e.x, e.y)).unwrap();
                     let wound = check_wound.get(with);
                     if is_pushable(&coll_species) || wound.is_ok() {
                         if world_map.entities[xy_idx((coll_pos.0 as i32 + info.momentum.0) as usize, (coll_pos.1 as i32 + info.momentum.1) as usize)].is_some() {continue;}
@@ -809,10 +797,7 @@ fn dispense_functions(
                     }
                 }
                 Function::Coil => {
-                    let atk_pos = match creatures.p1().get(info.entity) {
-                        Ok(atk_pos) => (atk_pos.x, atk_pos.y),
-                        Err(_) => panic!("Impossible.")
-                    };
+                    let atk_pos = creatures.p1().get(info.entity).map(|e| (e.x, e.y)).unwrap();
                     let adj = get_neighbouring_entities(&world_map.entities, atk_pos.0, atk_pos.1);
                     let count = adj.iter().filter(|&x| x.is_some()).count();
                     world_map.targeted_axioms.push((entity, Function::FlatStealSouls { dam: info.pride*count }, info.clone()));
@@ -854,10 +839,7 @@ fn dispense_functions(
                     world_map.targeted_axioms.push((entity, Function::FlatMomentumDash { dist }, info.clone()));
                 },
                 Function::MeleeSlam { dist } => {
-                    let coll_pos = match creatures.p1().get(info.entity) {
-                        Ok(coll_pos_full) => (coll_pos_full.x, coll_pos_full.y),
-                        Err(_) => panic!("Impossible.")
-                    };
+                    let coll_pos = creatures.p1().get(info.entity).map(|e| (e.x, e.y)).unwrap();
                     info.pos = coll_pos;
                     let targets = grab_coords_from_form(&world_map.entities, Form::MomentumTouch, info.clone());
                     for target in targets.entities {
