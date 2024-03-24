@@ -14,8 +14,8 @@ impl Plugin for MapPlugin {
     }
 }
 
-pub const WORLD_WIDTH: usize = 90;
-pub const WORLD_HEIGHT: usize = 90;
+pub const WORLD_WIDTH: usize = 45;
+pub const WORLD_HEIGHT: usize = 45;
 
 #[derive(Resource)]
 pub struct WorldMap {

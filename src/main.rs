@@ -40,7 +40,7 @@ fn main() {
                     resizable: true,
                     //resolution: (1920.0, 1080.0).into(),
                     title: "The Games Foxes Play".into(),
-                    //mode: WindowMode::Fullscreen,
+                    mode: WindowMode::Fullscreen,
                     position: WindowPosition::Centered(MonitorSelection::Current),
                     ..default()
                 }),
@@ -267,7 +267,7 @@ fn summon_walls(
     texture_atlas_handle: Res<SpriteSheetHandle>,
     mut commands: Commands, 
 ){
-    let queue = build_pit();//get_build_sequence(Vault::Factory, (0,0));//build_spire();//
+    let queue = get_build_sequence(Vault::EviePlants, (0,0));////build_spire();//
     for task in &queue{
         let position = task.1;
         if task.0 == Species::Void {continue;}

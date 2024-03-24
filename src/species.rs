@@ -151,6 +151,7 @@ pub enum Species {
     FunctionCrate {function: Box<Function>},
     Platform,
     Ladder,
+    PlantSegment,
 }
 
 pub fn match_species_with_sprite(
@@ -182,6 +183,7 @@ pub fn match_species_with_sprite(
         Species::FunctionCrate { function: _ } => 21,
         Species::Platform => 57,
         Species::Ladder => 58,
+        Species::PlantSegment => 43,
     }
 }
 
@@ -227,6 +229,7 @@ pub fn match_species_with_name(
         Species::FunctionCrate { function: _ } => "Function Crate",
         Species::Platform => "Pneumatic Platform",
         Species::Ladder => "Ascendant Gust",
+        Species::PlantSegment => "World Stem",
     }.to_owned();
     ret
 }

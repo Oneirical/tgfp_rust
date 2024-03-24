@@ -318,7 +318,7 @@ fn execute_turn (
         for eff in effects.status.iter() {
             match eff.effect_type {
                 EffectType::Sync { link } => {
-                    let atk_pos = read_action.get(link).map(|e| (e.action)).unwrap();
+                    let overwrite = read_action.get(link).map(|e| (e.action.clone())).unwrap();
                     chosen_action = overwrite.clone();
                     break;
                 }
