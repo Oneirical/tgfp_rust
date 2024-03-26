@@ -16,7 +16,7 @@ impl Plugin for SoulPlugin {
     }
 }
 
-#[derive(Component, Clone, Debug, PartialEq)]
+#[derive(Component, Clone, Copy, Debug, PartialEq)]
 pub enum Soul {
     Feral,
     Ordered,

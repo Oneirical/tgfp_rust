@@ -1,10 +1,10 @@
-use std::{time::Duration, f32::consts::PI, mem::swap};
+use std::{collections::HashMap, f32::consts::PI, mem::swap, time::Duration};
 
 use bevy::prelude::*;
 use bevy_tweening::{*, lens::{TransformPositionLens, TransformScaleLens, TransformRotationLens}};
-use rand::seq::SliceRandom;
+use rand::{seq::SliceRandom, thread_rng};
 
-use crate::{components::{QueuedAction, RealityAnchor, Position, SoulBreath, AxiomEffects, EffectMarker, Faction, Wounded, Thought, Segmentified, DoorAnimation}, input::ActionType, TurnState, map::{xy_idx, WorldMap, is_in_bounds, bresenham_line, get_neighbouring_entities, get_best_move, get_all_factions_except_one, get_astar_best_move, manhattan_distance, pathfind_to_location}, soul::{Soul, get_soul_rot_position, SoulRotationTimer, match_soul_with_display_index, match_soul_with_sprite, select_random_entities, CurrentEntityInUI}, ui::{CenterOfWheel, LogMessage}, axiom::{grab_coords_from_form, CasterInfo, match_soul_with_axiom, Function, Form, match_axiom_with_soul, Effect, EffectType, match_effect_with_decay, TriggerType, reduce_down_to, match_effect_with_minimum, match_effect_with_gain, tup_usize_to_i32, tup_i32_to_usize}, species::{Species, match_faction_with_index, match_species_with_priority, match_species_with_sprite, is_pushable, is_openable, CreatureBundle, is_grab_point, is_intangible}, ZoomInEffect, SpriteSheetHandle, ai::has_effect, vaults::{Vault, get_build_sequence}};
+use crate::{ai::has_effect, axiom::{grab_coords_from_form, match_axiom_with_soul, match_effect_with_decay, match_effect_with_gain, match_effect_with_minimum, match_soul_with_axiom, reduce_down_to, tup_i32_to_usize, tup_usize_to_i32, CasterInfo, Effect, EffectType, Form, Function, PlantAxiom, TriggerType}, components::{AxiomEffects, DoorAnimation, EffectMarker, Faction, Plant, Position, QueuedAction, RealityAnchor, Segmentified, SoulBreath, Thought, Wounded}, input::ActionType, map::{bresenham_line, get_all_factions_except_one, get_astar_best_move, get_best_move, get_neighbouring_entities, is_in_bounds, manhattan_distance, pathfind_to_location, xy_idx, WorldMap}, soul::{get_soul_rot_position, match_soul_with_display_index, match_soul_with_sprite, select_random_entities, CurrentEntityInUI, Soul, SoulRotationTimer}, species::{is_grab_point, is_intangible, is_openable, is_pushable, match_faction_with_index, match_species_with_priority, match_species_with_sprite, CreatureBundle, Species}, ui::{CenterOfWheel, LogMessage}, vaults::{get_build_sequence, Vault}, SpriteSheetHandle, TurnState, ZoomInEffect};
 
 pub struct TurnPlugin;
 
@@ -294,6 +294,37 @@ fn calculate_actions (
     next_state.set(TurnState::ExecutingTurn);
 }
 
+fn process_sequences(seq_def: &HashMap<PlantAxiom, Vec<Soul>>, seq: &Vec<Vec<Soul>>) -> Vec<PlantAxiom> {
+    /*
+    
+    We iterate over each Vec<Soul> in the input seq.
+    For each Soul in the inner Vec, we add it to a window Vec.
+    After adding the Soul to the window, we check if the window ends with any of the recipe sequences in seq_def.
+    If it does, we add the corresponding PlantAxiom to the output vector, and truncate the window to remove the matched recipe.
+    After processing all Souls in the inner Vec, we move on to the next inner Vec.
+    Finally, we return the output vector containing all matched PlantAxioms.
+
+     */
+    let mut output = Vec::new();
+
+    for seq_vec in seq {
+        let mut window = vec![];
+
+        for soul in seq_vec {
+            window.push(*soul);
+
+            for (axiom, recipe) in seq_def.iter() {
+                if window.ends_with(recipe.as_slice()) {
+                    output.push(*axiom);
+                    window.truncate(window.len() - recipe.len());
+                }
+            }
+        }
+    }
+
+    output
+}
+
 fn execute_turn (
     mut creatures: Query<(Entity, &QueuedAction, &Species, &mut AxiomEffects, &mut SoulBreath, &mut Position, Has<RealityAnchor>)>,
     read_action: Query<&QueuedAction>,
@@ -302,10 +333,47 @@ fn execute_turn (
     mut world_map: ResMut<WorldMap>,
     souls: Query<(&mut Animator<Transform>, &Transform, &Soul), Without<Position>>,
     turn_count: Res<TurnCount>,
+
+    plants: Query<&Plant>,
 ){
     if turn_count.turns%10 == 1 {
         //world_map.targeted_axioms.push((play_ent, Function::MessageLog { message_id: turn_count.turns/10 }, CasterInfo::placeholder()));
     }
+    let seq_def = HashMap::from([
+        (PlantAxiom::RandomHighest, vec![Soul::Vile]),
+        (PlantAxiom::Grow, vec![Soul::Saintly, Soul::Vile]),
+        (PlantAxiom::TimePasses, vec![Soul::Ordered]),
+    ]);
+
+    for plant in plants.iter() {
+        let seq: &Vec<Vec<Soul>> = &plant.sequences;
+        let program = process_sequences(&seq_def, seq);
+
+        let targets = match program[0] { // TODO not [0]
+            PlantAxiom::RandomHighest => {
+                let mut blocks = Vec::new();
+                for segment in &plant.stem {
+                    let stem_block = if let Ok((_entity, _queue, _species, _effects, _breath, pos, _is_player)) = creatures.get(*segment) {
+                        (pos.x, pos.y)
+                    } else { panic!("A stem block is lacking components!")};
+                    blocks.push(stem_block);
+                }
+
+                let max_second = blocks.iter().map(|&(_, b)| b).max().unwrap(); // Find the highest Y value
+                let max_pairs: Vec<(usize, usize)> = blocks.drain(..).filter(|(_, b)| *b == max_second).collect(); // Get all coords with that highest one
+            
+                if max_pairs.is_empty() {
+                    Vec::new()
+                } else {
+                    let mut rng = thread_rng();
+                    vec![max_pairs.choose(&mut rng).cloned().unwrap()]
+                }
+
+            }
+            _ => Vec::new(),
+        };
+    }
+
     for (entity, queue, species, mut effects, breath, mut pos, is_player) in creatures.iter_mut(){
         if is_player {
             world_map.anim_reality_anchor = entity;
@@ -314,7 +382,7 @@ fn execute_turn (
         let mut chosen_action = queue.action.clone();
         if breath.soulless && !matches!(species, &Species::EpsilonTail { .. }) {chosen_action = ActionType::Nothing;}
         let (glamour, discipline, grace, pride) = (effects.status[0].stacks, effects.status[1].stacks,effects.status[2].stacks,effects.status[3].stacks);
-        let mut info = CasterInfo{ entity, pos: (pos.x,pos.y), species: species.clone(), momentum: pos.momentum, is_player, glamour, grace, discipline, pride, effects: effects.status.clone()};
+        let info = CasterInfo{ entity, pos: (pos.x,pos.y), species: species.clone(), momentum: pos.momentum, is_player, glamour, grace, discipline, pride, effects: effects.status.clone()};
         for eff in effects.status.iter() {
             match eff.effect_type {
                 EffectType::Sync { link } => {

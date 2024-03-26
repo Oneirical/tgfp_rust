@@ -1,3 +1,5 @@
+use std::collections::HashMap;
+
 use bevy::ecs::entity::Entity;
 
 use crate::{soul::Soul, species::Species, map::{get_entity_at_coords, bresenham_line, is_in_bounds, xy_idx}, components::Faction};
@@ -91,6 +93,15 @@ pub fn match_effect_with_sprite(
         EffectType::Pride => 165,
         _ => 1,
     }
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+pub enum PlantAxiom {
+    RandomHighest,
+
+    Grow,
+
+    TimePasses,
 }
 
 #[derive(Clone, Debug, PartialEq)]

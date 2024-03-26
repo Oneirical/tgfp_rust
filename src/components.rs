@@ -1,6 +1,6 @@
 use bevy::prelude::*;
 
-use crate::{species::Species, input::ActionType, axiom::{Form, Function, Effect}};
+use crate::{axiom::{Effect, Form, Function, PlantAxiom}, input::ActionType, soul::Soul, species::Species};
 
 #[derive(Component)]
 pub struct RealityAnchor {
@@ -19,6 +19,13 @@ pub struct Position {
 #[derive(Component)]
 pub struct Thought {
     pub stored_path: Option<(Vec<(i32, i32)>, u32)>
+}
+
+#[derive(Component)]
+pub struct Plant {
+    pub stem: Vec<Entity>,
+    pub program: Vec<Vec<PlantAxiom>>,
+    pub sequences: Vec<Vec<Soul>>,
 }
 
 #[derive(Component)]

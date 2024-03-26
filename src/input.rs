@@ -114,7 +114,7 @@ fn reset_cursor(
 }
 
 fn move_cursor(
-    mut cursor: Query<(&mut Cursor, &mut Animator<Transform>, &mut Visibility, &Transform), Without<RealityAnchor>>,
+    mut cursor: Query<(&mut Cursor, &mut Animator<Transform>, &mut Visibility, &Transform)>,
     player: Query<&Position, With<RealityAnchor>>,
     read_species: Query<&Species>,
     mut delay: ResMut<InputDelay>,
@@ -126,8 +126,8 @@ fn move_cursor(
     world_map: Res<WorldMap>,
     asset_server: Res<AssetServer>,
 
-    mut log_messages: Query<&mut Visibility, (With<LogIndex>, Without<CreatureDescription>, Without<RealityAnchor>, Without<Cursor>)>,
-    mut desc: Query<(&mut Text, &mut Visibility), (With<CreatureDescription>, Without<LogIndex>, Without<RealityAnchor>, Without<Cursor>)>,
+    mut log_messages: Query<&mut Visibility, (With<LogIndex>, Without<CreatureDescription>, Without<Cursor>)>,
+    mut desc: Query<(&mut Text, &mut Visibility), (With<CreatureDescription>, Without<LogIndex>, Without<Cursor>)>,
 ) {
     let (mut pointer, mut anim, mut vis, trans) = cursor.get_single_mut().unwrap();
     let (mut text, mut desc_vis) = desc.get_single_mut().unwrap();
