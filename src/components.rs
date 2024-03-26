@@ -74,7 +74,7 @@ pub struct EffectTracker{
     pub tracking_index: usize,
 }
 
-#[derive(Component, PartialEq, Clone, Debug)]
+#[derive(Component, PartialEq, Eq, Hash, Clone, Debug)]
 pub enum Faction{
     Saintly,
     Feral,

@@ -124,7 +124,7 @@ impl CreatureBundle { // Creatures displayed on screen.
     }
 }
 
-#[derive(Component, PartialEq, Clone, Debug)]
+#[derive(Component, PartialEq, Eq, Hash, Clone, Debug)]
 pub enum Species {
     Wall,
     Terminal,

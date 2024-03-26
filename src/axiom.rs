@@ -4,13 +4,13 @@ use bevy::ecs::entity::Entity;
 
 use crate::{soul::Soul, species::Species, map::{get_entity_at_coords, bresenham_line, is_in_bounds, xy_idx}, components::Faction};
 
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq, Eq, Hash)]
 pub struct Effect {
     pub stacks: usize,
     pub effect_type: EffectType,
 }
 
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq, Eq, Hash)]
 pub enum EffectType {
     Glamour, // ++ casting, -- deal dmg // Your soul, a droplet, drowning in an ocean of endless lives.
     Pride, // ++ deal dmg, -- take dmg* // Us, standing on towers of gold so high and bright they burn away all doubt. You, so, so below, in a pit of submission so hidden one wonders how we even noticed your existence.
@@ -73,7 +73,7 @@ pub fn reduce_down_to(
     }
 }
 
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug, Eq, Hash, PartialEq)]
 pub enum TriggerType {
     EachTurn,
     DealDamage,
@@ -104,7 +104,7 @@ pub enum PlantAxiom {
     TimePasses,
 }
 
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq, Eq, Hash)]
 pub enum Form {
     Empty,
     Ego,
@@ -114,6 +114,7 @@ pub enum Form {
     MomentumTouch,
     SmallBurst,
     BigOuter,
+    Artificial { coords: Vec<(Entity, (usize, usize))> },
 }
 
 pub fn match_form_with_name (
@@ -129,7 +130,7 @@ pub fn match_form_with_name (
     }
 }
 
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq, Eq, Hash)]
 pub enum Function {
     Empty,
     Dash { dx: i32, dy: i32 }, // Position is incremented by dx and dy, but stops when it hits an edge or a creature.
@@ -167,6 +168,8 @@ pub enum Function {
     SwapSpecies, // Discipline
     Synchronize, // Grace
     CyanCharm, //Pride
+
+    Duplicate,
 }
 
 pub fn match_soul_with_axiom(
@@ -227,6 +230,7 @@ pub fn grab_coords_from_form( // vec in vec for better, synchronized animations?
             tup_i32_to_usize((tup_usize_to_i32(caster.pos).0-caster.momentum.1, tup_usize_to_i32(caster.pos).1-caster.momentum.0))],
         Form::SmallBurst => filled_circle(tup_usize_to_i32(caster.pos), 3),
         Form::BigOuter => outer_circle(tup_usize_to_i32(caster.pos), 10),
+        Form::Artificial { coords } => coords.into_iter().map(|(_, coords)| coords).collect(),
     };
     coords.retain(|coordinate| is_in_bounds(coordinate.0 as i32, coordinate.1 as i32));
     let mut entities = Vec::with_capacity(coords.len());

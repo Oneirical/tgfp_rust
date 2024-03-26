@@ -4,7 +4,7 @@ use bevy::prelude::*;
 use bevy_tweening::{*, lens::{TransformPositionLens, TransformScaleLens, TransformRotationLens}};
 use rand::{seq::SliceRandom, thread_rng};
 
-use crate::{ai::has_effect, axiom::{grab_coords_from_form, match_axiom_with_soul, match_effect_with_decay, match_effect_with_gain, match_effect_with_minimum, match_soul_with_axiom, reduce_down_to, tup_i32_to_usize, tup_usize_to_i32, CasterInfo, Effect, EffectType, Form, Function, PlantAxiom, TriggerType}, components::{AxiomEffects, DoorAnimation, EffectMarker, Faction, Plant, Position, QueuedAction, RealityAnchor, Segmentified, SoulBreath, Thought, Wounded}, input::ActionType, map::{bresenham_line, get_all_factions_except_one, get_astar_best_move, get_best_move, get_neighbouring_entities, is_in_bounds, manhattan_distance, pathfind_to_location, xy_idx, WorldMap}, soul::{get_soul_rot_position, match_soul_with_display_index, match_soul_with_sprite, select_random_entities, CurrentEntityInUI, Soul, SoulRotationTimer}, species::{is_grab_point, is_intangible, is_openable, is_pushable, match_faction_with_index, match_species_with_priority, match_species_with_sprite, CreatureBundle, Species}, ui::{CenterOfWheel, LogMessage}, vaults::{get_build_sequence, Vault}, SpriteSheetHandle, TurnState, ZoomInEffect};
+use crate::{ai::has_effect, axiom::{grab_coords_from_form, match_axiom_with_soul, match_effect_with_decay, match_effect_with_gain, match_effect_with_minimum, match_soul_with_axiom, reduce_down_to, tup_i32_to_usize, tup_usize_to_i32, CasterInfo, Effect, EffectType, Form, Function, PlantAxiom, TriggerType}, components::{AxiomEffects, DoorAnimation, EffectMarker, Faction, Plant, Position, QueuedAction, RealityAnchor, Segmentified, SoulBreath, Thought, Wounded}, input::ActionType, map::{bresenham_line, get_all_factions_except_one, get_astar_best_move, get_best_move, get_empty_neighbours, get_neighbouring_entities, get_neighbours, is_in_bounds, manhattan_distance, pathfind_to_location, xy_idx, WorldMap}, soul::{get_soul_rot_position, match_soul_with_display_index, match_soul_with_sprite, select_random_entities, CurrentEntityInUI, Soul, SoulRotationTimer}, species::{is_grab_point, is_intangible, is_openable, is_pushable, match_faction_with_index, match_species_with_priority, match_species_with_sprite, CreatureBundle, Species}, ui::{CenterOfWheel, LogMessage}, vaults::{get_build_sequence, Vault}, SpriteSheetHandle, TurnState, ZoomInEffect};
 
 pub struct TurnPlugin;
 
@@ -349,29 +349,77 @@ fn execute_turn (
         let seq: &Vec<Vec<Soul>> = &plant.sequences;
         let program = process_sequences(&seq_def, seq);
 
-        let targets = match program[0] { // TODO not [0]
-            PlantAxiom::RandomHighest => {
-                let mut blocks = Vec::new();
-                for segment in &plant.stem {
-                    let stem_block = if let Ok((_entity, _queue, _species, _effects, _breath, pos, _is_player)) = creatures.get(*segment) {
-                        (pos.x, pos.y)
-                    } else { panic!("A stem block is lacking components!")};
-                    blocks.push(stem_block);
-                }
+        let mut payload = HashMap::new();
+        let mut accumulated_targets = Vec::new();
 
-                let max_second = blocks.iter().map(|&(_, b)| b).max().unwrap(); // Find the highest Y value
-                let max_pairs: Vec<(usize, usize)> = blocks.drain(..).filter(|(_, b)| *b == max_second).collect(); // Get all coords with that highest one
+        for axiom in program {
+            match axiom { // TODO check if it's function, form, etc
+                PlantAxiom::RandomHighest => {
+                    let mut targets = match axiom {
+                        PlantAxiom::RandomHighest => {
+                            let mut blocks = Vec::new();
+                            for segment in &plant.stem {
+                                let stem_block = if let Ok((entity, _queue, _species, _effects, _breath, pos, _is_player)) = creatures.get(*segment) {
+                                    (entity, (pos.x, pos.y))
+                                } else { panic!("A stem block is lacking components!")};
+                                blocks.push(stem_block);
+                            }
             
-                if max_pairs.is_empty() {
-                    Vec::new()
-                } else {
-                    let mut rng = thread_rng();
-                    vec![max_pairs.choose(&mut rng).cloned().unwrap()]
-                }
-
+                            let max_second = blocks.iter().map(|&(_, (_, b))| b).max().unwrap();// Find the highest Y value 
+                            let max_pairs: Vec<(Entity, (usize, usize))> = blocks
+                                .drain(..)
+                                .filter(|(_, (_, b))| *b == max_second)
+                                .collect(); // Get all coords with that highest one
+                        
+                            if max_pairs.is_empty() {
+                                Vec::new()
+                            } else {
+                                let mut rng = thread_rng();
+                                vec![max_pairs.choose(&mut rng).cloned().unwrap()]
+                            }
+            
+                        }
+                        _ => Vec::new(),
+                    };
+                    accumulated_targets.append(&mut targets);
+                },
+                PlantAxiom::Grow => {
+                    payload.insert(Function::Duplicate, accumulated_targets.clone());
+                },
+                _ => ()
             }
-            _ => Vec::new(),
-        };
+        }
+
+        for (function, chosen_targets) in payload.iter() {
+            let form = Form::Artificial { coords: chosen_targets.clone() };
+            let info = if let Ok((entity, queue, species, effects, breath, pos, is_player)) = creatures.get(chosen_targets[0].0) {
+                let (glamour, discipline, grace, pride) = (effects.status[0].stacks, effects.status[1].stacks,effects.status[2].stacks,effects.status[3].stacks);
+                let info = CasterInfo{ entity, pos: (pos.x,pos.y), species: species.clone(), momentum: pos.momentum, is_player, glamour, grace, discipline, pride, effects: effects.status.clone()};
+                info
+            } else { panic!("A stem block is lacking components!")};
+    
+            let targets = grab_coords_from_form(&world_map.entities, form, info.clone());
+            for target in targets.entities.clone() {
+                let info = if let Ok((entity, queue, species, effects, breath, pos, is_player)) = creatures.get(target) {
+                    let (glamour, discipline, grace, pride) = (effects.status[0].stacks, effects.status[1].stacks,effects.status[2].stacks,effects.status[3].stacks);
+                    let info = CasterInfo{ entity, pos: (pos.x,pos.y), species: species.clone(), momentum: pos.momentum, is_player, glamour, grace, discipline, pride, effects: effects.status.clone()};
+                    info
+                } else { panic!("A stem block is lacking components!")};
+    
+                world_map.targeted_axioms.push((target, function.clone(), info.clone()));
+            }
+            for i in 0..targets.coords.len(){
+                let info = if let Ok((entity, queue, species, effects, breath, pos, is_player)) = creatures.get(targets.entities[i]) {
+                    let (glamour, discipline, grace, pride) = (effects.status[0].stacks, effects.status[1].stacks,effects.status[2].stacks,effects.status[3].stacks);
+                    let info = CasterInfo{ entity, pos: (pos.x,pos.y), species: species.clone(), momentum: pos.momentum, is_player, glamour, grace, discipline, pride, effects: effects.status.clone()};
+                    info
+                } else { panic!("A stem block is lacking components!")};
+                world_map.anim_queue.push((targets.entities[i], Animation::FormMark { coords: targets.coords[i] }));
+                world_map.floor_axioms.push((targets.coords[i], function.clone(), info.clone()));
+            }
+        }
+
+
     }
 
     for (entity, queue, species, mut effects, breath, mut pos, is_player) in creatures.iter_mut(){
@@ -869,7 +917,12 @@ fn dispense_functions(
                     let adj = get_neighbouring_entities(&world_map.entities, atk_pos.0, atk_pos.1);
                     let count = adj.iter().filter(|&x| x.is_some()).count();
                     world_map.targeted_axioms.push((entity, Function::FlatStealSouls { dam: info.pride*count }, info.clone()));
-
+                }
+                Function::Duplicate => {
+                    let adj = get_empty_neighbours(&world_map.entities, pos.x, pos.y);
+                    let mut rng = thread_rng();
+                    let dup_loc = adj.choose(&mut rng).unwrap();
+                    world_map.floor_axioms.push((*dup_loc, Function::SummonCreature { species: species.clone() }, info.clone()));
                 }
                 Function::RedirectSouls { dam, dest } => {
                     let new_info = if let Ok((_transform_source, species, _breath, ax, _anim, pos, is_player)) = creatures.p0().get(dest) {

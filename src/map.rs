@@ -53,6 +53,17 @@ pub fn get_neighbours(x: usize, y: usize,) -> Vec<Option<(usize, usize)>>{
     output
 }
 
+pub fn get_empty_neighbours(map: &[Option<Entity>], x: usize, y: usize) -> Vec<(usize, usize)> {
+    let mut output = Vec::with_capacity(4);
+    for pair in get_neighbours(x, y) {
+        match pair {
+            Some((nx,ny)) => if map[xy_idx(nx, ny)].is_none() { output.push((nx, ny)) },
+            None => (),
+        };
+    }
+    output
+}
+
 pub fn get_neighbouring_entities (map: &[Option<Entity>], x: usize, y: usize) -> Vec<Option<Entity>> {
     let mut output = Vec::with_capacity(4);
     for pair in get_neighbours(x, y) {
