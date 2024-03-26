@@ -316,7 +316,10 @@ fn process_sequences(seq_def: &HashMap<PlantAxiom, Vec<Soul>>, seq: &Vec<Vec<Sou
             for (axiom, recipe) in seq_def.iter() {
                 if window.ends_with(recipe.as_slice()) {
                     output.push(*axiom);
-                    window.truncate(window.len() - recipe.len());
+                    window.truncate(window.len() - recipe.len()); /*hmm I wonder if truncating might cause problems
+                    if you're intentionally trying to have 2 recipes overlap
+                    to save space in your plant
+                    I want that to be part of the puzzle */
                 }
             }
         }
@@ -520,6 +523,7 @@ fn dispense_functions(
         Query<&SoulBreath>,
         Query<(&Position, &Transform), With<RealityAnchor>>,
     )>,
+    mut plant: Query<&mut Plant>,
     faction: Query<&Faction>,
     check_wound: Query<Entity, With<Wounded>>,
     mut next_state: ResMut<NextState<TurnState>>,
@@ -562,6 +566,10 @@ fn dispense_functions(
                 let new_creature = CreatureBundle::new(&texture_atlas_handle)
                 .with_data(coords.0, coords.1, player_pos, Some(player_trans), species.clone());
                 let entity_id = commands.spawn(new_creature).id();
+                let mut plant_ex = plant.get_single_mut().unwrap();
+                if species == Species::PlantSegment {
+                    plant_ex.stem.push(entity_id);
+                }
                 //commands.entity(entity_id).insert(Visibility::Hidden);
                 //world_map.anim_queue.push((entity_id, Animation::RevealCreature));
             }
@@ -921,8 +929,10 @@ fn dispense_functions(
                 Function::Duplicate => {
                     let adj = get_empty_neighbours(&world_map.entities, pos.x, pos.y);
                     let mut rng = thread_rng();
-                    let dup_loc = adj.choose(&mut rng).unwrap();
-                    world_map.floor_axioms.push((*dup_loc, Function::SummonCreature { species: species.clone() }, info.clone()));
+                    let dup_loc = adj.choose(&mut rng);
+                    if dup_loc.is_some() {
+                        world_map.floor_axioms.push((*dup_loc.unwrap(), Function::SummonCreature { species: species.clone() }, info.clone()));
+                    }
                 }
                 Function::RedirectSouls { dam, dest } => {
                     let new_info = if let Ok((_transform_source, species, _breath, ax, _anim, pos, is_player)) = creatures.p0().get(dest) {

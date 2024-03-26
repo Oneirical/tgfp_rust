@@ -8,7 +8,7 @@ use bevy_tweening::{TweeningPlugin, Animator, Tween, EaseFunction, lens::Transfo
 use components::*;
 use input::*;
 use map::{MapPlugin, WorldMap, generate_world_vector, xy_idx};
-use soul::{SoulPlugin, CurrentEntityInUI};
+use soul::{CurrentEntityInUI, Soul, SoulPlugin};
 use species::{CreatureBundle, Species, is_intangible};
 use turn::TurnPlugin;
 use ui::UIPlugin;
@@ -225,7 +225,7 @@ fn spawn_players(
     texture_atlas_handle: Res<SpriteSheetHandle>,
 ) {
     // Player 1
-    let position = (38, 38);
+    let position = (10, 4);
     let player_1 = CreatureBundle::new(&texture_atlas_handle)
         .with_data(position.0, position.1, (0.,-7.), None, Species::Terminal);
     let entity = commands.spawn((
@@ -268,16 +268,21 @@ fn summon_walls(
     mut commands: Commands, 
 ){
     let queue = get_build_sequence(Vault::EviePlants, (0,0));////build_spire();//
+    let mut plant_segments = Vec::new();
     for task in &queue{
         let position = task.1;
         if task.0 == Species::Void {continue;}
         let new_creature = CreatureBundle::new(&texture_atlas_handle)
             .with_data(position.0, position.1, (0.,-7.), None, task.0.clone());
         let entity_id = commands.spawn(new_creature).id();
+        if task.0 == Species::PlantSegment {
+            plant_segments.push(entity_id);
+        }
         if is_intangible(&task.0){
             commands.entity(entity_id).insert(Intangible);
         }
     }
+    commands.spawn(Plant { stem: plant_segments, program: vec![], sequences: vec![vec![Soul::Ordered, Soul::Vile, Soul::Saintly, Soul::Vile]]});
 }
 
 #[derive(Resource, Reflect)]
