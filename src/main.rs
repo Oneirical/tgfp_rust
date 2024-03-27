@@ -277,6 +277,7 @@ fn summon_walls(
         let entity_id = commands.spawn(new_creature).id();
         if task.0 == Species::PlantSegment {
             plant_segments.push(entity_id);
+            commands.entity(entity_id).insert(SoulSlot { slot: None });
         }
         if is_intangible(&task.0){
             commands.entity(entity_id).insert(Intangible);

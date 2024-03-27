@@ -22,6 +22,11 @@ pub struct Thought {
 }
 
 #[derive(Component)]
+pub struct SoulSlot {
+    pub slot: Option<Soul>,
+}
+
+#[derive(Component)]
 pub struct Plant {
     pub stem: Vec<Entity>,
     pub program: Vec<Vec<PlantAxiom>>,

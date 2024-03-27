@@ -4,7 +4,7 @@ use bevy::prelude::*;
 use bevy_tweening::{*, lens::{TransformPositionLens, TransformScaleLens, TransformRotationLens}};
 use rand::{seq::SliceRandom, thread_rng};
 
-use crate::{ai::has_effect, axiom::{grab_coords_from_form, match_axiom_with_soul, match_effect_with_decay, match_effect_with_gain, match_effect_with_minimum, match_soul_with_axiom, reduce_down_to, tup_i32_to_usize, tup_usize_to_i32, CasterInfo, Effect, EffectType, Form, Function, PlantAxiom, TriggerType}, components::{AxiomEffects, DoorAnimation, EffectMarker, Faction, Plant, Position, QueuedAction, RealityAnchor, Segmentified, SoulBreath, Thought, Wounded}, input::ActionType, map::{bresenham_line, get_all_factions_except_one, get_astar_best_move, get_best_move, get_empty_neighbours, get_neighbouring_entities, get_neighbours, is_in_bounds, manhattan_distance, pathfind_to_location, xy_idx, WorldMap}, soul::{get_soul_rot_position, match_soul_with_display_index, match_soul_with_sprite, select_random_entities, CurrentEntityInUI, Soul, SoulRotationTimer}, species::{is_grab_point, is_intangible, is_openable, is_pushable, match_faction_with_index, match_species_with_priority, match_species_with_sprite, CreatureBundle, Species}, ui::{CenterOfWheel, LogMessage}, vaults::{get_build_sequence, Vault}, SpriteSheetHandle, TurnState, ZoomInEffect};
+use crate::{ai::has_effect, axiom::{grab_coords_from_form, match_axiom_with_soul, match_effect_with_decay, match_effect_with_gain, match_effect_with_minimum, match_soul_with_axiom, reduce_down_to, tup_i32_to_usize, tup_usize_to_i32, CasterInfo, Effect, EffectType, Form, Function, PlantAxiom, TriggerType}, components::{AxiomEffects, DoorAnimation, EffectMarker, Faction, Plant, Position, QueuedAction, RealityAnchor, Segmentified, SoulBreath, Thought, Wounded}, input::ActionType, map::{bresenham_line, get_all_factions_except_one, get_astar_best_move, get_best_move, get_empty_neighbours, get_neighbouring_entities, get_neighbours, is_in_bounds, manhattan_distance, pathfind_to_location, xy_idx, WorldMap}, soul::{get_soul_rot_position, match_soul_with_display_index, match_soul_with_sprite, select_random_entities, CurrentEntityInUI, Soul, SoulRotationTimer}, species::{is_grab_point, is_intangible, is_openable, is_pushable, match_faction_with_index, match_species_with_priority, match_species_with_sprite, CreatureBundle, Species}, ui::{CenterOfWheel, LogMessage}, vaults::{get_build_sequence, Vault}, SoulSlot, SpriteSheetHandle, TurnState, ZoomInEffect};
 
 pub struct TurnPlugin;
 
@@ -37,6 +37,27 @@ impl Plugin for TurnPlugin {
 #[derive(Resource)]
 pub struct TurnCount {
     pub turns: usize,
+}
+
+fn connect_soul_chain (
+    world_map: &[Option<Entity>],
+    start: (usize, usize),
+) -> Vec<Entity>  {
+    let mut process = vec![start];
+    let mut output = vec![world_map[xy_idx(start.0, start.1)].unwrap()];
+
+    while !process.is_empty() {
+        let (x, y) = process.pop().unwrap();
+        let result = get_neighbouring_entities(world_map, x, y);
+        let coords = get_neighbours(x, y);
+        for i in 0..result.len() {
+            if result[i].is_some() {
+                process.push(coords[i].unwrap());
+                output.push(result[i].unwrap());
+            }
+        }
+    }
+    output
 }
 
 fn choose_action (
@@ -332,6 +353,7 @@ fn execute_turn (
     mut creatures: Query<(Entity, &QueuedAction, &Species, &mut AxiomEffects, &mut SoulBreath, &mut Position, Has<RealityAnchor>)>,
     read_action: Query<&QueuedAction>,
     read_species: Query<&Species>,
+    read_soul_slot: Query<&SoulSlot>,
     mut next_state: ResMut<NextState<TurnState>>,
     mut world_map: ResMut<WorldMap>,
     souls: Query<(&mut Animator<Transform>, &Transform, &Soul), Without<Position>>,
@@ -349,6 +371,11 @@ fn execute_turn (
     ]);
 
     for plant in plants.iter() {
+
+        let chained_blocks = connect_soul_chain(&world_map.entities, (0,0)); // TODO set a beginning point.
+
+        // For each chained_blocks, derive that into a Vec of souls with read_soul_slot, to replace let seq.
+
         let seq: &Vec<Vec<Soul>> = &plant.sequences;
         let program = process_sequences(&seq_def, seq);
 
