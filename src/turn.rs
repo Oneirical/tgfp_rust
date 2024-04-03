@@ -4,7 +4,7 @@ use bevy::prelude::*;
 use bevy_tweening::{*, lens::{TransformPositionLens, TransformScaleLens, TransformRotationLens}};
 use rand::{seq::SliceRandom, thread_rng};
 
-use crate::{ai::has_effect, axiom::{grab_coords_from_form, match_axiom_with_soul, match_effect_with_decay, match_effect_with_gain, match_effect_with_minimum, match_soul_with_axiom, reduce_down_to, tup_i32_to_usize, tup_usize_to_i32, CasterInfo, Effect, EffectType, Form, Function, PlantAxiom, TriggerType}, components::{AxiomEffects, DoorAnimation, EffectMarker, Faction, Plant, Position, QueuedAction, RealityAnchor, Segmentified, SoulBreath, Thought, Wounded}, input::ActionType, map::{bresenham_line, get_all_factions_except_one, get_astar_best_move, get_best_move, get_empty_neighbours, get_neighbouring_entities, get_neighbours, is_in_bounds, manhattan_distance, pathfind_to_location, xy_idx, WorldMap}, soul::{get_soul_rot_position, match_soul_with_display_index, match_soul_with_sprite, select_random_entities, CurrentEntityInUI, Soul, SoulRotationTimer}, species::{is_grab_point, is_intangible, is_openable, is_pushable, match_faction_with_index, match_species_with_priority, match_species_with_sprite, CreatureBundle, Species}, ui::{CenterOfWheel, LogMessage}, vaults::{get_build_sequence, Vault}, SoulSlot, SpriteSheetHandle, TurnState, ZoomInEffect};
+use crate::{ai::has_effect, axiom::{grab_coords_from_form, match_axiom_with_soul, match_effect_with_decay, match_effect_with_gain, match_effect_with_minimum, match_soul_with_axiom, reduce_down_to, tup_i32_to_usize, tup_usize_to_i32, CasterInfo, Effect, EffectType, Form, Function, PlantAxiom, TriggerType}, components::{AxiomEffects, DoorAnimation, EffectMarker, Faction, Plant, Position, QueuedAction, RealityAnchor, Segmentified, SoulBreath, Thought, Wounded}, input::ActionType, map::{bresenham_line, get_all_factions_except_one, get_astar_best_move, get_best_move, get_empty_neighbours, get_neighbouring_entities, get_neighbours, is_in_bounds, manhattan_distance, pathfind_to_location, xy_idx, WorldMap, WORLD_HEIGHT, WORLD_WIDTH}, soul::{get_soul_rot_position, match_soul_with_display_index, match_soul_with_sprite, select_random_entities, CurrentEntityInUI, Soul, SoulRotationTimer}, species::{is_grab_point, is_intangible, is_openable, is_pushable, match_faction_with_index, match_species_with_priority, match_species_with_sprite, CreatureBundle, Species}, ui::{CenterOfWheel, LogMessage}, vaults::{get_build_sequence, Vault}, SoulSlot, SpriteSheetHandle, TurnState, ZoomInEffect};
 
 pub struct TurnPlugin;
 
@@ -52,8 +52,10 @@ fn connect_soul_chain (
         let coords = get_neighbours(x, y);
         for i in 0..result.len() {
             if result[i].is_some() {
-                process.push(coords[i].unwrap());
-                output.push(result[i].unwrap());
+                if !output.contains(&result[i].unwrap()) {
+                    process.push(coords[i].unwrap());
+                    output.push(result[i].unwrap());
+                }
             }
         }
     }
@@ -618,7 +620,19 @@ fn dispense_functions(
             let function = function.to_owned();
             match function {
                 Function::Teleport { x, y } => {
-                    if !is_in_bounds(x as i32, y as i32) || world_map.entities[xy_idx(x, y)].is_some() {continue;}
+                    let (x, y) = if !is_in_bounds(x as i32, y as i32) {
+                        if !(y >= 0 && y < WORLD_HEIGHT as isize) {
+                            continue;
+                        }
+                        else if x < 0 {
+                            (45+x, y)
+                        } else {
+                            (x % 45, y % 45)
+                        }
+                    } else {(x,y)};
+                    let (x, y) = (x as usize, y as usize);
+                    if world_map.entities[xy_idx(x, y)].is_some() {continue;}
+
                     //else if world_map.entities[xy_idx(x, y)].is_some() { // Cancel teleport if target is occupied
                         //let collider = world_map.entities[xy_idx(x, y)].unwrap();
                         //world_map.targeted_axioms.push((entity, Function::Collide { with: collider }, info.clone()));
@@ -881,7 +895,7 @@ fn dispense_functions(
                     let dests = grab_coords_from_form(&world_map.entities, Form::BigOuter, info.clone());
                     for target in dests.coords {
                         if world_map.entities[xy_idx(target.0, target.1)].is_none() {
-                            world_map.targeted_axioms.push((entity, Function::Teleport { x: target.0, y: target.1 }, info.clone()));
+                            world_map.targeted_axioms.push((entity, Function::Teleport { x: target.0 as isize, y: target.1 as isize}, info.clone()));
                             break;
                         }
                     }
@@ -972,19 +986,25 @@ fn dispense_functions(
                     let dest = (dx, dy);
                     let mut line = bresenham_line(pos.x as i32, pos.y as i32, pos.x as i32 + dest.0, pos.y as i32 + dest.1);
                     line.remove(0); // remove the origin point
-                    let (mut fx, mut fy) = (pos.x, pos.y);
+                    let (mut fx, mut fy) = (pos.x as isize, pos.y as isize);
                     for (nx, ny) in line {
-                        if is_in_bounds(nx, ny){
-                            if world_map.entities[xy_idx(nx as usize, ny as usize)].is_some() {
-                                // TODO Raise a collision event here
-                                let collider = world_map.entities[xy_idx(nx as usize, ny as usize)].unwrap();
-                                world_map.targeted_axioms.push((entity, Function::Collide { with: collider }, info.clone()));
-                                break;
+                        let (x, y) = if !is_in_bounds(nx as i32, ny as i32) {
+                            if !(ny >= 0 && ny < WORLD_HEIGHT as i32) {
+                                continue;
                             }
-                            else {(fx, fy) = (nx as usize, ny as usize)}
-                        } else {
+                            else if nx < 0 {
+                                (45+nx, ny)
+                            } else {
+                                (nx % 45, ny % 45)
+                            }
+                        } else {(nx,ny)};
+                        if world_map.entities[xy_idx(x as usize, y as usize)].is_some() { // TODO replace this with world wrap
+                            // TODO Raise a collision event here
+                            let collider = world_map.entities[xy_idx(nx as usize, ny as usize)].unwrap(); // This also has problems
+                            world_map.targeted_axioms.push((entity, Function::Collide { with: collider }, info.clone()));
                             break;
                         }
+                        else {(fx, fy) = (nx as isize, ny as isize)}
                     }
                     world_map.targeted_axioms.push((entity, Function::Teleport { x: fx, y: fy }, info.clone()));
                 },
@@ -1161,12 +1181,19 @@ fn unpack_animations(
         Some(element) => element,
         None => {
             for (_breath, trans_crea, _sprite, mut anim_crea, fini, _is_player) in creatures.iter_mut(){
-                let end = Vec3::new(player_trans.x + (fini.x as f32 -player_pos.0 as f32)/2., player_trans.y + (fini.y as f32 -player_pos.1 as f32)/2., 0.);
+                let start = trans_crea.translation;
+                let mut end = Vec3::new(player_trans.x + (fini.x as f32 -player_pos.0 as f32)/2., player_trans.y + (fini.y as f32 -player_pos.1 as f32)/2., 0.);
+                if fini.x as i32 - player_pos.0 as i32 > 16 {
+                    end.x -= WORLD_WIDTH as f32 / 2.;
+                }
+                else if (fini.x as i32 - player_pos.0 as i32) < -16 {
+                    end.x += WORLD_WIDTH as f32 / 2.;
+                }
                 let tween = Tween::new(
                     EaseFunction::QuadraticInOut,
                     Duration::from_millis(150), // must be the same as input delay to avoid offset
                     TransformPositionLens {
-                        start: trans_crea.translation,
+                        start,
                         end
                     },
                 );

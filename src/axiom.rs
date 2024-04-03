@@ -134,7 +134,7 @@ pub fn match_form_with_name (
 pub enum Function {
     Empty,
     Dash { dx: i32, dy: i32 }, // Position is incremented by dx and dy, but stops when it hits an edge or a creature.
-    Teleport { x: usize, y: usize }, // 
+    Teleport { x: isize, y: isize }, // 
     FlatMomentumDash { dist: usize },
     DiscardSoul { soul: Entity, slot: usize },
     FlatStealSouls { dam: usize },
